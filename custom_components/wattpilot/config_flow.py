@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.data_entry_flow import AbortFlow
 from homeassistant.const import (
     CONF_FRIENDLY_NAME,
     CONF_IP_ADDRESS,
@@ -92,7 +93,11 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 self.data=user_input
                 return await self.async_step_final()
-            return self.async_show_form(step_id=CONF_LOCAL, data_schema=LOCAL_SCHEMA, errors=errors) #via the "step_id" the function calls itself after GUI completion        
+            return self.async_show_form(step_id=CONF_LOCAL, data_schema=LOCAL_SCHEMA, errors=errors) #via the "step_id" the function calls itself after GUI completion
+        except AbortFlow:
+            # Control-flow signal from _abort_if_unique_id_configured(); must
+            # propagate so the flow aborts with its real reason, not "exception".
+            raise
         except Exception as e:
             _LOGGER.error("%s - ConfigFlowHandler: async_step_local failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__)
             return self.async_abort(reason="exception")
@@ -112,7 +117,11 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self._abort_if_unique_id_configured()
                 self.data=user_input
                 return await self.async_step_final()
-            return self.async_show_form(step_id=CONF_CLOUD, data_schema=CLOUD_SCHEMA, errors=errors) #via the "step_id" the function calls itself after GUI completion        
+            return self.async_show_form(step_id=CONF_CLOUD, data_schema=CLOUD_SCHEMA, errors=errors) #via the "step_id" the function calls itself after GUI completion
+        except AbortFlow:
+            # Control-flow signal from _abort_if_unique_id_configured(); must
+            # propagate so the flow aborts with its real reason, not "exception".
+            raise
         except Exception as e:
             _LOGGER.error("%s - ConfigFlowHandler: async_step_cloud failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__)
             return self.async_abort(reason="exception")
