@@ -2,21 +2,25 @@
 
 from __future__ import annotations
 from typing import Final
+from datetime import datetime
 import logging
 import asyncio
 import aiofiles
 import yaml
 import os
 import html
+import re
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorStateClass,
     SensorEntity,
     UNIT_CONVERTERS,
 )
 from homeassistant.const import STATE_UNKNOWN
+from homeassistant.util import dt as dt_util
 
 from .entities import ChargerPlatformEntity
 
@@ -95,9 +99,35 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
         if not self._entity_cfg.get('html_unescape', None) is None:
            self._html_unescape = True
 
+    def _parse_timestamp(self, value):
+        """Parse a charger datetime string into a timezone-aware datetime.
+
+        A 'timestamp' device_class sensor must expose a ``datetime`` (with
+        tzinfo), not a string. The charger reports values like
+        ``"2026-07-12T01:41:26.437 +10:00"`` — note the space before the UTC
+        offset, which HA's parser does not accept — so normalise then parse.
+        Returns ``None`` when the value can't be parsed.
+        """
+        if isinstance(value, datetime):
+            return value
+        normalised = re.sub(r"\s+(?=[+-]\d{2}:?\d{2}$|Z$)", "", str(value))
+        parsed = dt_util.parse_datetime(normalised)
+        if parsed is None:
+            _LOGGER.debug("%s - %s: could not parse timestamp value: %s", self._charger_id, self._identifier, value)
+            return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        return parsed
+
     async def _async_update_validate_platform_state(self, state=None):
         """Async: Validate the given state for sensor specific requirements"""
         try:
+            # Timestamp sensors need a tz-aware datetime; return None (shown as
+            # 'unknown') rather than a string, which HA rejects for this class.
+            if self._attr_device_class == SensorDeviceClass.TIMESTAMP:
+                if state in (None, 'None', STATE_UNKNOWN):
+                    return None
+                return self._parse_timestamp(state)
             if state is None or state == 'None':
                 state = STATE_UNKNOWN
             elif hasattr(self,'_html_unescape') and self._html_unescape:
