@@ -1,0 +1,20 @@
+# Test dependencies for the Wattpilot integration test suite.
+#
+#   pip install -r requirements_test.txt
+#   pytest
+#
+# The YAML-catalog and const tests need only pytest + pyyaml. The utils tests
+# additionally import the integration, which pulls in Home Assistant and the
+# vendored wattpilot library (websocket-client); without those they skip.
+
+pytest>=7.0
+pyyaml>=5.3.0
+
+# Runtime deps required to import the integration package (see manifest.json).
+# Home Assistant itself is heavy; pull it via the community test helper which
+# also provides HA pytest fixtures for future full-integration tests.
+pytest-homeassistant-custom-component
+aiofiles>=23.2.1
+packaging>=24.0
+importlib-metadata>=4.0.0
+websocket-client>=1.0

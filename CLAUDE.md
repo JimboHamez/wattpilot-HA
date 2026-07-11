@@ -2,6 +2,31 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+# Home Assistant (HA) Integration Development Standards
+
+## 1. Context7 Documentation Rules
+- Always use the Context7 MCP server to fetch version-accurate API references and code snippets before generating or modifying code that uses external libraries. Do not rely on base training data for fast-evolving frameworks.
+- If asked to implement or modify features using frameworks like Home Assistant Core or auxiliary dependencies, always precede your response by invoking the Context7 tools.
+- Append "use context7" to your planning steps if you need to research the latest documentation. 
+
+## 2. Architectural Guardrails
+- **The Async Iron Law:** Never allow blocking code (e.g., `requests`, `time.sleep`, or synchronous file reads) in the main thread. Always wrap synchronous device calls in `await hass.async_add_executor_job()` or rewrite them natively using `aiohttp` or `asyncio`.
+- **Data Coordination:** Always scaffold the integration using a central `DataUpdateCoordinator`. Individual entities must inherit from `CoordinatorEntity` and pull states from the coordinator's cached data, rather than querying the API directly to prevent rate-limiting.
+- **UI-Driven Configuration:** Do not write YAML parsing routines. Generate UI-driven `ConfigFlow` components (`config_flow.py`) for initial setup and an `OptionsFlow` for changing parameters later without restarting Home Assistant.
+- **Client Library Separation:** All raw API-specific network code, parsing, and authentication handling must live in a separate third-party Python client library (declared in the `manifest.json` `requirements` array). The custom component code should only orchestrate state translation.
+- **HACS Layout Compliance:** Ensure the repository follows HACS layout standards. The `manifest.json` must explicitly contain a valid `"version"` key and a `"codeowners"` list. Generate a `hacs.json` file automatically in the project root.
+
+## 3. Python Coding & Style Guidelines
+- **Formatting:** Code must pass Ruff styling defaults with a 120-character line limit. Run `ruff format` and `ruff check --fix` before completing any file modification.
+- **Import Conventions:** Order imports strictly by standard library, third-party, and then local modules. Ensure constants and dictionary keys are sorted alphabetically. Adhere strictly to Home Assistant's mandatory custom framework shortcut module bindings (e.g., import `homeassistant.util.dt` as `dt_util`).
+- **Type Checking:** Every function signature must be fully typed (arguments and return types). Prefer concrete types over `Any` (some idiomatic HA `Any` remains — config-flow `user_input`, voluptuous schema dicts, raw-JSON payloads). Must pass strict (`mypy`-compliant) analysis; use `assert` to narrow types when Core context is ambiguous. Import and use structural types from the core (`HomeAssistant`, `ConfigEntry`, `DiscoveryInfoType`). Include a `py.typed` file in the package root to satisfy PEP-561 compliance.
+- **Documentation:** Public methods must use Google-style docstrings. Comments must be complete sentences ending in a period.
+- **Logging Restrictions:** Do not include the platform or domain name manually inside log strings (e.g., write `_LOGGER.error("Failed to connect")`, not `_LOGGER.error("[MyDomain] Failed to connect")`). Never log sensitive strings like API keys, tokens, or local passwords. Use `_LOGGER.debug` for developer diagnostics.
+- **Native Constants:** Never hardcode states like `'on'`, `'off'`, `'unavailable'`, or metrics like `'C'`. Always import and use native constants from `homeassistant.const` (e.g., `STATE_ON`, `STATE_OFF`, `STATE_UNAVAILABLE`, `UnitOfTemperature.CELSIUS`).
+- **Entity Naming:** Do not assign a raw string to the `_attr_name` property of an entity. Set `_attr_has_entity_name = True` and use localized device naming keys via translation strings inside the `strings.json` file.
+- **Exception Handling:** Wrap external Python client calls in `homeassistant.exceptions.HomeAssistantError` variations (like `ConfigEntryNotReady`) to trigger safe auto-retries and elegant user-facing UI dialogs.
+
+
 ## What This Is
 
 A Home Assistant custom integration (HACS-distributed) that controls Fronius Wattpilot
@@ -14,19 +39,33 @@ The installable component lives entirely in `custom_components/wattpilot/`. Ever
 (`packages/`, `doc/`, `info.md`, `set_values_test.py`) is documentation, HA config examples,
 or manual test scaffolding.
 
-## No Build / Lint / Test Tooling
+## Build / Test / Lint
 
-This repo has **no** package manifest for itself, no CI test suite, no linter config, and no
-formal test runner. Do not invent build/test commands.
+There is no build step (it is an HA custom component, copied into `config/custom_components/`).
 
-- Validation happens by copying `custom_components/wattpilot/` into a running Home Assistant
-  `config/custom_components/` directory, restarting HA, and reading the debug logs. The whole
-  codebase logs verbosely under the `custom_components.wattpilot` logger namespace — enable
-  `logger` debug for that namespace to trace behaviour.
-- `set_values_test.py` (repo root) is a **standalone manual script**, not part of the
-  integration and not a unit test. It talks directly to the vendored `wattpilot` library to
-  probe/set raw charger properties. Edit the IP/password placeholders and run it against a real
-  charger; it is the reference for how raw `send_update` / property values behave.
+- **Tests** — a pytest scaffold lives in `tests/`. Install with `pip install -r requirements_test.txt`
+  and run `pytest`. Layers:
+  - `test_yaml_catalogs.py` / `test_const.py` — dependency-free (pyyaml + isolated `const.py`
+    load); validate the data-driven entity catalogs and manifest/const consistency.
+  - `test_utils.py` — imports the integration (pulls in Home Assistant + the vendored `wattpilot`
+    library, which needs `websocket-client`); tests `async_SetChargerProp` coercion and
+    `GetChargerProp`. Skips cleanly if those deps are absent.
+  - `conftest.py` provides `MockCharger` / `mock_charger` / `make_charger` — a fake charger with
+    an `allProps` dict and a `send_update` recorder; use it instead of a live device.
+  - `pytest.ini` disables the `pytest-homeassistant-custom-component` plugin
+    (`-p no:homeassistant`) because its autouse event-loop fixtures clash with the plain
+    `asyncio.run()` helpers. Re-enable it (and add its `hass` fixture) when writing full
+    end-to-end integration tests.
+- **Static analysis** — `./scan.sh` runs bandit, semgrep, mypy and pip-audit in a `.venv`, scoped
+  to `custom_components/wattpilot` and excluding the vendored `wattpilot/` subtree. Note the code
+  predates the strict-typing/style standards in the header above, so mypy/bandit will be noisy.
+- **Manual/live check** — copy `custom_components/wattpilot/` into a running HA, restart, and read
+  the debug logs. The codebase logs verbosely under the `custom_components.wattpilot` logger
+  namespace — enable `logger` debug there to trace behaviour.
+- `set_values_test.py` (repo root) is a **standalone manual script**, not part of the pytest
+  suite. It talks directly to the vendored `wattpilot` library to probe/set raw charger
+  properties against a real device (edit the IP/password placeholders first); it is the reference
+  for how raw `send_update` / property values behave.
 - The integration `version` is set in `custom_components/wattpilot/manifest.json` and must be
   bumped there for HACS releases.
 
