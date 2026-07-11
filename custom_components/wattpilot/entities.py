@@ -79,7 +79,7 @@ class ChargerPlatformEntity(Entity):
                 elif self._source == 'property' and GetChargerProp(self._charger, self._identifier, self._default_state) is None:
                     _LOGGER.error("%s - %s: __init__: Charger does not have a property: %s (maybe an attribute?)", self._charger_id, self._identifier, self._identifier)
                     self._init_failed=True
-                elif self._source == 'namespacelist' and GetChargerProp(self._charger, self._identifier, self._default_state)[int(self._namespace_id)] is None:
+                elif self._source == 'namespacelist' and self._get_namespacelist_item() is None:
                     _LOGGER.error("%s - %s: __init__: Charger does not have a namespacelist item: %s[%s]", self._charger_id, self._identifier, self._identifier, self._namespace_id)
                     self._init_failed=True
             if self._init_failed == True: return None
@@ -184,6 +184,27 @@ class ChargerPlatformEntity(Entity):
         return self._attributes
 
 
+    def _index_namespace(self, value):
+        """Safely index a namespacelist value; None if not usable.
+
+        The backing property can be missing or not a list on some firmware
+        (e.g. 'cards' was removed in go-e firmware 60.0, so GetChargerProp
+        returns the int default_state), so guard against non-subscriptable
+        values and out-of-range indexes instead of indexing blindly.
+        """
+        if not isinstance(value, (list, tuple)):
+            return None
+        idx = int(self._namespace_id)
+        if idx < 0 or idx >= len(value):
+            return None
+        return value[idx]
+
+
+    def _get_namespacelist_item(self):
+        """Return the configured namespace item from the charger, or None."""
+        return self._index_namespace(GetChargerProp(self._charger, self._identifier, self._default_state))
+
+
     @property
     def available(self) -> bool:
         """Return if device is available."""
@@ -211,8 +232,8 @@ class ChargerPlatformEntity(Entity):
         elif self._source == 'property' and GetChargerProp(self._charger, self._identifier, self._default_state) is None:
             _LOGGER.debug("%s - %s: available: false because unknown property", self._charger_id, self._identifier)            
             return False
-        elif self._source == 'namespacelist' and GetChargerProp(self._charger, self._identifier, self._default_state)[int(self._namespace_id)] is None:
-            _LOGGER.debug("%s - %s: available: false because unknown namespacelist item: %s", self._charger_id, self._identifier, self._namespace_id)            
+        elif self._source == 'namespacelist' and self._get_namespacelist_item() is None:
+            _LOGGER.debug("%s - %s: available: false because unknown namespacelist item: %s", self._charger_id, self._identifier, self._namespace_id)
             return False
         else:
             return True
@@ -337,10 +358,10 @@ class ChargerPlatformEntity(Entity):
             if self._source == 'attribute':
                 state = getattr(self._charger,self._identifier,self._default_state)
             elif self._source == 'namespacelist':
-                state = await async_GetChargerProp(self._charger,self._identifier,self._default_state)
-                state = state[int(self._namespace_id)]
+                state = self._get_namespacelist_item()
                 _LOGGER.debug("%s - %s: async_local_poll namespace pre validate state of %s: %s", self._charger_id, self._identifier, self._attr_unique_id, state)
-                state = await self._async_update_validate_property(state)
+                if state is not None:
+                    state = await self._async_update_validate_property(state)
                 _LOGGER.debug("%s - %s: async_local_poll namespace post validate state of %s: %s", self._charger_id, self._identifier, self._attr_unique_id, state)
             elif self._source == 'property':
                 state = await async_GetChargerProp(self._charger,self._identifier,self._default_state)
@@ -364,8 +385,9 @@ class ChargerPlatformEntity(Entity):
             if self._source == 'attribute':
                 pass
             elif self._source == 'namespacelist':
-                state = state[int(self._namespace_id)]
-                state = await self._async_update_validate_property(state)
+                state = self._index_namespace(state)
+                if state is not None:
+                    state = await self._async_update_validate_property(state)
             elif self._source == 'property':
                 state = await self._async_update_validate_property(state)
             
