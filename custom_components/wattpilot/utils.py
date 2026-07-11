@@ -1,7 +1,7 @@
 """Helper functions for Fronius Wattpilot."""
 
 from __future__ import annotations
-from typing import Final
+from typing import Any, Final
 import logging
 import asyncio
 import json
@@ -171,7 +171,7 @@ def GetChargerProp(charger, identifier:str=None, default:str=None):
         return default
 
 
-async def async_SetChargerProp(charger, identifier:str=None, value:str=None, force:bool=False, force_type:str=None) -> bool:
+async def async_SetChargerProp(charger, identifier:str=None, value: Any=None, force:bool=False, force_type:str=None) -> bool:
     """Async: set the value of a charger attribute"""
     try:
         if not hasattr(charger, 'allProps'):
@@ -225,6 +225,9 @@ async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str):
         _LOGGER.debug("%s - async_GetDataStoreFromDeviceID: receiving device: %s", DOMAIN, device_id)
         device_registry = dr.async_get(hass)
         device = device_registry.async_get(device_id)
+        if device is None:
+            _LOGGER.error("%s - async_GetDataStoreFromDeviceID: unknown device: %s", DOMAIN, device_id)
+            return None
 
         _LOGGER.debug("%s - async_GetDataStoreFromDeviceID: get charger data store for config entry", DOMAIN)
         entry_data = None
@@ -250,6 +253,9 @@ async def async_GetChargerFromDeviceID(hass: HomeAssistant, device_id: str):
         _LOGGER.debug("%s - async_GetChargerFromDeviceID: receiving device: %s", DOMAIN, device_id)
         device_registry = dr.async_get(hass)
         device = device_registry.async_get(device_id)
+        if device is None:
+            _LOGGER.error("%s - async_GetChargerFromDeviceID: unknown device: %s", DOMAIN, device_id)
+            return None
 
         _LOGGER.debug("%s - async_GetChargerFromDeviceID: get charger object and data store for config entry", DOMAIN)
         charger = None

@@ -8,13 +8,13 @@ from packaging.version import Version
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.const import (
     CONF_FRIENDLY_NAME,
     CONF_IP_ADDRESS,
     CONF_PARAMS,
+    EntityCategory,
     STATE_UNKNOWN,
 )
 

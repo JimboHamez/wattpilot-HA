@@ -111,8 +111,9 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
              
     async def async_step_final(self, user_input: Optional[Dict[str, Any]] = None):
         _LOGGER.debug("%s - ConfigFlowHandler: async_step_final: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG))
-        title=self.data.get(CONF_FRIENDLY_NAME, self.data.get(CONF_IP_ADDRESS, DEFAULT_NAME))
-        return self.async_create_entry(title=title, data=self.data)
+        data = self.data or {}
+        title=data.get(CONF_FRIENDLY_NAME, data.get(CONF_IP_ADDRESS, DEFAULT_NAME))
+        return self.async_create_entry(title=title, data=data)
 
   
     @staticmethod

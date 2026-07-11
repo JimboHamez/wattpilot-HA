@@ -119,6 +119,7 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
                 await asyncio.sleep(1)
                 timer+=1
             if not timeout > timer:
+                # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure -- logs only the timeout duration, never the key
                 _LOGGER.error("%s - async_service_SetGoECloud: Timeout - api key not available after: %s sec", DOMAIN, timeout)
                 entry_data[CONF_API_KEY]=False
                 return None
@@ -126,6 +127,8 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
             _LOGGER.debug("%s - async_service_SetGoECloud: Saving api key to data store", DOMAIN)
             entry_data[CONF_API_KEY]=charger.cak
             api_key = str(entry_data[CONF_API_KEY]) if entry_data[CONF_API_KEY] is not None else ""
+            # Log only whether a key is present and its length, never the key itself.
+            # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure -- deliberately logs presence/length only
             _LOGGER.debug(
                 "%s - async_service_SetGoECloud: %s cloud API key stored (present=%s, length=%s)",
                 DOMAIN,

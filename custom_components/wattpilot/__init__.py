@@ -58,7 +58,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if charger == False: return False 
     except Exception as e:
         _LOGGER.error("%s - async_setup_entry: Connecting charger failed: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        async_DisconnectCharger(entry.entry_id, charger)
+        await async_DisconnectCharger(entry.entry_id, charger)
         return False
 
     try:
@@ -72,8 +72,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry_data.setdefault(CONF_PUSH_ENTITIES, {})
     except Exception as e:
         _LOGGER.error("%s - async_setup_entry: Creating data store failed: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        async_DisconnectCharger(entry.entry_id, charger)
-        async_unload_entry(hass, entry)
+        await async_DisconnectCharger(entry.entry_id, charger)
+        await async_unload_entry(hass, entry)
         return False
 
     try:
@@ -81,7 +81,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry_data[FUNC_OPTION_UPDATES] = entry.add_update_listener(options_update_listener) 
     except Exception as e:
         _LOGGER.error("%s - async_setup_entry: Register option updates listener failed: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        async_unload_entry(hass, entry)
+        await async_unload_entry(hass, entry)
         return False
 
     try:
@@ -89,7 +89,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await hass.config_entries.async_forward_entry_setups(entry, SUPPORTED_PLATFORMS)
     except Exception as e:
         _LOGGER.error("%s - async_setup_entry: Setup trigger failed: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        async_unload_entry(hass, entry)
+        await async_unload_entry(hass, entry)
         return False
 
     try:
@@ -103,7 +103,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("%s - async_setup_entry: charger does not provide roperties updater handler", entry.entry_id)
     except Exception as e:
         _LOGGER.error("%s - async_setup_entry: Could not register properties updater handler: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        async_unload_entry(hass, entry)
+        await async_unload_entry(hass, entry)
         return False
 
     try:
@@ -115,7 +115,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await async_registerService(hass, "set_next_trip", async_service_SetNextTrip)        
     except Exception as e:
         _LOGGER.error("%s - async_setup_entry: register services failed: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        async_unload_entry(hass, entry)
+        await async_unload_entry(hass, entry)
         return False
 
     _LOGGER.debug("%s - async_setup_entry: Completed", entry.entry_id)
@@ -134,6 +134,7 @@ async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> bo
         hass.config_entries.async_update_entry(entry, data=entry.options)
         _LOGGER.debug("%s - options_update_listener: async_reload entry", entry.entry_id)
         await hass.config_entries.async_reload(entry.entry_id)
+        return True
     except Exception as e:
         _LOGGER.error("%s - options_update_listener: update options failed: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
         return False

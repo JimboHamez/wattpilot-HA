@@ -25,8 +25,15 @@ if [ ! -d "$TARGET" ]; then
 fi
 echo "Scan target: $TARGET"
 
-# Vendored upstream library to exclude from file-scanning tools.
+# Vendored upstream library to exclude from file-scanning tools. Note the
+# integration package itself is named "wattpilot", so exclude patterns must
+# target the *nested* wattpilot/wattpilot subtree specifically — a bare
+# "wattpilot" pattern would match the target root and skip everything.
 VENDORED_DIR="$TARGET/wattpilot"
+VENDORED_REL="wattpilot/wattpilot/"
+# semgrep matches --exclude against git-relative paths, so give it the vendored
+# dir relative to the repo root (e.g. custom_components/wattpilot/wattpilot).
+VENDORED_GIT_REL="$(realpath --relative-to="$SCRIPT_DIR" "$VENDORED_DIR")"
 
 echo "=== 1. Setting up Virtual Environment ==="
 if [ ! -d "$VENV_DIR" ]; then
@@ -59,12 +66,12 @@ bandit -r "$TARGET" -x "$VENDORED_DIR" || echo "Bandit found issues."
 # 2. Semgrep: auto ruleset against the target package only, excluding the
 #    vendored library subtree.
 echo "--> Running Semgrep..."
-semgrep scan --config auto --exclude wattpilot "$TARGET" || echo "Semgrep found issues."
+semgrep scan --config auto --exclude "$VENDORED_GIT_REL" "$TARGET" || echo "Semgrep found issues."
 
 # 3. Mypy: static type checking of the target package only, excluding the
 #    vendored library subtree.
 echo "--> Running Mypy..."
-mypy "$TARGET" --exclude '/wattpilot/' || echo "Mypy found type errors."
+mypy "$TARGET" --exclude "$VENDORED_REL" || echo "Mypy found type errors."
 
 # 4. Pip-audit: audit the integration's declared runtime dependencies
 #    (manifest.json "requirements") for known-vulnerable packages. There is
