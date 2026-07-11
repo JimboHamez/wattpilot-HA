@@ -1,0 +1,82 @@
+# version: 2021.12.19
+# author: Martin Kraemer, mk.maddin@gmail.com
+# description: YAML configuration file - holding component services
+
+set_next_trip:
+  name: Set Next Trip
+  dscription: Set the time for the next trip used by next trip charging mode
+  fields:
+    device_id:
+      name: Charger
+      description: Charger device for which to apply change
+      example: 1625eec2e3f83829c2d52999ecdd2036
+      selector:
+        device:
+          integration: wattpilot
+    trigger_time:
+      name: NextTrip
+      description: Next trip time
+      example: 06:30:00
+      selector:
+        time:
+
+set_goe_cloud:
+  name: Set Go-E Cloud
+  dscription: Enable or disable the Go-E cloud access for wallbox
+  fields:
+    device_id:
+      name: Charger
+      description: Charger device for which to apply change
+      example: 1625eec2e3f83829c2d52999ecdd2036
+      selector:
+        device:
+          integration: wattpilot
+    cloud_api:
+      name: CloudAPI
+      description: Turn E-Cloud Api access ON or OFF
+      example: False
+      selector:
+        boolean:
+
+set_debug_properties:
+  name: Set debug properties
+  dscription: Enable or disable logging of charger property changes as warning within logs
+  fields:
+    device_id:
+      name: Charger
+      description: Charger device for which to apply change
+      example: 1625eec2e3f83829c2d52999ecdd2036
+      selector:
+        device:
+          integration: wattpilot
+    debug_properties:
+      name: Debug
+      description: TRUE to debug all properties; FALSE to debug none; list of properties to debug only these
+      example: 
+        - wda
+        - cci
+        - err
+
+disconnect_charger:
+  name: Disconnect Charger
+  dscription: Disconnect an established charger connection (entities will be unavailable)
+  fields:
+    device_id:
+      name: Charger
+      description: Charger device for which to apply change
+      example: 1625eec2e3f83829c2d52999ecdd2036
+      selector:
+        device:
+          integration: wattpilot
+
+reconnect_charger:
+  name: ReConnect Charger
+  dscription: (Re)connect an disconnected charger connection
+  fields:
+    device_id:
+      name: Charger
+      description: Charger device for which to apply change
+      example: 1625eec2e3f83829c2d52999ecdd2036
+      selector:
+        device:
+          integration: wattpilot
