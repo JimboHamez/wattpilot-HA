@@ -1,7 +1,7 @@
 """Sensor entities for the Fronius Wattpilot integration."""
 
 from __future__ import annotations
-from typing import Final
+from typing import Any, Final
 import logging
 import asyncio
 import aiofiles
@@ -129,7 +129,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
         _LOGGER.debug("%s - %s: _update_available_versions", self._charger_id, self._identifier)
         try:
             if v_list is None: v_list = GetChargerProp(self._charger,self._identifier, None)
-            if v_list is None and hasattr(self, _attr_installed_version) and not self._attr_installed_version is None:
+            if v_list is None and hasattr(self, '_attr_installed_version') and not self._attr_installed_version is None:
                 v_list = [ self._attr_installed_version ]
             elif v_list is None: v_list = [ self._dummy_version ]
             elif not isinstance(v_list, list): v_list = [ v_list ]
@@ -139,7 +139,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
             return latest[-1]
         except Exception as e:
             _LOGGER.error("%s - %s: _get_versions_dict failed: %s (%s.%s)", self._charger_id, self._identifier, str(e), e.__class__.__module__, type(e).__name__)
-            if return_latest: self._dummy_version
+            if return_latest: return self._dummy_version
             return None
 
 
@@ -147,6 +147,11 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
         """Create a dict with clean and named versions"""
         _LOGGER.debug("%s - %s: _get_versions_dict", self._charger_id, self._identifier)
         try:
+            # Map a cleaned, PEP 440-parseable version onto the raw charger
+            # version string. The charger reports free-form names (e.g.
+            # "V1.2.3-beta4"); strip the "v"/"version" prefix and any trailing
+            # junk down to "1.2.3beta4" so packaging.version.Version can sort
+            # them, while keeping the original name to send back on install.
             versions = {}
             for v in v_list:
                 c = (v.lower()).replace('x','0')
@@ -169,12 +174,18 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 return              
             _LOGGER.debug("%s - %s: async_install: trigger charger update via: %s -> %s", self._charger_id, self._identifier, self._identifier_trigger, v_name)
             await async_SetChargerProp(self._charger,self._identifier_trigger,v_name,force=True,force_type=self._set_type)
+            # Resolve the configured connection timeout (falling back to the
+            # default). A firmware flash plus reboot takes far longer than a
+            # normal connect, so allow up to 4x that budget below.
             entry_data = self.hass.data[DOMAIN].get(self._entry.entry_id, None)
-            if entry_data is None: timeout = DEFAULT_TIMEOUT
-            else: config_params = entry_data.get(CONF_PARAMS, None)
-            if config_params is None: timeout = DEFAULT_TIMEOUT
-            else: timeout = config_params.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+            config_params = entry_data.get(CONF_PARAMS, None) if entry_data else None
+            if config_params is None:
+                timeout = DEFAULT_TIMEOUT
+            else:
+                timeout = config_params.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
             timeout = timeout*4
+            # The charger drops its WebSocket while flashing: first wait for it
+            # to disconnect (update started), then wait for it to reconnect.
             timer=0
             while timeout > timer and self._charger.connected:
                 await asyncio.sleep(1)
@@ -182,7 +193,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
             if self._charger.connected:
                 _LOGGER.error("%s - %s: async_install: update timeout during update install: %s seconds", self._charger_id, self._identifier, timeout)
                 return None
-            _LOGGER.debug("%s - %s: async_install: charger disconnected - waiting for reconnect", self._charger_id, self._identifier, timeout)
+            _LOGGER.debug("%s - %s: async_install: charger disconnected - waiting for reconnect", self._charger_id, self._identifier)
             timer=0
             while timeout > timer and not self._charger.connected:
                 await asyncio.sleep(1)

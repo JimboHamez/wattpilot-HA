@@ -27,7 +27,7 @@ _LOGGER: Final = logging.getLogger(__name__)
 platform='button'
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    """Set up the sensor platform."""
+    """Set up the button platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites=[]
     try:

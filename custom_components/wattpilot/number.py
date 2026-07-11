@@ -28,7 +28,7 @@ _LOGGER: Final = logging.getLogger(__name__)
 platform='number'
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    """Set up the sensor platform."""
+    """Set up the number platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites=[]
     try:
@@ -111,10 +111,13 @@ class ChargerNumber(ChargerPlatformEntity, NumberEntity):
     async def async_set_native_value(self, value) -> None:
         """Async: Change the current value."""
         try:
-            _LOGGER.debug("%s - %s: async_set_native_value: value was changed to: %s", self._charger_id, self._identifier, float)
+            _LOGGER.debug("%s - %s: async_set_native_value: value was changed to: %s", self._charger_id, self._identifier, value)
             if (self._identifier == 'fte'):
+                # The next-trip energy target ('fte') is only honoured when the
+                # charger is in kWh mode; force 'esk' on so the value is never
+                # interpreted as kilometres.
                 _LOGGER.debug("%s - %s: async_set_native_value: apply ugly workaround to always set next trip distance to kWH instead of KM", self._charger_id, self._identifier)
-                await async_SetChargerProp(self._charger,'esk',True)                 
+                await async_SetChargerProp(self._charger,'esk',True)
             await async_SetChargerProp(self._charger,self._identifier,value,force_type=self._set_type)
         except Exception as e:
             _LOGGER.error("%s - %s: update failed: %s (%s.%s)", self._charger_id, self._identifier, str(e), e.__class__.__module__, type(e).__name__)

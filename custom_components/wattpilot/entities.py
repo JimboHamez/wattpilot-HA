@@ -32,7 +32,19 @@ _LOGGER: Final = logging.getLogger(__name__)
 
 
 class ChargerPlatformEntity(Entity):
-    """Base class for Fronius Wattpilot integration."""
+    """Base class shared by every Wattpilot platform entity.
+
+    Entities are built from YAML definitions (see the per-platform ``*.yaml``
+    catalogs), so this class is generic over three value ``source`` kinds:
+
+    - ``property``     -> a key in ``charger.allProps`` (push-capable).
+    - ``attribute``    -> a plain attribute on the charger object (poll-only).
+    - ``namespacelist`` -> an indexed ``SimpleNamespace`` inside a property.
+
+    ``_state_attr`` names the attribute a subclass stores its state in
+    (e.g. ``_attr_native_value`` for sensor/number), letting the shared
+    update logic write state without knowing the concrete platform.
+    """
     _state_attr='state'
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, entity_cfg, charger) -> None:
@@ -153,7 +165,9 @@ class ChargerPlatformEntity(Entity):
     @property
     def description(self) -> str | None:
         """Return the description of the entity."""
-        return self._description
+        # The description is stored in the extra-state-attributes dict at init;
+        # there is no separate self._description attribute to read.
+        return self._attributes.get('description')
 
 
     @property
@@ -206,8 +220,14 @@ class ChargerPlatformEntity(Entity):
 
     @property
     def should_poll(self) -> bool:
-        """Return True if polling is needed."""        
-        if self._source == 'attribute': 
+        """Return True if polling is needed.
+
+        Attribute and namespacelist sources have no push channel, so they always
+        poll. A property source polls only until its first push arrives: while it
+        still holds the default state we poll to seed an initial value, then rely
+        on the property callback for subsequent updates.
+        """
+        if self._source == 'attribute':
             return True
         elif self._source == 'namespacelist':
             return True

@@ -99,11 +99,14 @@ def PropertyUpdateHandler(hass: HomeAssistant, entry_id: str, identifier: str, v
     """Watches on property updates and executes corresponding action"""
     try:
         #_LOGGER.debug("%s - PropertyUpdateHandler: 'self' execute async", entry_id)
+        # The wattpilot library invokes this callback from its own WebSocket
+        # thread, so hand the work back to Home Assistant's event loop rather
+        # than touching hass state from here.
         if entry_id in hass.data[DOMAIN]:
             asyncio.run_coroutine_threadsafe(async_PropertyUpdateHandler(hass, entry_id, identifier, value), hass.loop)
     except Exception as e:
         _LOGGER.error("%s - PropertyUpdateHandler: Could not 'self' execute async: %s (%s.%s)", entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        return default
+        return None
 
 
 async def async_PropertyUpdateHandler(hass: HomeAssistant, entry_id: str, identifier: str, value: str) -> None:
@@ -129,8 +132,8 @@ async def async_PropertyUpdateHandler(hass: HomeAssistant, entry_id: str, identi
         if entry_data.get(CONF_DBG_PROPS, False):
             hass.async_create_task(async_PropertyDebug(identifier, value, entry_data.get(CONF_DBG_PROPS)))
     except Exception as e:
-        _LOGGER.error("%s - PropertyUpdateHandler: Could not 'self' execute async: %s (%s.%s)", entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        return default
+        _LOGGER.error("%s - async_PropertyUpdateHandler: Could not 'self' execute async: %s (%s.%s)", entry_id, str(e), e.__class__.__module__, type(e).__name__)
+        return None
 
 
 async def async_GetChargerProp(charger, identifier: str, default=None):
@@ -187,6 +190,11 @@ async def async_SetChargerProp(charger, identifier:str=None, value:str=None, for
         if not force_type == None:
             force_type=str(force_type).lower()
 
+        # Coerce the value to the JSON type the charger expects. Order matters:
+        # an explicit force_type wins, then bool (so "true"/"false" never fall
+        # through to string), then int, then float, with str as the fallback.
+        # SimpleNamespace values (e.g. the 'cll' current-limit object) are sent
+        # as their underlying dict.
         _LOGGER.debug("%s - async_SetChargerProp: Prepare new property value: %s=%s", DOMAIN, identifier, value)
         if force_type == 'str':
             v=str(value)

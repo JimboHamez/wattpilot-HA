@@ -26,7 +26,7 @@ _LOGGER: Final = logging.getLogger(__name__)
 platform='select'
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
-    """Set up the sensor platform."""
+    """Set up the select platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites=[]
     try:
@@ -114,9 +114,11 @@ class ChargerSelect(ChargerPlatformEntity, SelectEntity):
         """Async: Change the selected option."""
         try:
             #_LOGGER.debug("%s - %s: async_select_option: value was changed to: %s", self._charger_id, self._identifier, option)
-            key = list(self._opt_dict.keys())[list(self._opt_dict.values()).index(option)] 
+            # Map the user-facing option label back to the raw charger key it
+            # represents (self._opt_dict is {raw_key: display_label}).
+            key = list(self._opt_dict.keys())[list(self._opt_dict.values()).index(option)]
             if key is None:
-                _LOGGER.error("%s - %s: async_select_option: option %s not within options_id keys: %s", self._charger_id, self._identifier, state, self._opt_dict)
+                _LOGGER.error("%s - %s: async_select_option: option %s not within options_id keys: %s", self._charger_id, self._identifier, option, self._opt_dict)
                 return None
             _LOGGER.debug("%s - %s: async_select_option: save option key %s", self._charger_id, self._identifier, key)
             await async_SetChargerProp(self._charger,self._identifier,key,force_type=self._set_type)

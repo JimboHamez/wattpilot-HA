@@ -77,7 +77,7 @@ async def async_service_SetNextTrip(hass: HomeAssistant, call: ServiceCall) -> N
             _LOGGER.debug("%s - async_service_SetNextTrip: apply daylight saving time", DOMAIN)
             timestamp = timestamp + 3600
 
-        _LOGGER.debug("%s - async_service_SetNextTrip: set nexttrip timesamp %s for charger: %s", DOMAIN, charger.name)
+        _LOGGER.debug("%s - async_service_SetNextTrip: set nexttrip timestamp %s for charger: %s", DOMAIN, timestamp, charger.name)
         await async_SetChargerProp(charger,'ftt',timestamp)
 
     except Exception as e:
@@ -85,7 +85,7 @@ async def async_service_SetNextTrip(hass: HomeAssistant, call: ServiceCall) -> N
 
 
 async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> None:
-    """Service to set the next trip timestamp"""
+    """Enable or disable the go-e cloud API and cache the returned key/URL."""
     try:
         device_id = call.data.get(CONF_DEVICE_ID, None)
         api_state= call.data.get(CONF_CLOUD_API, None)
@@ -182,8 +182,8 @@ async def async_service_SetDebugProperties(hass: HomeAssistant, call: ServiceCal
         _LOGGER.error("%s - async_service_SetDebugProperties: %s failed: %s (%s.%s)", DOMAIN, call, str(e), e.__class__.__module__, type(e).__name__)
 
 
-async def async_service_ReConnectCharger(hass: HomeAssistant, call: ServiceCall) -> Bool:
-    """Service to set the next trip timestamp"""
+async def async_service_ReConnectCharger(hass: HomeAssistant, call: ServiceCall) -> bool:
+    """Disconnect (if needed) and reconnect the charger's WebSocket session."""
     try:
         device_id = call.data.get(CONF_DEVICE_ID, None)
         if device_id is None:
@@ -221,8 +221,8 @@ async def async_service_ReConnectCharger(hass: HomeAssistant, call: ServiceCall)
         return False     
 
  
-async def async_service_DisconnectCharger(hass: HomeAssistant, call: ServiceCall) -> Bool:
-    """Service to set the next trip timestamp"""
+async def async_service_DisconnectCharger(hass: HomeAssistant, call: ServiceCall) -> bool:
+    """Close the charger's WebSocket session (helpful for the Wattpilot GO)."""
     try:
         device_id = call.data.get(CONF_DEVICE_ID, None)
         if device_id is None:
