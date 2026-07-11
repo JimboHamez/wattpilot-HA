@@ -26,6 +26,7 @@ from .const import (
     CONF_CONNECTION,
     CONF_CLOUD,
     CONF_LOCAL,
+    CONF_SERIAL,
     DEFAULT_NAME,
     DOMAIN,
 )
@@ -83,8 +84,12 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             errors: Dict[str, str] = {}
             if user_input is not None:
-                _LOGGER.debug("%s - ConfigFlowHandler: async_step_local add user_input to data: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG))                
+                _LOGGER.debug("%s - ConfigFlowHandler: async_step_local add user_input to data: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG))
                 user_input[CONF_CONNECTION] = CONF_LOCAL
+                # Prevent the same charger (identified by its local IP) from
+                # being configured twice.
+                await self.async_set_unique_id(str(user_input[CONF_IP_ADDRESS]))
+                self._abort_if_unique_id_configured()
                 self.data=user_input
                 return await self.async_step_final()
             return self.async_show_form(step_id=CONF_LOCAL, data_schema=LOCAL_SCHEMA, errors=errors) #via the "step_id" the function calls itself after GUI completion        
@@ -99,8 +104,12 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         try:
             errors: Dict[str, str] = {}
             if user_input is not None:
-                _LOGGER.debug("%s - ConfigFlowHandler: async_step_cloud add user_input to data: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG))                
+                _LOGGER.debug("%s - ConfigFlowHandler: async_step_cloud add user_input to data: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG))
                 user_input[CONF_CONNECTION] = CONF_CLOUD
+                # Prevent the same charger (identified by its serial) from
+                # being configured twice.
+                await self.async_set_unique_id(str(user_input[CONF_SERIAL]))
+                self._abort_if_unique_id_configured()
                 self.data=user_input
                 return await self.async_step_final()
             return self.async_show_form(step_id=CONF_CLOUD, data_schema=CLOUD_SCHEMA, errors=errors) #via the "step_id" the function calls itself after GUI completion        

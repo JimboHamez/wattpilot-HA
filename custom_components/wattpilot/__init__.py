@@ -8,6 +8,7 @@ import asyncio
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.const import CONF_PARAMS
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.loader import async_get_integration
 
 from .const import (
@@ -37,6 +38,26 @@ from .utils import (
 
 _LOGGER: Final = logging.getLogger(__name__)
 
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Register integration-wide service actions.
+
+    Services are registered here (not per config entry) so they exist even when
+    no entry is loaded; each resolves its target charger from the device id in
+    the service call.
+    """
+    try:
+        _LOGGER.debug("%s - async_setup: register services", DOMAIN)
+        await async_registerService(hass, "disconnect_charger", async_service_DisconnectCharger)
+        await async_registerService(hass, "reconnect_charger", async_service_ReConnectCharger)
+        await async_registerService(hass, "set_goe_cloud", async_service_SetGoECloud)
+        await async_registerService(hass, "set_debug_properties", async_service_SetDebugProperties)
+        await async_registerService(hass, "set_next_trip", async_service_SetNextTrip)
+    except Exception as e:
+        _LOGGER.error("%s - async_setup: register services failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__)
+        return False
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up a charger from the config entry."""
     _LOGGER.debug("Setting up config entry: %s", entry.entry_id)
@@ -52,14 +73,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.warning("%s - async_setup_entry: Unable to determine %s integration version", entry.entry_id, DOMAIN)
         pass
 
-    try: 
+    charger = False
+    try:
         _LOGGER.debug("%s - async_setup_entry: Connecting charger", entry.entry_id)
         charger = await async_ConnectCharger(entry.entry_id, entry.data)
-        if charger == False: return False 
+        # Signal "not ready" so Home Assistant retries setup later instead of
+        # marking the entry permanently failed (e.g. charger briefly offline).
+        if charger == False:
+            raise ConfigEntryNotReady(f"Unable to connect to Wattpilot charger for entry {entry.entry_id}")
+    except ConfigEntryNotReady:
+        raise
     except Exception as e:
         _LOGGER.error("%s - async_setup_entry: Connecting charger failed: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
         await async_DisconnectCharger(entry.entry_id, charger)
-        return False
+        raise ConfigEntryNotReady(f"Error connecting to Wattpilot charger for entry {entry.entry_id}: {e}") from e
 
     try:
         _LOGGER.debug("%s - async_setup_entry: Creating data store: %s.%s ", entry.entry_id, DOMAIN, entry.entry_id)
@@ -103,18 +130,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.warning("%s - async_setup_entry: charger does not provide roperties updater handler", entry.entry_id)
     except Exception as e:
         _LOGGER.error("%s - async_setup_entry: Could not register properties updater handler: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
-        await async_unload_entry(hass, entry)
-        return False
-
-    try:
-        _LOGGER.debug("%s - async_setup_entry: register services", entry.entry_id)
-        await async_registerService(hass, "disconnect_charger", async_service_DisconnectCharger)
-        await async_registerService(hass, "reconnect_charger", async_service_ReConnectCharger)        
-        await async_registerService(hass, "set_goe_cloud", async_service_SetGoECloud)
-        await async_registerService(hass, "set_debug_properties", async_service_SetDebugProperties)
-        await async_registerService(hass, "set_next_trip", async_service_SetNextTrip)        
-    except Exception as e:
-        _LOGGER.error("%s - async_setup_entry: register services failed: %s (%s.%s)", entry.entry_id, str(e), e.__class__.__module__, type(e).__name__)
         await async_unload_entry(hass, entry)
         return False
 

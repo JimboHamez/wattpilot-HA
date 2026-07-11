@@ -134,7 +134,7 @@ Always go through the `utils.py` helpers rather than touching the charger object
   `CONF_DBG_PROPS`, etc.). `utils.py` has `async_GetChargerFromDeviceID` /
   `async_GetDataStoreFromDeviceID` to resolve these from a HA `device_id` (used by services).
 - Services are defined in `services.py`, described for the UI in `services.yaml`, and registered
-  in `__init__.py::async_setup_entry`: `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`
+  once in `__init__.py::async_setup` (not per entry): `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`
   (enable/disable go-e cloud API), `set_debug_properties` (toggle property-change warning logs),
   `set_next_trip` (writes the `ftt` next-trip timestamp, with daylight-saving handling).
 
