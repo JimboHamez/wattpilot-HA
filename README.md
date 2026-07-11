@@ -11,6 +11,13 @@
 [paypal_me_shield]: https://img.shields.io/static/v1.svg?label=%20&message=PayPal.Me&logo=paypal
 [paypal_me]: https://paypal.me/KraemerMar
 
+> **Note:** This repository is a fork/downstream copy of the upstream project
+> [mk-maddin/wattpilot-HA](https://github.com/mk-maddin/wattpilot-HA) by Martin Kraemer
+> ([@mk-maddin](https://github.com/mk-maddin)), which is the original source and the place to
+> get official releases, report issues, and support the author. All credit for the integration
+> belongs upstream; it is redistributed here under its original
+> [Apache-2.0](LICENSE) license. The badges and links above point to the upstream project.
+
 # What This Is:
 
 This is a custom component to allow control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energy/installers-partners/technical-data/all-products/solutions/fronius-wattpilot/fronius-wattpilot/wattpilot-home-11-j) wallbox/electro vehicle charging devices in [Homeassistant](https://home-assistant.io) using the unofficial/reverese enginered [wattpilot python module](https://github.com/joscha82/wattpilot).
