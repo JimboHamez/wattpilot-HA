@@ -142,8 +142,11 @@ async def async_GetChargerProp(charger, identifier: str, default=None):
         if not hasattr(charger, 'allProps'):
             _LOGGER.error("%s - async_GetChargerProp: Charger does not have allProps attribute: %s", DOMAIN, charger)
             return default
-        if identifier is None or not identifier in charger.allProps: 
-            _LOGGER.error("%s - async_GetChargerProp: Charger does not have property: %s", DOMAIN, identifier)
+        if identifier is None or not identifier in charger.allProps:
+            # Not an error: the caller supplies a default and handles absence
+            # (e.g. optional/firmware-dependent properties like 'cards'). Logging
+            # at error level here spams once per poll for every absent property.
+            _LOGGER.debug("%s - async_GetChargerProp: Charger does not have property: %s", DOMAIN, identifier)
             return default
         await asyncio.sleep(0)
         if charger.allProps[identifier] is None and not default is None:
@@ -161,7 +164,10 @@ def GetChargerProp(charger, identifier:str=None, default:str=None):
             _LOGGER.error("%s - GetChargerProp: Charger does not have allProps attribute: %s", DOMAIN, charger)
             return default
         if identifier is None or not identifier in charger.allProps:
-            _LOGGER.error("%s - GetChargerProp: Charger does not have property: %s", DOMAIN, identifier)
+            # Not an error: the caller supplies a default and handles absence
+            # (e.g. optional/firmware-dependent properties like 'cards'). Logging
+            # at error level here spams once per poll for every absent property.
+            _LOGGER.debug("%s - GetChargerProp: Charger does not have property: %s", DOMAIN, identifier)
             return default
         if charger.allProps[identifier] is None and not default is None:
             return default
