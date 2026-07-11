@@ -1,20 +1,21 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
-![GitHub Release](https://img.shields.io/github/v/release/JimboHamez/ha_solcast_solar_enhanced?style=for-the-badge)
-[![hacs_downloads](https://img.shields.io/github/downloads/JimboHamez/ha_solcast_solar_enhanced/latest/total?style=for-the-badge)](https://github.com/JimboHamez/ha_solcast_solar_enhanced/releases/latest)
-![GitHub License](https://img.shields.io/github/license/JimboHamez/ha_solcast_solar_enhanced?style=for-the-badge)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/y/JimboHamez/ha_solcast_solar_enhanced?style=for-the-badge)
+![GitHub Release](https://img.shields.io/github/v/release/JimboHamez/wattpilot-HA?style=for-the-badge)
+[![hacs_downloads](https://img.shields.io/github/downloads/JimboHamez/wattpilot-HA/latest/total?style=for-the-badge)](https://github.com/JimboHamez/wattpilot-HA/releases/latest)
+![GitHub License](https://img.shields.io/github/license/JimboHamez/wattpilot-HA?style=for-the-badge)
+![GitHub commit activity](https://img.shields.io/github/commit-activity/y/JimboHamez/wattpilot-HA?style=for-the-badge)
 ![Maintenance](https://img.shields.io/maintenance/yes/2026?style=for-the-badge)
 
-[![Tests](https://github.com/JimboHamez/ha_solcast_solar_enhanced/actions/workflows/test.yml/badge.svg)](https://github.com/JimboHamez/ha_solcast_solar_enhanced/actions/workflows/test.yml)
-[![Validate](https://github.com/JimboHamez/ha_solcast_solar_enhanced/actions/workflows/validate.yml/badge.svg)](https://github.com/JimboHamez/ha_solcast_solar_enhanced/actions/workflows/validate.yml)
-[![Security](https://github.com/JimboHamez/ha_solcast_solar_enhanced/actions/workflows/security.yml/badge.svg)](https://github.com/JimboHamez/ha_solcast_solar_enhanced/actions/workflows/security.yml)
+[![Tests](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/test.yml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/test.yml)
+[![Validate](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/validate.yml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/validate.yml)
+[![Security](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/security.yml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/security.yml)
 
 > **Note:** This repository is a fork/downstream copy of the upstream project
 > [mk-maddin/wattpilot-HA](https://github.com/mk-maddin/wattpilot-HA) by Martin Kraemer
 > ([@mk-maddin](https://github.com/mk-maddin)), which is the original source and the place to
 > get official releases, report issues, and support the author. All credit for the integration
 > belongs upstream; it is redistributed here under its original
-> [Apache-2.0](LICENSE) license. The badges and links above point to the upstream project.
+> [Apache-2.0](LICENSE) license. For official releases, issues, and support, go to the
+> upstream project — the badges above track this fork.
 
 # What This Is:
 

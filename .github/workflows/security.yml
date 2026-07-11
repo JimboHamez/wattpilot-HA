@@ -1,0 +1,38 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install scanners
+        run: pip install bandit pip-audit
+
+      # Scoped to this repo's own code; the vendored upstream wattpilot library
+      # is excluded. Informational — findings don't fail the build (the code
+      # predates the strict standards in CLAUDE.md), but they surface in logs.
+      - name: Bandit
+        continue-on-error: true
+        run: bandit -r custom_components/wattpilot -x custom_components/wattpilot/wattpilot
+
+      # Audits the integration's declared runtime dependencies (manifest.json)
+      # for known-vulnerable packages. This one gates the job.
+      - name: pip-audit (manifest requirements)
+        run: |
+          python -c "import json; print('\n'.join(json.load(open('custom_components/wattpilot/manifest.json'))['requirements']))" > requirements-manifest.txt
+          pip-audit -r requirements-manifest.txt
