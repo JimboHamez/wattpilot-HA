@@ -8,12 +8,17 @@ import logging
 import os
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import aiofiles
 import yaml
 
-from homeassistant.components.sensor import UNIT_CONVERTERS, SensorDeviceClass, SensorEntity, SensorStateClass
+from homeassistant.components.sensor import (  # type: ignore[attr-defined]
+    UNIT_CONVERTERS,
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.util import dt as dt_util, slugify
 
@@ -23,12 +28,13 @@ from .entities import ChargerPlatformEntity
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "sensor"
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the sensor platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites = []
@@ -45,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
@@ -59,7 +65,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting push entities dict from data store", entry.entry_id, platform)
@@ -73,7 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     for entity_cfg in yaml_cfg[platform]:
         try:
@@ -109,11 +115,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 e.__class__.__module__,
                 type(e).__name__,
             )
-            return False
+            return
 
     _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entites), platform)
     if not entites:
-        return None
+        return
     async_add_entities(entites)
 
 
@@ -122,7 +128,7 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
 
     _state_attr = "_attr_native_value"
 
-    def _init_platform_specific(self):
+    def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
         self._attr_native_unit_of_measurement = self._entity_cfg.get("unit_of_measurement", None)
         if (
@@ -130,9 +136,9 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
         ) is not None and self._attr_native_unit_of_measurement in unit_converter.VALID_UNITS:
             self._attr_suggested_unit_of_measurement = self._entity_cfg.get("unit_of_measurement", None)
         if self._entity_cfg.get("state_class", None) is not None:
-            self._attr_state_class = SensorStateClass((self._entity_cfg.get("state_class")).lower())
+            self._attr_state_class = SensorStateClass(str(self._entity_cfg.get("state_class")).lower())
         if self._entity_cfg.get("enum", None) is not None:
-            self._state_enum = dict(self._entity_cfg.get("enum", None))
+            self._state_enum = dict(self._entity_cfg.get("enum") or {})
             # Expose enum sensors as translated enum device-class entities: the
             # native value is a stable slug per raw code, translated for display
             # via entity.sensor.<key>.state.<slug> in strings.json.
@@ -142,7 +148,7 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
         if self._entity_cfg.get("html_unescape", None) is not None:
             self._html_unescape = True
 
-    def _parse_timestamp(self, value):
+    def _parse_timestamp(self, value: Any) -> datetime | None:
         """Parse a charger datetime string into a timezone-aware datetime.
 
         A 'timestamp' device_class sensor must expose a ``datetime`` (with
@@ -162,7 +168,7 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
             parsed = parsed.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
         return parsed
 
-    async def _async_update_validate_platform_state(self, state=None):
+    async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for sensor specific requirements."""
         try:
             # Timestamp sensors need a tz-aware datetime; return None (shown as

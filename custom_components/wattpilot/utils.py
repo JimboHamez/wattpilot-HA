@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 import types
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from wattpilot_api import Wattpilot
 from wattpilot_api.exceptions import AuthenticationError, WattpilotError
@@ -30,12 +30,14 @@ from .const import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from homeassistant.core import HomeAssistant
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-async def async_ProgrammingDebug(obj, show_all: bool = False) -> None:
+async def async_ProgrammingDebug(obj: object, show_all: bool = False) -> None:
     """Async: return all attributes of a specific objec."""
     try:
         _LOGGER.debug("%s - async_ProgrammingDebug: %s", DOMAIN, obj)
@@ -52,7 +54,7 @@ async def async_ProgrammingDebug(obj, show_all: bool = False) -> None:
         pass
 
 
-def ProgrammingDebug(obj, show_all: bool = False) -> None:
+def ProgrammingDebug(obj: object, show_all: bool = False) -> None:
     """Return all attributes of a specific objec."""
     try:
         _LOGGER.debug("%s - ProgrammingDebug: %s", DOMAIN, obj)
@@ -68,7 +70,7 @@ def ProgrammingDebug(obj, show_all: bool = False) -> None:
         pass
 
 
-async def async_PropertyDebug(identifier: str, value: str, include_properties: bool | list) -> None:
+async def async_PropertyDebug(identifier: str, value: str, include_properties: bool | list[str]) -> None:
     """Log properties if they change."""
     exclude_properties = [
         "efh",
@@ -136,7 +138,7 @@ async def async_PropertyUpdateHandler(hass: HomeAssistant, entry_id: str, identi
         return None
 
 
-async def async_GetChargerProp(charger, identifier: str, default=None):
+async def async_GetChargerProp(charger: Wattpilot, identifier: str, default: Any = None) -> Any:
     """Async: return the value of a charger attribute."""
     try:
         if not hasattr(charger, "all_properties"):
@@ -166,7 +168,7 @@ async def async_GetChargerProp(charger, identifier: str, default=None):
         return default
 
 
-def GetChargerProp(charger, identifier: str | None = None, default: str | None = None):
+def GetChargerProp(charger: Wattpilot, identifier: str | None = None, default: Any = None) -> Any:
     """Return the value of a charger attribute."""
     try:
         if not hasattr(charger, "all_properties"):
@@ -194,7 +196,11 @@ def GetChargerProp(charger, identifier: str | None = None, default: str | None =
 
 
 async def async_SetChargerProp(
-    charger, identifier: str | None = None, value: Any = None, force: bool = False, force_type: str | None = None
+    charger: Wattpilot,
+    identifier: str | None = None,
+    value: Any = None,
+    force: bool = False,
+    force_type: str | None = None,
 ) -> bool:
     """Async: set the value of a charger attribute."""
     try:
@@ -222,6 +228,7 @@ async def async_SetChargerProp(
         # SimpleNamespace values (e.g. the 'cll' current-limit object) are sent
         # as their underlying dict.
         _LOGGER.debug("%s - async_SetChargerProp: Prepare new property value: %s=%s", DOMAIN, identifier, value)
+        v: Any
         if force_type == "str":
             v = str(value)
         elif str(value).lower() in ["false", "true"] or force_type == "bool":
@@ -256,7 +263,7 @@ async def async_SetChargerProp(
         return False
 
 
-async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str):
+async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str) -> Any:
     """Async: return the data store for a specific device_id."""
     try:
         _LOGGER.debug("%s - async_GetDataStoreFromDeviceID: receiving device: %s", DOMAIN, device_id)
@@ -293,7 +300,7 @@ async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str):
         return False
 
 
-async def async_GetChargerFromDeviceID(hass: HomeAssistant, device_id: str):
+async def async_GetChargerFromDeviceID(hass: HomeAssistant, device_id: str) -> Any:
     """Async: return the charger object for a specific device_id."""
     try:
         _LOGGER.debug("%s - async_GetChargerFromDeviceID: receiving device: %s", DOMAIN, device_id)
@@ -331,7 +338,9 @@ async def async_GetChargerFromDeviceID(hass: HomeAssistant, device_id: str):
         return False
 
 
-async def async_ConnectCharger(entry_or_device_id, data, charger=None):
+async def async_ConnectCharger(
+    entry_or_device_id: str, data: Mapping[str, Any], charger: Wattpilot | None = None
+) -> Wattpilot | Literal[False]:
     """Async: connect charger and handle connection errors.
 
     Builds a wattpilot_api ``Wattpilot`` client (unless reconnecting an existing
@@ -401,8 +410,10 @@ async def async_ConnectCharger(entry_or_device_id, data, charger=None):
     return charger
 
 
-async def async_DisconnectCharger(entry_or_device_id, charger):
+async def async_DisconnectCharger(entry_or_device_id: str, charger: Wattpilot | Literal[False]) -> None:
     """Async: disconnect charger and handle connection errors."""
+    if charger is False:
+        return None
     try:
         _LOGGER.debug("%s - async_DisconnectCharger: disconnect charger: %s", entry_or_device_id, charger)
         await charger.disconnect()

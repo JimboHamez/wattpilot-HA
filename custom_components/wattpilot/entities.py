@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from packaging.version import Version
 
@@ -17,6 +17,8 @@ from .const import CONF_CONNECTION, DEFAULT_NAME, DOMAIN
 from .utils import GetChargerProp, async_GetChargerProp
 
 if TYPE_CHECKING:
+    from wattpilot_api import Wattpilot
+
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
@@ -45,7 +47,7 @@ class ChargerPlatformEntity(Entity):
     _state_attr = "state"
     _attr_has_entity_name = True
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, entity_cfg, charger) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, entity_cfg: dict[str, Any], charger: Wattpilot) -> None:
         """Initialize the object."""
         try:
             self._charger_id = str(entry.data.get(CONF_FRIENDLY_NAME, entry.data.get(CONF_IP_ADDRESS, DEFAULT_NAME)))
@@ -55,7 +57,7 @@ class ChargerPlatformEntity(Entity):
             self._charger = charger
             self._source = entity_cfg.get("source", "property")
             self._namespace_id = int(entity_cfg.get("namespace_id", 0))
-            self._default_state = entity_cfg.get("default_state", None)
+            self._default_state = entity_cfg.get("default_state")
             self._entity_cfg = entity_cfg
 
             self._entry = entry
@@ -140,13 +142,13 @@ class ChargerPlatformEntity(Entity):
             )
             return None
 
-    def _init_platform_specific(self):
+    def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
         # do nothing here as this is only a drop-in option for other platforms
         # do not put actions in a try / except block - execeptions should be covered by __init__
         pass
 
-    def _check_firmware_supported(self):
+    def _check_firmware_supported(self) -> bool:
         """Return if the current charger firmware supports this entity."""
         fw_tst = self._entity_cfg.get("firmware", None)
         if fw_tst is None:
@@ -188,7 +190,7 @@ class ChargerPlatformEntity(Entity):
         )
         return v
 
-    def _check_variant_supported(self):
+    def _check_variant_supported(self) -> bool:
         """Return if the current charger variant supports this entity."""
         v_tst = self._entity_cfg.get("variant", None)
         if v_tst is None:
@@ -205,7 +207,7 @@ class ChargerPlatformEntity(Entity):
         )
         return v
 
-    def _check_connection_supported(self):
+    def _check_connection_supported(self) -> bool:
         """Return if the current charger connection type supports this entity."""
         c_tst = self._entity_cfg.get("connection", None)
         if c_tst is None:
@@ -243,11 +245,11 @@ class ChargerPlatformEntity(Entity):
         return None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict[str, Any]:
         """Return the state attributes of the entity."""
         return self._attributes
 
-    def _index_namespace(self, value):
+    def _index_namespace(self, value: Any) -> Any:
         """Safely index a namespacelist value; None if not usable.
 
         The backing property can be missing or not a list on some firmware
@@ -262,7 +264,7 @@ class ChargerPlatformEntity(Entity):
             return None
         return value[idx]
 
-    def _get_namespacelist_item(self):
+    def _get_namespacelist_item(self) -> Any:
         """Return the configured namespace item from the charger, or None."""
         return self._index_namespace(GetChargerProp(self._charger, self._identifier, self._default_state))
 
@@ -395,7 +397,7 @@ class ChargerPlatformEntity(Entity):
                 type(e).__name__,
             )
 
-    async def _async_update_validate_property(self, state=None):
+    async def _async_update_validate_property(self, state: Any = None) -> Any:
         """Async: Validate the given state object, set attributes if necessary and return new single state."""
         try:
             # _LOGGER.debug("%s - %s: _async_update_validate_property", self._charger_id, self._identifier)
@@ -414,7 +416,7 @@ class ChargerPlatformEntity(Entity):
                     )
                     return None
                 state = getattr(namespace, self._entity_cfg.get("value_id", STATE_UNKNOWN), STATE_UNKNOWN)
-                for attr_id in self._entity_cfg.get("attribute_ids", None):
+                for attr_id in self._entity_cfg.get("attribute_ids") or []:
                     self._attributes[attr_id] = getattr(namespace, attr_id, STATE_UNKNOWN)
             elif isinstance(state, list):
                 state_list = state
@@ -426,7 +428,7 @@ class ChargerPlatformEntity(Entity):
                         i = i + 1
                 else:
                     state = state_list[int(self._entity_cfg.get("value_id", 0))]
-                    for attr_entry in self._entity_cfg.get("attribute_ids", None):
+                    for attr_entry in self._entity_cfg.get("attribute_ids") or []:
                         attr_id = attr_entry.split(":")[0]
                         attr_index = attr_entry.split(":")[1]
                         self._attributes[attr_id] = state_list[int(attr_index)]
@@ -442,7 +444,7 @@ class ChargerPlatformEntity(Entity):
             )
             return None
 
-    async def _async_update_validate_platform_state(self, state=None):
+    async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for platform specific requirements."""
         # do nothing here as this is only a drop-in option for other platforms
         # return None if validation failed
@@ -491,7 +493,7 @@ class ChargerPlatformEntity(Entity):
                 type(e).__name__,
             )
 
-    async def async_local_push(self, state=None, initwait=False) -> None:
+    async def async_local_push(self, state: Any = None, initwait: bool = False) -> None:
         """Async: Get the latest status from the entity after an update was pushed."""
         try:
             if not self.enabled:

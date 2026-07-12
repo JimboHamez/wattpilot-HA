@@ -6,7 +6,7 @@ import asyncio
 import logging
 import os
 import re
-from typing import TYPE_CHECKING, Any, ClassVar, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import aiofiles
 import yaml
@@ -22,12 +22,13 @@ from .utils import GetChargerProp, async_SetChargerProp
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "update"
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the update platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites = []
@@ -44,7 +45,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
@@ -58,7 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting push entities dict from data store", entry.entry_id, platform)
@@ -72,7 +73,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     for entity_cfg in yaml_cfg[platform]:
         try:
@@ -125,11 +126,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 e.__class__.__module__,
                 type(e).__name__,
             )
-            return False
+            return
 
     _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entites), platform)
     if not entites:
-        return None
+        return
     async_add_entities(entites)
 
 
@@ -138,11 +139,11 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
 
     _state_attr = "_attr_latest_version"
     _dummy_version = "0.0.1"
-    _available_versions: ClassVar[dict] = {}
 
-    def _init_platform_specific(self):
+    def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
         _LOGGER.debug("%s - %s: _init_platform_specific", self._charger_id, self._identifier)
+        self._available_versions: dict[str, str] = {}
         self._identifier_installed = self._entity_cfg.get("id_installed")
         self._identifier_trigger = self._entity_cfg.get("id_trigger", None)
         self._identifier_status = self._entity_cfg.get("id_status", None)
@@ -157,7 +158,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
         #    self._attr_supported_features |= UpdateEntityFeature.PROGRESS
         _LOGGER.debug("%s - %s: _init_platform_specific complete", self._charger_id, self._identifier)
 
-    def _update_available_versions(self, v_list=None, return_latest=False):
+    def _update_available_versions(self, v_list: Any = None, return_latest: bool = False) -> Any:
         """Get the latest update version of available versions."""
         _LOGGER.debug("%s - %s: _update_available_versions", self._charger_id, self._identifier)
         try:
@@ -169,7 +170,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 v_list = [self._dummy_version]
             elif not isinstance(v_list, list):
                 v_list = [v_list]
-            self._available_versions = self._get_versions_dict(v_list)
+            self._available_versions = self._get_versions_dict(v_list) or {}
             latest = list(self._available_versions.keys())
             latest.sort(key=Version)
             return latest[-1]
@@ -186,7 +187,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 return self._dummy_version
             return None
 
-    def _get_versions_dict(self, v_list: list) -> dict | None:
+    def _get_versions_dict(self, v_list: list[str]) -> dict[str, str] | None:
         """Create a dict with clean and named versions."""
         _LOGGER.debug("%s - %s: _get_versions_dict", self._charger_id, self._identifier)
         try:
@@ -222,6 +223,11 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
             _LOGGER.debug("%s - %s: async_install: update charger to: %s", self._charger_id, self._identifier, version)
             if version is None:
                 version = self._attr_latest_version
+            if version is None:
+                _LOGGER.error(
+                    "%s - %s: async_install failed: no version to install", self._charger_id, self._identifier
+                )
+                return None
             v_name = self._available_versions.get(version, None)
             if v_name is None:
                 _LOGGER.error(
@@ -290,7 +296,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 type(e).__name__,
             )
 
-    async def _async_update_validate_platform_state(self, state=None):
+    async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for sensor specific requirements."""
         _LOGGER.debug("%s - %s: _async_update_validate_platform_state", self._charger_id, self._identifier)
         self._attr_installed_version = GetChargerProp(self._charger, self._identifier_installed, None)

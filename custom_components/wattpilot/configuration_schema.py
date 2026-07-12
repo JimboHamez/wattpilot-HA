@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Final
+from typing import TYPE_CHECKING, Any, Final
 
 import voluptuous as vol
 
@@ -13,6 +13,9 @@ from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PASSWO
 from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
 
 from .const import CONF_CLOUD, CONF_CONNECTION, CONF_LOCAL, CONF_SERIAL, DEFAULT_NAME, DEFAULT_TIMEOUT, DOMAIN
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -45,7 +48,7 @@ CLOUD_SCHEMA: Final = vol.Schema(
 )
 
 
-async def async_get_OPTIONS_LOCAL_SCHEMA(current_data):
+async def async_get_OPTIONS_LOCAL_SCHEMA(current_data: Mapping[str, Any]) -> vol.Schema:
     """Async: return an schema object with current values as default."""
     try:
         _LOGGER.debug("%s - async_get_OPTIONS_LOCAL_SCHEMA", DOMAIN)
@@ -70,7 +73,7 @@ async def async_get_OPTIONS_LOCAL_SCHEMA(current_data):
         return LOCAL_SCHEMA
 
 
-async def async_get_OPTIONS_CLOUD_SCHEMA(current_data):
+async def async_get_OPTIONS_CLOUD_SCHEMA(current_data: Mapping[str, Any]) -> vol.Schema:
     """Async: return an schema object with current values as default."""
     try:
         _LOGGER.debug("%s - async_get_OPTIONS_CLOUD_SCHEMA", DOMAIN)

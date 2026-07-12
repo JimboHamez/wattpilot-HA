@@ -43,7 +43,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return {}
 
     try:
         _LOGGER.debug(
@@ -61,7 +61,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return {}
 
     try:
         _LOGGER.debug(

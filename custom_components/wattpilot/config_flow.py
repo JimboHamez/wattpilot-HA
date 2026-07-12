@@ -25,6 +25,7 @@ from .configuration_schema import (
 from .const import CONF_CLOUD, CONF_CONNECTION, CONF_LOCAL, CONF_SERIAL, DEFAULT_NAME, DEFAULT_TIMEOUT, DOMAIN
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigFlowResult
     from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 REDACT_CONFIG = {CONF_PASSWORD}
@@ -37,14 +38,14 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
-    data: dict[str, Any] | None
-    loaded_platforms: ClassVar[list] = []
+    loaded_platforms: ClassVar[list[str]] = []
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize."""
+        self.data: dict[str, Any] = {}
         _LOGGER.debug("%s - ConfigFlowHandler: __init__", DOMAIN)
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Invoked when a user initiates a flow via the user interface."""
         _LOGGER.debug(
             "%s - ConfigFlowHandler: async_step_user: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG)
@@ -63,7 +64,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo):
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         """Handle a charger discovered on the network via mDNS/zeroconf."""
         _LOGGER.debug("%s - ConfigFlowHandler: async_step_zeroconf: %s", DOMAIN, discovery_info.host)
         try:
@@ -97,7 +98,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None):
+    async def async_step_zeroconf_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Ask the user for the password of a discovered charger."""
         _LOGGER.debug("%s - ConfigFlowHandler: async_step_zeroconf_confirm", DOMAIN)
         try:
@@ -125,7 +126,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_connection(self, user_input: dict[str, Any] | None = None):
+    async def async_step_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Config flow to define a charger connection via user interface."""
         _LOGGER.debug(
             "%s - ConfigFlowHandler: async_step_connection: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG)
@@ -155,7 +156,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_local(self, user_input: dict[str, Any] | None = None):
+    async def async_step_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Config flow to define a local charger connection via user interface."""
         _LOGGER.debug(
             "%s - ConfigFlowHandler: async_step_local: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG)
@@ -192,7 +193,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_cloud(self, user_input: dict[str, Any] | None = None):
+    async def async_step_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Config flow to define a cloud charger connection via user interface."""
         _LOGGER.debug(
             "%s - ConfigFlowHandler: async_step_cloud: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG)
@@ -229,7 +230,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_final(self, user_input: dict[str, Any] | None = None):
+    async def async_step_final(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Create the config entry from the collected connection details."""
         _LOGGER.debug(
             "%s - ConfigFlowHandler: async_step_final: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG)
@@ -240,7 +241,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> OptionsFlowHandler:
         """Return the options flow handler for this integration."""
         _LOGGER.debug("%s: ConfigFlowHandler - async_get_options_flow", DOMAIN)
         return OptionsFlowHandler(config_entry)
@@ -253,8 +254,9 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Initialize options flow."""
         _LOGGER.debug("%s - OptionsFlowHandler: __init__: %s", DOMAIN, config_entry)
         self._config_entry = config_entry
+        self.data: dict[str, Any] = {}
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> dict[str, Any]:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Manage the options for the custom component."""
         _LOGGER.debug("%s - OptionsFlowHandler: async_step_init: %s", DOMAIN, user_input)
         try:
@@ -279,7 +281,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_config_connection(self, user_input: dict[str, Any] | None = None):
+    async def async_step_config_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Options flow: choose the connection type to reconfigure."""
         _LOGGER.debug(
             "%s - OptionsFlowHandler: async_step_config_connection: %s",
@@ -298,6 +300,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 return await self.async_step_config_local()
             elif user_input[CONF_CONNECTION] == CONF_CLOUD:
                 return await self.async_step_config_cloud()
+            return self.async_abort(reason="not_supported")
         except Exception as e:
             _LOGGER.error(
                 "%s - OptionsFlowHandler: async_step_config_connection failed: %s (%s.%s)",
@@ -308,7 +311,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_config_local(self, user_input=None):
+    async def async_step_config_local(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Options flow: update the local connection details."""
         _LOGGER.debug(
             "%s - OptionsFlowHandler: async_step_config_local: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG)
@@ -340,7 +343,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_config_cloud(self, user_input=None):
+    async def async_step_config_cloud(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Options flow: update the cloud connection details."""
         _LOGGER.debug(
             "%s - OptionsFlowHandler: async_step_config_cloud: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG)
@@ -372,7 +375,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             )
             return self.async_abort(reason="exception")
 
-    async def async_step_final(self):
+    async def async_step_final(self) -> ConfigFlowResult:
         """Persist the updated options and reload the entry if needed."""
         try:
             _LOGGER.debug("%s - OptionsFlowHandler: async_step_final", DOMAIN)

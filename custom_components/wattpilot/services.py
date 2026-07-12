@@ -7,7 +7,7 @@ import datetime
 import functools
 import logging
 import time
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 from homeassistant.const import CONF_API_KEY, CONF_DEVICE_ID, CONF_EXTERNAL_URL, CONF_PARAMS, CONF_TRIGGER_TIME
 
@@ -21,12 +21,14 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from homeassistant.core import HomeAssistant, ServiceCall
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-async def async_registerService(hass: HomeAssistant, name: str, service) -> None:
+async def async_registerService(hass: HomeAssistant, name: str, service: Callable[..., Any]) -> None:
     """Register a service if it does not already exist."""
     try:
         _LOGGER.debug("%s - async_registerService: %s", DOMAIN, name)
@@ -114,7 +116,7 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
         if api_state is True:
             _LOGGER.debug("%s - async_service_SetGoECloud: Enabling cloud api", DOMAIN)
             if not await async_SetChargerProp(charger, "cae", True):
-                return False
+                return
             timer = 0
             timeout = 10
             while timeout > timer and (charger.cak == "" or charger.cak is None):
@@ -221,7 +223,7 @@ async def async_service_ReConnectCharger(hass: HomeAssistant, call: ServiceCall)
         device_id = call.data.get(CONF_DEVICE_ID, None)
         if device_id is None:
             _LOGGER.error("%s - async_service_ReConnectCharger: %s is a required parameter", DOMAIN, CONF_DEVICE_ID)
-            return None
+            return False
         _LOGGER.debug("%s - async_service_ReConnectCharger: service call data: %s", DOMAIN, call.data)
 
         _LOGGER.debug("%s - async_service_ReConnectCharger: get entry_data for device_id: %s", DOMAIN, device_id)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import aiofiles
 import yaml
@@ -20,12 +20,13 @@ from .utils import async_SetChargerProp
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "select"
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the select platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites = []
@@ -42,7 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
@@ -56,7 +57,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting push entities dict from data store", entry.entry_id, platform)
@@ -70,7 +71,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     for entity_cfg in yaml_cfg[platform]:
         try:
@@ -107,11 +108,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 e.__class__.__module__,
                 type(e).__name__,
             )
-            return False
+            return
 
     _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entites), platform)
     if not entites:
-        return None
+        return
     async_add_entities(entites)
 
 
@@ -120,7 +121,7 @@ class ChargerSelect(ChargerPlatformEntity, SelectEntity):
 
     _state_attr = "_attr_current_option"
 
-    def _init_platform_specific(self):
+    def _init_platform_specific(self) -> None:
         """Platform specific init actions.
 
         ``self._opt_dict`` always maps the raw charger key to its human label.
@@ -135,13 +136,13 @@ class ChargerSelect(ChargerPlatformEntity, SelectEntity):
             self._opt_dict = self._opt_identifier
             self._opt_out = {k: slugify(str(v)) for k, v in self._opt_dict.items()}
         else:
-            opts = getattr(self._charger, self._opt_identifier, None)
+            opts = getattr(self._charger, str(self._opt_identifier), None)
             self._opt_dict = opts if isinstance(opts, dict) else {}
             self._opt_out = dict(self._opt_dict)
         self._attr_options = list(self._opt_out.values())
         # _LOGGER.debug("%s - %s: __init__ attr_options: %s)", self._charger_id, self._identifier, self._attr_options)
 
-    async def _async_update_validate_platform_state(self, state=None):
+    async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for select specific requirements."""
         try:
             if state in self._opt_dict:
