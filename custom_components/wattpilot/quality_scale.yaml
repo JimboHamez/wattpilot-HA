@@ -1,0 +1,112 @@
+# Home Assistant Integration Quality Scale status for the Fronius Wattpilot
+# custom integration. Statuses are self-declared and kept honest: `done`,
+# `exempt` (with a reason), or `todo`.
+rules:
+  # Bronze
+  action-setup: done
+  appropriate-polling:
+    status: exempt
+    comment: >-
+      The integration is local push (iot_class: local_push); it keeps a
+      WebSocket open and has no polling interval.
+  brands:
+    status: todo
+    comment: >-
+      The 'wattpilot' domain is not in the home-assistant/brands repository.
+      This is a downstream fork; brands submission is done by the upstream
+      project, so the HACS check ignores brands here.
+  common-modules: done
+  config-flow: done
+  config-flow-test-coverage: done
+  dependency-transparency: done
+  docs-actions: done
+  docs-conditions:
+    status: exempt
+    comment: The integration does not provide any conditions.
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  docs-triggers:
+    status: exempt
+    comment: The integration does not register any triggers.
+  entity-event-setup:
+    status: todo
+    comment: >-
+      Property push is dispatched through a central per-entry registry populated
+      at platform setup rather than each entity subscribing in async_added_to_hass.
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data:
+    status: todo
+    comment: Per-entry state is stored in hass.data[DOMAIN] rather than entry.runtime_data.
+  test-before-configure:
+    status: todo
+    comment: The config flow does not yet validate the connection before creating the entry.
+  test-before-setup: done
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions:
+    status: todo
+    comment: >-
+      Service actions follow the integration's log-and-degrade convention rather
+      than raising ServiceValidationError / HomeAssistantError on failure.
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable:
+    status: todo
+    comment: The integration does not yet log once (and only once) when it becomes unavailable.
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage:
+    status: todo
+    comment: Test coverage does not yet meet the 95% Silver threshold.
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery: done
+  discovery-update-info: done
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: exempt
+    comment: A config entry represents a single charger; there are no dynamically added devices.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  exception-translations:
+    status: todo
+    comment: Raised exceptions are not yet backed by translation keys.
+  icon-translations:
+    status: todo
+    comment: Entities use mdi icons directly rather than an icons.json translation set.
+  reconfiguration-flow:
+    status: todo
+    comment: Settings are changed via the options flow; a dedicated async_step_reconfigure is not implemented.
+  repair-issues:
+    status: exempt
+    comment: >-
+      There are no user-actionable repairable conditions beyond authentication,
+      which is handled by the reauthentication flow.
+  stale-devices:
+    status: exempt
+    comment: A config entry maps to a single charger; its device is removed when the entry is removed.
+
+  # Platinum
+  async-dependency: done
+  inject-websession:
+    status: exempt
+    comment: >-
+      The dependency (wattpilot-api) communicates over the 'websockets' library,
+      not an aiohttp/httpx client session, so there is no web session to inject.
+  strict-typing: done
