@@ -18,9 +18,6 @@ jobs:
         uses: hacs/action@main
         with:
           category: integration
-          # This is a downstream fork, not published to the HACS default store,
-          # and the 'wattpilot' domain is not in home-assistant/brands.
-          ignore: brands
 
   hassfest:
     name: hassfest
