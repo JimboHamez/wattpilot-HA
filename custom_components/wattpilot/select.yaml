@@ -134,8 +134,11 @@ select:
     entity_category: config
 
   - id: lmo
-    options: lmoValues
     name: "Charging Mode"
+    options:
+      3: "Default"
+      4: "Eco"
+      5: "Next Trip"
     description: "Charging mode Default, Eco or Next Trip"
     icon: "mdi:leaf"
 
@@ -161,8 +164,11 @@ select:
     entity_category: config
 
   - id: ust
-    options: ustValues
     name: "Cable unlock"
+    options:
+      0: "Normal"
+      1: "AutoUnlock"
+      2: "AlwaysLock"
     description: "Lock cable when the car is connected (Normal), while the car is charging (AutoUnlock) or (AlwaysLock)"
     icon: "mdi:lock-outline"
     entity_category: config
