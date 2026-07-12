@@ -23,6 +23,7 @@ if TYPE_CHECKING:
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "switch"
+PARALLEL_UPDATES = 0  # local push over a single WebSocket; no rate limit needed
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:

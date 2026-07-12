@@ -19,10 +19,10 @@
 
 # What This Is:
 
-This is a custom component to allow control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energy/installers-partners/technical-data/all-products/solutions/fronius-wattpilot/fronius-wattpilot/wattpilot-home-11-j) wallbox/electro vehicle charging devices in [Homeassistant](https://home-assistant.io) using the unofficial/reverese enginered [wattpilot python module](https://github.com/joscha82/wattpilot).
+This is a custom component to allow control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energy/installers-partners/technical-data/all-products/solutions/fronius-wattpilot/fronius-wattpilot/wattpilot-home-11-j) wallbox/electro vehicle charging devices in [Homeassistant](https://home-assistant.io) using the unofficial, reverse-engineered [`wattpilot-api`](https://pypi.org/project/wattpilot-api/) Python library, which talks to the charger over its WebSocket API (locally on the LAN, or via the go-e cloud).
 
 WARNING:
-This is a work in progress project - it is still in early development stage, so there are still breaking changes possible.
+There is no official Fronius API. This integration is built entirely on a community, reverse-engineered library and may break at any time (for example after a charger firmware update).
 
 ## Disclaimer:
 
@@ -39,6 +39,8 @@ Allows for control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energ
 
 * works with wattpilot, wattpilot V2 & wattpilot flex
 * connect charger via local LAN or via Cloud
+* automatic discovery of chargers on your local network (mDNS/zeroconf)
+* re-authentication prompt if the charger password changes
 * charging mode change
 * start / stop charging
 * configuration for different charging behaviours
@@ -51,7 +53,6 @@ Allows for control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energ
 ## Open Topics:
 
 * create a light integration for LED color control etc.
-* evaluate entity unique ID generation using WP serial number
 
 ## Known Errors:
 
@@ -106,6 +107,82 @@ for the integration to appear within the integration store.
    (If connecting local/LAN you will require the local IP - for cloud connection your wattpilot serial is required)
 
 ![screenshot of Config Flow](doc/config_flow1.jpg)
+
+Chargers on your local network are usually **discovered automatically** — when one
+is found, Home Assistant shows it under **Settings → Devices & services** and only
+asks for the charger password.
+
+## Configuration parameters
+
+The setup wizard first asks how to connect, then for the matching details:
+
+| Parameter | Connection | Description |
+|-----------|-----------|-------------|
+| Connection type | both | `Local (LAN)` connects directly to the charger's IP; `go-e Cloud` connects through the go-e cloud using the serial number. |
+| Name | both | Display name for the charger in Home Assistant. |
+| IP address | local | Local IP address of the charger on your network. |
+| Serial number | cloud | Serial number of the charger (used to reach it via the go-e cloud). |
+| Password | both | The charger password configured in the Wattpilot app. |
+| Timeout | both | Seconds to wait for the connection to be established and initialised (default 15). |
+
+You can change these later via the integration's **Configure** (options) dialog
+without removing the charger. If the charger password changes, Home Assistant
+raises a **reauthentication** prompt asking you to enter the new one.
+
+## Supported devices
+
+Fronius Wattpilot **Home / Home 2 / V2 / Flex**, in both the **11 kW** and **22 kW**
+variants (the correct entities are enabled automatically for your variant). The
+integration is developed against a physical **Wattpilot Flex (22 kW, firmware 43.4)**;
+other models rely on the community library and may expose a slightly different set of
+properties.
+
+## How data updates work
+
+The integration is **local push** (`iot_class: local_push`): it keeps a WebSocket
+open to the charger and updates entities immediately when the charger reports a
+property change. A small poll fallback seeds the initial value of each entity and
+covers the few attributes the charger does not push. Because it is push-based, there
+is no polling interval to configure.
+
+## Known limitations
+
+- There is **no official Fronius API** — everything is built on the reverse-engineered
+  [`wattpilot-api`](https://pypi.org/project/wattpilot-api/) library and may break
+  after a charger firmware update.
+- Requires **Python 3.12+** (a modern Home Assistant release satisfies this).
+- Local mode needs the charger reachable on your LAN; cloud mode needs the go-e cloud
+  reachable and the charger's serial number.
+- Some entities are **disabled by default** (diagnostics, rarely-used settings) — enable
+  them from the device page if you need them.
+- The go-e cloud charging API toggle is provided for convenience but is your own
+  responsibility to use; it is not required for this integration to work.
+
+## Troubleshooting
+
+- **Charger shows as unavailable / fails to set up:** confirm the IP (local) or serial
+  (cloud) and password, and that the charger is powered on and reachable. Setup retries
+  automatically when the charger comes back.
+- **"Invalid authentication" / reauth prompt:** the charger password changed — enter the
+  new password when Home Assistant asks, or via **Reconfigure**.
+- **Enable debug logging** to trace behaviour, then reproduce the issue:
+  ```yaml
+  logger:
+    default: warning
+    logs:
+      custom_components.wattpilot: debug
+  ```
+- **Watch specific charger properties** as log warnings using the `wattpilot.set_debug_properties`
+  service, and download a redacted **diagnostics** file from the device page to share when
+  reporting an issue.
+- Services (`disconnect_charger`, `reconnect_charger`, `set_goe_cloud`, `set_debug_properties`,
+  `set_next_trip`) are available under **Developer Tools → Actions**.
+
+## Removing the integration
+
+Go to **Settings → Devices & services**, open the Fronius Wattpilot integration, and
+use the menu on the charger entry to **Delete**. No files remain in your configuration;
+if you installed manually, also remove the `custom_components/wattpilot` folder.
 
 # Credits:
 
