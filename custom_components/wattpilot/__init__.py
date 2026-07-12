@@ -15,7 +15,6 @@ from homeassistant.loader import async_get_integration
 from .const import (
     CONF_CHARGER,
     CONF_DBG_PROPS,
-    CONF_PUSH_ENTITIES,
     DOMAIN,
     FUNC_OPTION_UPDATES,
     FUNC_PROPERTY_UPDATES_CALLBACK,
@@ -106,14 +105,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady(f"Error connecting to Wattpilot charger for entry {entry.entry_id}: {e}") from e
 
     try:
-        _LOGGER.debug("%s - async_setup_entry: Creating data store: %s.%s ", entry.entry_id, DOMAIN, entry.entry_id)
-        hass.data.setdefault(DOMAIN, {})
-        hass.data[DOMAIN].setdefault(entry.entry_id, {})
-        entry_data = hass.data[DOMAIN][entry.entry_id]
-        entry_data[CONF_CHARGER] = charger
-        entry_data[CONF_PARAMS] = entry.data
-        entry_data[CONF_DBG_PROPS] = False
-        entry_data.setdefault(CONF_PUSH_ENTITIES, {})
+        _LOGGER.debug("%s - async_setup_entry: Creating runtime data store for %s", entry.entry_id, DOMAIN)
+        entry.runtime_data = {
+            CONF_CHARGER: charger,
+            CONF_PARAMS: entry.data,
+            CONF_DBG_PROPS: False,
+        }
+        entry_data = entry.runtime_data
     except Exception as e:
         _LOGGER.error(
             "%s - async_setup_entry: Creating data store failed: %s (%s.%s)",
@@ -163,7 +161,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # own event loop, so an async callback can be registered directly.
         # on_property_change returns an unsubscribe function used on unload.
         async def _property_update_callback(identifier: str, value: Any) -> None:
-            await async_PropertyUpdateHandler(hass, entry.entry_id, identifier, value)
+            await async_PropertyUpdateHandler(hass, entry, identifier, value)
 
         entry_data[FUNC_PROPERTY_UPDATES_CALLBACK] = charger.on_property_change(_property_update_callback)
     except Exception as e:
@@ -185,11 +183,6 @@ async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> No
     """Handle options update."""
     try:
         _LOGGER.debug("%s - options_update_listener: update options and reload config entry", entry.entry_id)
-        hass.data.setdefault(DOMAIN, {})
-        hass.data[DOMAIN].setdefault(entry.entry_id, {})
-        entry_data = hass.data[DOMAIN][entry.entry_id]
-        _LOGGER.debug("%s - options_update_listener: set new options", entry.entry_id)
-        entry_data[CONF_PARAMS] = entry.options
         hass.config_entries.async_update_entry(entry, data=entry.options)
         _LOGGER.debug("%s - options_update_listener: async_reload entry", entry.entry_id)
         await hass.config_entries.async_reload(entry.entry_id)
@@ -222,8 +215,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.debug(
                 "%s - async_unload_entry: Unload option updates listener: %s ", entry.entry_id, FUNC_OPTION_UPDATES
             )
-            hass.data[DOMAIN][entry.entry_id][FUNC_OPTION_UPDATES]()
-            entry_data = hass.data[DOMAIN][entry.entry_id]
+            entry_data = entry.runtime_data
+            entry_data[FUNC_OPTION_UPDATES]()
             charger = entry_data[CONF_CHARGER]
 
             try:
@@ -245,7 +238,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             try:
                 await async_DisconnectCharger(entry.entry_id, charger)
                 charger = None
-                entry_data[CONF_CHARGER] = None
             except Exception as e:
                 _LOGGER.error(
                     "%s - async_unload_entry: could not disconnect charger: %s (%s.%s)",
@@ -261,9 +253,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     charger.serial,
                 )
                 pass
-
-            _LOGGER.debug("%s - async_unload_entry: Remove data store: %s.%s ", entry.entry_id, DOMAIN, entry.entry_id)
-            hass.data[DOMAIN].pop(entry.entry_id)
         return all_ok
     except Exception as e:
         _LOGGER.error(

@@ -9,12 +9,14 @@ from typing import TYPE_CHECKING, Any, Final
 from packaging.version import Version
 
 from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PARAMS, STATE_UNKNOWN, EntityCategory
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import slugify
 
 from .const import CONF_CONNECTION, DEFAULT_NAME, DOMAIN
-from .utils import GetChargerProp, async_GetChargerProp
+from .utils import GetChargerProp, async_GetChargerProp, property_update_signal
 
 if TYPE_CHECKING:
     from wattpilot_api import Wattpilot
@@ -148,6 +150,28 @@ class ChargerPlatformEntity(Entity):
         # do not put actions in a try / except block - execeptions should be covered by __init__
         pass
 
+    async def async_added_to_hass(self) -> None:
+        """Subscribe to pushed updates for this entity's property.
+
+        Property-source entities receive live updates via a dispatcher signal
+        keyed on (config entry, property id); the subscription is released
+        automatically on removal through ``async_on_remove``.
+        """
+        await super().async_added_to_hass()
+        if self._source == "property":
+            self.async_on_remove(
+                async_dispatcher_connect(
+                    self.hass,
+                    property_update_signal(self._entry.entry_id, self._identifier),
+                    self._handle_property_update,
+                )
+            )
+
+    @callback
+    def _handle_property_update(self, value: Any) -> None:
+        """Handle a dispatched property update by pushing the new state."""
+        self.hass.async_create_task(self.async_local_push(value))
+
     def _check_firmware_supported(self) -> bool:
         """Return if the current charger firmware supports this entity."""
         fw_tst = self._entity_cfg.get("firmware", None)
@@ -212,7 +236,7 @@ class ChargerPlatformEntity(Entity):
         c_tst = self._entity_cfg.get("connection", None)
         if c_tst is None:
             return True
-        entry_data = self.hass.data[DOMAIN].get(self._entry.entry_id, None)
+        entry_data = getattr(self._entry, "runtime_data", None)
         if entry_data is None:
             return True
         config_params = entry_data.get(CONF_PARAMS, None)

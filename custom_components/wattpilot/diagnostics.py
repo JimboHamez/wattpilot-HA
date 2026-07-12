@@ -11,7 +11,7 @@ from importlib_metadata import version
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_IP_ADDRESS, CONF_PASSWORD
 
-from .const import CONF_CHARGER, DOMAIN
+from .const import CONF_CHARGER
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -33,7 +33,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
             entry.entry_id,
             platform,
         )
-        charger = hass.data[DOMAIN][entry.entry_id][CONF_CHARGER]
+        charger = entry.runtime_data[CONF_CHARGER]
     except Exception as e:
         _LOGGER.error(
             "%s - async_get_config_entry_diagnostics %s: Getting charger instance from data store failed: %s (%s.%s)",

@@ -162,6 +162,18 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="exception")
 
+    async def _async_test_connection(self, data: dict[str, Any]) -> str | None:
+        """Try to connect with the given data; return an error key or None on success."""
+        try:
+            charger = await async_ConnectCharger("config", data)
+        except AuthenticationError:
+            return "invalid_auth"
+        if charger is False:
+            return "cannot_connect"
+        # Only validating the credentials here; setup opens its own connection.
+        await async_DisconnectCharger("config", charger)
+        return None
+
     async def async_step_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Config flow to define a charger connection via user interface."""
         _LOGGER.debug(
@@ -210,8 +222,11 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 # being configured twice.
                 await self.async_set_unique_id(str(user_input[CONF_IP_ADDRESS]))
                 self._abort_if_unique_id_configured()
-                self.data = user_input
-                return await self.async_step_final()
+                error = await self._async_test_connection(user_input)
+                if error is None:
+                    self.data = user_input
+                    return await self.async_step_final()
+                errors["base"] = error
             return self.async_show_form(
                 step_id=CONF_LOCAL, data_schema=LOCAL_SCHEMA, errors=errors
             )  # via the "step_id" the function calls itself after GUI completion
@@ -247,8 +262,11 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 # being configured twice.
                 await self.async_set_unique_id(str(user_input[CONF_SERIAL]))
                 self._abort_if_unique_id_configured()
-                self.data = user_input
-                return await self.async_step_final()
+                error = await self._async_test_connection(user_input)
+                if error is None:
+                    self.data = user_input
+                    return await self.async_step_final()
+                errors["base"] = error
             return self.async_show_form(
                 step_id=CONF_CLOUD, data_schema=CLOUD_SCHEMA, errors=errors
             )  # via the "step_id" the function calls itself after GUI completion
