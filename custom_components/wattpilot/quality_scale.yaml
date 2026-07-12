@@ -10,11 +10,11 @@ rules:
       The integration is local push (iot_class: local_push); it keeps a
       WebSocket open and has no polling interval.
   brands:
-    status: todo
+    status: done
     comment: >-
-      The 'wattpilot' domain is not in the home-assistant/brands repository.
-      This is a downstream fork; brands submission is done by the upstream
-      project, so the HACS check ignores brands here.
+      The 'wattpilot' domain is published in home-assistant/brands under
+      custom_integrations/wattpilot; the assets are also shipped with the
+      component in custom_components/wattpilot/brands/.
   common-modules: done
   config-flow: done
   config-flow-test-coverage: done
