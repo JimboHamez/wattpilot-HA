@@ -19,12 +19,13 @@ from .utils import async_SetChargerProp
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "button"
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the button platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites = []
@@ -41,7 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
@@ -55,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting push entities dict from data store", entry.entry_id, platform)
@@ -69,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     for entity_cfg in yaml_cfg.get(platform, []):
         try:
@@ -106,18 +107,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 e.__class__.__module__,
                 type(e).__name__,
             )
-            return False
+            return
 
     _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entites), platform)
     if not entites:
-        return None
+        return
     async_add_entities(entites)
 
 
 class ChargerButton(ChargerPlatformEntity, ButtonEntity):
     """Button class for Fronius Wattpilot integration."""
 
-    def _init_platform_specific(self):
+    def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
         self._set_value = self._entity_cfg.get("set_value", None)
         if self._set_value is None:

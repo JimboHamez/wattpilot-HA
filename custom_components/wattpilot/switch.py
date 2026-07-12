@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import aiofiles
 import yaml
@@ -19,12 +19,13 @@ from .utils import async_SetChargerProp
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "switch"
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the switch platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites = []
@@ -41,7 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
@@ -55,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting push entities dict from data store", entry.entry_id, platform)
@@ -69,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     for entity_cfg in yaml_cfg[platform]:
         try:
@@ -106,18 +107,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 e.__class__.__module__,
                 type(e).__name__,
             )
-            return False
+            return
 
     _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entites), platform)
     if not entites:
-        return None
+        return
     async_add_entities(entites)
 
 
 class ChargerSwitch(ChargerPlatformEntity):
     """Switch class for Fronius Wattpilot integration."""
 
-    async def _async_update_validate_platform_state(self, state=None):
+    async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for switch specific requirements."""
         try:
             if str(state) in [STATE_ON, STATE_OFF, STATE_UNKNOWN]:
@@ -170,7 +171,7 @@ class ChargerSwitch(ChargerPlatformEntity):
         """Return true if entity is on."""
         return self.state == STATE_ON
 
-    async def async_turn_on(self, **kwargs) -> None:
+    async def async_turn_on(self, **kwargs: Any) -> None:
         """Async: Turn entity on."""
         try:
             _LOGGER.debug("%s - %s: async_turn_on: %s", self._charger_id, self._identifier, self._attr_translation_key)
@@ -186,7 +187,7 @@ class ChargerSwitch(ChargerPlatformEntity):
                 type(e).__name__,
             )
 
-    async def async_turn_off(self, **kwargs) -> None:
+    async def async_turn_off(self, **kwargs: Any) -> None:
         """Async: Turn entity off."""
         try:
             _LOGGER.debug("%s - %s: async_turn_off: %s", self._charger_id, self._identifier, self._attr_translation_key)

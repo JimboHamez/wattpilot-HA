@@ -5,12 +5,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import aiofiles
 import yaml
 
-from homeassistant.components.number import UNIT_CONVERTERS, NumberEntity
+from homeassistant.components.number import UNIT_CONVERTERS, NumberEntity, NumberMode  # type: ignore[attr-defined]
 
 from .const import CONF_CHARGER, CONF_PUSH_ENTITIES, DOMAIN
 from .entities import ChargerPlatformEntity
@@ -19,12 +19,13 @@ from .utils import async_SetChargerProp
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "number"
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the number platform."""
     _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
     entites = []
@@ -41,7 +42,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
@@ -55,7 +56,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting push entities dict from data store", entry.entry_id, platform)
@@ -69,7 +70,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
+        return
 
     for entity_cfg in yaml_cfg.get(platform, []):
         try:
@@ -106,11 +107,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 e.__class__.__module__,
                 type(e).__name__,
             )
-            return False
+            return
 
     _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entites), platform)
     if not entites:
-        return None
+        return
     async_add_entities(entites)
 
 
@@ -119,12 +120,14 @@ class ChargerNumber(ChargerPlatformEntity, NumberEntity):
 
     _state_attr = "_attr_native_value"
 
-    def _init_platform_specific(self):
+    def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
         self._attr_native_unit_of_measurement = self._entity_cfg.get("unit_of_measurement", None)
         if (
-            unit_converter := UNIT_CONVERTERS.get(self._attr_device_class)
-        ) is not None and self._attr_native_unit_of_measurement in unit_converter.VALID_UNITS:
+            self._attr_device_class is not None
+            and (unit_converter := UNIT_CONVERTERS.get(self._attr_device_class)) is not None
+            and self._attr_native_unit_of_measurement in unit_converter.VALID_UNITS
+        ):
             self._attr_suggested_unit_of_measurement = self._entity_cfg.get("unit_of_measurement", None)
 
         n = self._entity_cfg.get("native_min_value", None)
@@ -136,19 +139,21 @@ class ChargerNumber(ChargerPlatformEntity, NumberEntity):
         n = self._entity_cfg.get("native_step", None)
         if n is not None:
             self._attr_native_step = float(n)
-        self._attr_mode = self._entity_cfg.get("mode", None)
+        mode = self._entity_cfg.get("mode")
+        if mode is not None:
+            self._attr_mode = NumberMode(mode)
 
-    def _get_platform_specific_state(self):
+    def _get_platform_specific_state(self) -> Any:
         """Platform specific init actions."""
         return self.state
 
-    async def _async_update_validate_platform_state(self, state=None):
+    async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for sensor specific requirements."""
         if self._attr_native_unit_of_measurement is not None:
             self._attr_native_value = state
         return state
 
-    async def async_set_native_value(self, value) -> None:
+    async def async_set_native_value(self, value: float) -> None:
         """Async: Change the current value."""
         try:
             _LOGGER.debug(

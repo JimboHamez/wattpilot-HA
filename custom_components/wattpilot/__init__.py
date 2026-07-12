@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final, Literal
 
 from homeassistant.const import CONF_PARAMS
 from homeassistant.exceptions import ConfigEntryNotReady
@@ -30,13 +30,15 @@ from .services import (
 from .utils import async_ConnectCharger, async_DisconnectCharger, async_PropertyUpdateHandler
 
 if TYPE_CHECKING:
+    from wattpilot_api import Wattpilot
+
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Register integration-wide service actions.
 
     Services are registered here (not per config entry) so they exist even when
@@ -77,7 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.warning("%s - async_setup_entry: Unable to determine %s integration version", entry.entry_id, DOMAIN)
         pass
 
-    charger = False
+    charger: Wattpilot | Literal[False] = False
     try:
         _LOGGER.debug("%s - async_setup_entry: Connecting charger", entry.entry_id)
         charger = await async_ConnectCharger(entry.entry_id, entry.data)
@@ -155,7 +157,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # The wattpilot_api client fires property callbacks on Home Assistant's
         # own event loop, so an async callback can be registered directly.
         # on_property_change returns an unsubscribe function used on unload.
-        async def _property_update_callback(identifier: str, value) -> None:
+        async def _property_update_callback(identifier: str, value: Any) -> None:
             await async_PropertyUpdateHandler(hass, entry.entry_id, identifier, value)
 
         entry_data[FUNC_PROPERTY_UPDATES_CALLBACK] = charger.on_property_change(_property_update_callback)
@@ -174,7 +176,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options update."""
     try:
         _LOGGER.debug("%s - options_update_listener: update options and reload config entry", entry.entry_id)
@@ -186,7 +188,6 @@ async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> bo
         hass.config_entries.async_update_entry(entry, data=entry.options)
         _LOGGER.debug("%s - options_update_listener: async_reload entry", entry.entry_id)
         await hass.config_entries.async_reload(entry.entry_id)
-        return True
     except Exception as e:
         _LOGGER.error(
             "%s - options_update_listener: update options failed: %s (%s.%s)",
@@ -195,7 +196,6 @@ async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> bo
             e.__class__.__module__,
             type(e).__name__,
         )
-        return False
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -211,7 +211,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error(
                     "%s - async_unload_entry: failed to unload: %s (%s)", entry.entry_id, platform, platform_ok
                 )
-                all_ok = platform_ok
+                all_ok = False
 
         if all_ok:
             _LOGGER.debug(
