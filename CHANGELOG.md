@@ -52,6 +52,9 @@ firmware 43.4).
 - `py.typed` marker (PEP 561).
 - Config-flow tests covering the zeroconf discovery, confirm, already-configured and
   missing-serial paths.
+- `PARALLEL_UPDATES` declared on every platform.
+- Expanded documentation: configuration parameters, supported devices, the local-push
+  data-update model, known limitations, troubleshooting, and removal instructions.
 
 ### Fixed
 - Numeric sensors (e.g. `tma` charger temperature) and the new enum sensors no longer

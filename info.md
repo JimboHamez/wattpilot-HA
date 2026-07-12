@@ -2,10 +2,10 @@
 
 # What This Is:
 
-This is a custom component to allow control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energy/installers-partners/technical-data/all-products/solutions/fronius-wattpilot/fronius-wattpilot/wattpilot-home-11-j) wallbox/electro vehicle charging devices in [Homeassistant](https://home-assistant.io) using the unofficial/reverese enginered [wattpilot python module](https://github.com/joscha82/wattpilot).
+This is a custom component to allow control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energy/installers-partners/technical-data/all-products/solutions/fronius-wattpilot/fronius-wattpilot/wattpilot-home-11-j) wallbox/electro vehicle charging devices in [Homeassistant](https://home-assistant.io) using the unofficial, reverse-engineered [`wattpilot-api`](https://pypi.org/project/wattpilot-api/) Python library, which talks to the charger over its WebSocket API (locally on the LAN, or via the go-e cloud).
 
 WARNING:
-This is a work in progress project - it is still in early development stage, so there are still breaking changes possible.
+There is no official Fronius API. This integration is built entirely on a community, reverse-engineered library and may break at any time (for example after a charger firmware update).
 
 ## Disclaimer:
 
