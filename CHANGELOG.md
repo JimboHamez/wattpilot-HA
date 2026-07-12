@@ -38,6 +38,9 @@ firmware 43.4).
 - Bumped integration version to 0.5.0.
 
 ### Added
+- **Connection validation during setup:** the config flow now tests the connection
+  before creating the entry, so an invalid password or unreachable charger is reported
+  inline instead of failing after setup.
 - **Reauthentication flow:** an authentication failure (e.g. a changed charger
   password) now raises `ConfigEntryAuthFailed` and prompts the user to re-enter the
   password, instead of leaving the entry permanently failed.
@@ -53,6 +56,9 @@ firmware 43.4).
 - Config-flow tests covering the zeroconf discovery, confirm, already-configured and
   missing-serial paths.
 - `PARALLEL_UPDATES` declared on every platform.
+- Internal: per-entry state moved to `entry.runtime_data`; entities now receive
+  pushed updates via a dispatcher subscription set up in `async_added_to_hass`
+  (Bronze `runtime-data` / `entity-event-setup` / `test-before-configure`).
 - Expanded documentation: configuration parameters, supported devices, the local-push
   data-update model, known limitations, troubleshooting, and removal instructions.
 

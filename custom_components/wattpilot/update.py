@@ -15,7 +15,7 @@ from packaging.version import Version
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.const import CONF_PARAMS, CONF_TIMEOUT
 
-from .const import CONF_CHARGER, CONF_PUSH_ENTITIES, DEFAULT_TIMEOUT, DOMAIN
+from .const import CONF_CHARGER, DEFAULT_TIMEOUT, DOMAIN
 from .entities import ChargerPlatformEntity
 from .utils import GetChargerProp, async_SetChargerProp
 
@@ -50,24 +50,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
-        charger = hass.data[DOMAIN][entry.entry_id][CONF_CHARGER]
+        charger = entry.runtime_data[CONF_CHARGER]
     except Exception as e:
         _LOGGER.error(
             "%s - async_setup_entry %s: Getting charger instance from data store failed: %s (%s.%s)",
-            entry.entry_id,
-            platform,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        return
-
-    try:
-        _LOGGER.debug("%s - async_setup_entry %s: Getting push entities dict from data store", entry.entry_id, platform)
-        push_entities = hass.data[DOMAIN][entry.entry_id][CONF_PUSH_ENTITIES]
-    except Exception as e:
-        _LOGGER.error(
-            "%s - async_setup_entry %s: Getting push entities dict from data store failed: %s (%s.%s)",
             entry.entry_id,
             platform,
             str(e),
@@ -115,8 +101,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             if getattr(entity, "_init_failed", True):
                 continue
             entites.append(entity)
-            if entity._source == "property":
-                push_entities[entity._identifier] = entity
             await asyncio.sleep(0)
         except Exception as e:
             _LOGGER.error(

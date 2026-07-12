@@ -48,6 +48,10 @@ class MockCharger:
         self.sent.append((identifier, value))
         self.all_properties[identifier] = value
 
+    async def disconnect(self) -> None:
+        """Mark the charger disconnected (no-op stand-in for the real client)."""
+        self.connected = False
+
     def on_property_change(self, callback):
         """Register a property-change callback; returns an unsubscribe callable."""
         self._property_callbacks.append(callback)

@@ -12,7 +12,7 @@ import yaml
 
 from homeassistant.components.button import ButtonEntity
 
-from .const import CONF_CHARGER, CONF_PUSH_ENTITIES, DOMAIN
+from .const import CONF_CHARGER
 from .entities import ChargerPlatformEntity
 from .utils import async_SetChargerProp
 
@@ -47,24 +47,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     try:
         _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
-        charger = hass.data[DOMAIN][entry.entry_id][CONF_CHARGER]
+        charger = entry.runtime_data[CONF_CHARGER]
     except Exception as e:
         _LOGGER.error(
             "%s - async_setup_entry %s: Getting charger instance from data store failed: %s (%s.%s)",
-            entry.entry_id,
-            platform,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        return
-
-    try:
-        _LOGGER.debug("%s - async_setup_entry %s: Getting push entities dict from data store", entry.entry_id, platform)
-        push_entities = hass.data[DOMAIN][entry.entry_id][CONF_PUSH_ENTITIES]
-    except Exception as e:
-        _LOGGER.error(
-            "%s - async_setup_entry %s: Getting push entities dict from data store failed: %s (%s.%s)",
             entry.entry_id,
             platform,
             str(e),
@@ -96,8 +82,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
             if entity is None:
                 continue
             entites.append(entity)
-            if entity._source == "property":
-                push_entities[entity._identifier] = entity
             await asyncio.sleep(0)
         except Exception as e:
             _LOGGER.error(

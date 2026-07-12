@@ -60,7 +60,11 @@ async def test_local_flow_creates_entry(hass):
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == CONF_LOCAL
 
-    with patch("custom_components.wattpilot.async_setup_entry", return_value=True):
+    with (
+        patch("custom_components.wattpilot.config_flow.async_ConnectCharger", new=AsyncMock(return_value=object())),
+        patch("custom_components.wattpilot.config_flow.async_DisconnectCharger", new=AsyncMock()),
+        patch("custom_components.wattpilot.async_setup_entry", return_value=True),
+    ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -85,7 +89,11 @@ async def test_cloud_flow_creates_entry(hass):
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == CONF_CLOUD
 
-    with patch("custom_components.wattpilot.async_setup_entry", return_value=True):
+    with (
+        patch("custom_components.wattpilot.config_flow.async_ConnectCharger", new=AsyncMock(return_value=object())),
+        patch("custom_components.wattpilot.config_flow.async_DisconnectCharger", new=AsyncMock()),
+        patch("custom_components.wattpilot.async_setup_entry", return_value=True),
+    ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
@@ -122,6 +130,25 @@ async def test_duplicate_local_charger_aborts(hass):
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_local_flow_invalid_auth_shows_error(hass):
+    """A wrong password is validated before the entry is created (test-before-configure)."""
+    result = await _start_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_CONNECTION: CONF_LOCAL})
+
+    with patch(
+        "custom_components.wattpilot.config_flow.async_ConnectCharger",
+        new=AsyncMock(side_effect=AuthenticationError("wrong password")),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.1.51", CONF_PASSWORD: "wrong"},
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == CONF_LOCAL
+    assert result["errors"] == {"base": "invalid_auth"}
 
 
 def _discovery(properties: dict | None = None) -> ZeroconfServiceInfo:

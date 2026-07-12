@@ -13,6 +13,7 @@ from wattpilot_api.exceptions import AuthenticationError, WattpilotError
 
 from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PARAMS, CONF_PASSWORD, CONF_TIMEOUT
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
     CONF_CHARGER,
@@ -20,7 +21,6 @@ from .const import (
     CONF_CONNECTION,
     CONF_DBG_PROPS,
     CONF_LOCAL,
-    CONF_PUSH_ENTITIES,
     CONF_SERIAL,
     DEFAULT_NAME,
     DEFAULT_TIMEOUT,
@@ -32,9 +32,15 @@ from .const import (
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
 _LOGGER: Final = logging.getLogger(__name__)
+
+
+def property_update_signal(entry_id: str, identifier: str) -> str:
+    """Return the dispatcher signal for a charger property update."""
+    return f"{DOMAIN}_{entry_id}_property_{identifier}"
 
 
 async def async_ProgrammingDebug(obj: object, show_all: bool = False) -> None:
@@ -106,15 +112,13 @@ async def async_PropertyDebug(identifier: str, value: str, include_properties: b
         _LOGGER.warning("async_PropertyDebug: watch_properties: %s => %s ", identifier, value)
 
 
-async def async_PropertyUpdateHandler(hass: HomeAssistant, entry_id: str, identifier: str, value: str) -> None:
-    """Asnyc: Watches on property updates and executes corresponding action."""
+async def async_PropertyUpdateHandler(hass: HomeAssistant, entry: ConfigEntry, identifier: str, value: str) -> None:
+    """Async: dispatch a charger property update to the subscribed entities."""
     try:
-        # _LOGGER.debug("%s - async_PropertyUpdateHandler: get entry_data", entry_id)
-        entry_data = hass.data[DOMAIN][entry_id]
-
-        entity = entry_data[CONF_PUSH_ENTITIES].get(identifier, None)
-        if entity is not None:
-            hass.async_create_task(entity.async_local_push(value))
+        entry_data = entry.runtime_data
+        # Entities subscribe per property in async_added_to_hass; route the
+        # update to them via the dispatcher signal for this (entry, property).
+        async_dispatcher_send(hass, property_update_signal(entry.entry_id, identifier), value)
 
         if identifier in EVENT_PROPS:
             charger_id = str(
@@ -122,7 +126,7 @@ async def async_PropertyUpdateHandler(hass: HomeAssistant, entry_id: str, identi
                     CONF_FRIENDLY_NAME, entry_data[CONF_PARAMS].get(CONF_IP_ADDRESS, DEFAULT_NAME)
                 )
             )
-            data = {"charger_id": charger_id, "entry_id": entry_id, "property": identifier, "value": value}
+            data = {"charger_id": charger_id, "entry_id": entry.entry_id, "property": identifier, "value": value}
             hass.bus.fire(EVENT_PROPS_ID, data)
 
         if entry_data.get(CONF_DBG_PROPS, False):
@@ -130,7 +134,7 @@ async def async_PropertyUpdateHandler(hass: HomeAssistant, entry_id: str, identi
     except Exception as e:
         _LOGGER.error(
             "%s - async_PropertyUpdateHandler: Could not 'self' execute async: %s (%s.%s)",
-            entry_id,
+            entry.entry_id,
             str(e),
             e.__class__.__module__,
             type(e).__name__,
@@ -278,7 +282,8 @@ async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str) ->
         for entry_id in device.config_entries:
             if entry_data is not None:
                 continue
-            entry_data = hass.data[DOMAIN].get(entry_id, None)
+            entry = hass.config_entries.async_get_entry(entry_id)
+            entry_data = getattr(entry, "runtime_data", None) if entry else None
             await asyncio.sleep(0)
         if entry_data is None:
             _LOGGER.error(
@@ -315,8 +320,9 @@ async def async_GetChargerFromDeviceID(hass: HomeAssistant, device_id: str) -> A
         for entry_id in device.config_entries:
             if charger is not None:
                 continue
-            entry_data = hass.data[DOMAIN].get(entry_id, None)
-            charger = entry_data.get(CONF_CHARGER, None)
+            entry = hass.config_entries.async_get_entry(entry_id)
+            entry_data = getattr(entry, "runtime_data", None) if entry else None
+            charger = entry_data.get(CONF_CHARGER, None) if entry_data else None
             await asyncio.sleep(0)
         if charger is None:
             _LOGGER.error(
