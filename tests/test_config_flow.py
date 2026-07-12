@@ -8,6 +8,7 @@ WebSocket to a charger — we only assert on the flow's behaviour.
 
 from __future__ import annotations
 
+from ipaddress import ip_address
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +21,7 @@ from homeassistant.const import (
     CONF_PASSWORD,
 )
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.wattpilot.const import (
@@ -127,3 +129,70 @@ async def test_duplicate_local_charger_aborts(hass):
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+def _discovery(properties: dict | None = None) -> ZeroconfServiceInfo:
+    """Build a ZeroconfServiceInfo matching a real Wattpilot Flex advertisement."""
+    props = {
+        "serial": "91111999",
+        "friendly_name": "Wattpilot_91111999",
+        "manufacturer": "fronius",
+        "devicefamily": "wattpilot",
+        "devicetype": "wattpilot_flex",
+    } if properties is None else properties
+    return ZeroconfServiceInfo(
+        ip_address=ip_address("192.168.0.32"),
+        ip_addresses=[ip_address("192.168.0.32")],
+        port=80,
+        hostname="Wattpilot-91111999.local.",
+        type="_http._tcp.local.",
+        name="Wattpilot-91111999._http._tcp.local.",
+        properties=props,
+    )
+
+
+async def test_zeroconf_discovery_creates_entry(hass):
+    """A discovered charger prompts for the password, then creates an entry."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=_discovery()
+    )
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "zeroconf_confirm"
+
+    with patch("custom_components.wattpilot.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_PASSWORD: "secret"}
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_IP_ADDRESS] == "192.168.0.32"
+    assert result["data"][CONF_SERIAL] == "91111999"
+    assert result["data"][CONF_PASSWORD] == "secret"
+    assert result["result"].unique_id == "91111999"
+
+
+async def test_zeroconf_already_configured_updates_ip_and_aborts(hass):
+    """A discovered charger with a known serial aborts and refreshes its IP."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, unique_id="91111999",
+        data={CONF_CONNECTION: CONF_LOCAL, CONF_IP_ADDRESS: "192.168.0.9"},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=_discovery()
+    )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.0.32"
+
+
+async def test_zeroconf_without_serial_aborts(hass):
+    """A discovery advertisement lacking a serial number aborts cleanly."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF},
+        data=_discovery(properties={"devicefamily": "wattpilot"}),
+    )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "no_serial"

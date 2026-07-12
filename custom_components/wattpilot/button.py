@@ -11,7 +11,6 @@ import os
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.button import ButtonEntity
-from homeassistant.const import STATE_UNKNOWN
 
 from .entities import ChargerPlatformEntity
 

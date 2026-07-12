@@ -12,6 +12,52 @@ for attribution.
 
 _Nothing yet._
 
+## [0.5.0] - 2026-07-12
+
+Major release advancing the Home Assistant Integration Quality Scale: migration to
+the maintained **async** `wattpilot-api` library, translated entity names and states,
+and mDNS discovery. Validated end-to-end against a physical Wattpilot Flex (22 kW,
+firmware 43.4).
+
+### Changed
+- **BREAKING — dependency:** replaced the vendored, synchronous `wattpilot` library
+  with the maintained async **`wattpilot-api` >= 1.4.0** (built on `asyncio` +
+  `websockets`). This satisfies the quality-scale `async-dependency` rule; the
+  thread-to-loop callback bridge is gone (property callbacks now run on the event
+  loop). Requires **Python >= 3.12**.
+- **BREAKING — entity names:** entities now use `has_entity_name` with translated
+  names. Existing `entity_id`s are preserved (the `unique_id` is unchanged), but the
+  displayed friendly name is now composed as `{device name} {entity name}`.
+- **BREAKING — select options:** `select` option values are now stable slugs
+  translated for display (e.g. `psm` exposes `auto` / `1_phase` / `3_phases`).
+  Automations calling `select.select_option` with the old English labels must be
+  updated to the slug values (the UI shows the translated label).
+- Enum sensors (`car`, `err`, `modelstatus`, `wst`, `cus`, `ffb`, `lck`, `trx`) are
+  now `enum` device-class entities with translated states.
+- `iot_class` corrected to `local_push` (property updates are pushed, not polled).
+- Bumped integration version to 0.5.0.
+
+### Added
+- **mDNS/zeroconf discovery:** Wattpilot chargers advertising `_http._tcp.local.`
+  with `devicefamily=wattpilot` are auto-discovered; the flow asks only for the
+  password and keys the entry by serial (refreshing the stored IP on rediscovery).
+- Complete config-flow, options-flow and service translations (English + German)
+  matching the real flow steps, with `data_description` help text and a translatable
+  connection-type selector. Replaces the previous stale translations that referenced
+  a non-existent `charger` step.
+- Translated entity names (74) and enum/option states (183) for English and German.
+- `py.typed` marker (PEP 561).
+- Config-flow tests covering the zeroconf discovery, confirm, already-configured and
+  missing-serial paths.
+
+### Fixed
+- Numeric sensors (e.g. `tma` charger temperature) and the new enum sensors no longer
+  crash with `ValueError: … has the non-numeric value: 'unknown'` when the charger
+  reports a missing value; a missing value now leaves the last value in place.
+
+### Removed
+- The vendored `wattpilot/` library copy and the dynamic module loader.
+
 ## [0.4.1] - 2026-07-11
 
 Patch release fixing diagnostic-log crashes and spam reported on chargers running

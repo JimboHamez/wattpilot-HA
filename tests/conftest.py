@@ -24,28 +24,34 @@ COMPONENT_DIR = os.path.join(REPO_ROOT, "custom_components", "wattpilot")
 
 
 class MockCharger:
-    """Minimal stand-in for the wattpilot ``Wattpilot`` charger object.
+    """Minimal stand-in for the wattpilot_api ``Wattpilot`` charger object.
 
-    Mirrors only the surface the integration touches: an ``allProps`` dict of
-    live properties, plus ``connected`` / ``allPropsInitialized`` flags, and a
-    ``send_update`` method that records the (identifier, value) pairs written to
-    it so tests can assert on type coercion.
+    Mirrors only the surface the integration touches: an ``all_properties`` dict
+    of live properties, plus ``connected`` / ``properties_initialized`` flags,
+    and an async ``set_property`` method that records the (identifier, value)
+    pairs written to it so tests can assert on type coercion.
     """
 
     def __init__(self, props: dict | None = None, **attrs) -> None:
-        self.allProps: dict = dict(props or {})
+        self.all_properties: dict = dict(props or {})
         self.connected = True
-        self.allPropsInitialized = True
+        self.properties_initialized = True
         self.name = attrs.pop("name", "TestCharger")
         self.serial = attrs.pop("serial", "123456")
         self.sent: list[tuple[str, object]] = []
+        self._property_callbacks: list = []
         for key, value in attrs.items():
             setattr(self, key, value)
 
-    def send_update(self, identifier: str, value) -> None:
+    async def set_property(self, identifier: str, value) -> None:
         """Record a property write instead of hitting the wire."""
         self.sent.append((identifier, value))
-        self.allProps[identifier] = value
+        self.all_properties[identifier] = value
+
+    def on_property_change(self, callback):
+        """Register a property-change callback; returns an unsubscribe callable."""
+        self._property_callbacks.append(callback)
+        return lambda: self._property_callbacks.remove(callback)
 
 
 @pytest.fixture

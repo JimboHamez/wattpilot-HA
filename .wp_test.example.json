@@ -1,0 +1,7 @@
+{
+  "_comment": "Copy this file to .wp_test.json (gitignored) and fill in your charger. Never commit the real file.",
+  "connection": "local",
+  "ip": "192.168.1.50",
+  "serial": "",
+  "password": "your-charger-password"
+}

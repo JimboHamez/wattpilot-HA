@@ -3,17 +3,19 @@
 from __future__ import annotations
 from typing import Any, Dict, Final, Optional
 import logging
-import asyncio
 import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.data_entry_flow import AbortFlow
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
+import homeassistant.helpers.config_validation as cv
 from homeassistant.const import (
     CONF_FRIENDLY_NAME,
     CONF_IP_ADDRESS,
     CONF_PASSWORD,
+    CONF_TIMEOUT,
 )
 
 from .configuration_schema import (
@@ -29,6 +31,7 @@ from .const import (
     CONF_LOCAL,
     CONF_SERIAL,
     DEFAULT_NAME,
+    DEFAULT_TIMEOUT,
     DOMAIN,
 )
 
@@ -60,6 +63,54 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception as e:
             _LOGGER.error("%s - ConfigFlowHandler: async_step_user failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__)
             return self.async_abort(reason="exception")        
+
+
+    async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo):
+        """Handle a charger discovered on the network via mDNS/zeroconf."""
+        _LOGGER.debug("%s - ConfigFlowHandler: async_step_zeroconf: %s", DOMAIN, discovery_info.host)
+        try:
+            props = discovery_info.properties
+            serial = props.get("serial")
+            if not serial:
+                return self.async_abort(reason="no_serial")
+            # The serial uniquely identifies the charger; abort (and refresh the
+            # stored IP) if it is already configured.
+            await self.async_set_unique_id(str(serial))
+            self._abort_if_unique_id_configured(updates={CONF_IP_ADDRESS: discovery_info.host})
+            name = props.get("friendly_name") or discovery_info.hostname.removesuffix(".local.")
+            self.data = {
+                CONF_CONNECTION: CONF_LOCAL,
+                CONF_IP_ADDRESS: discovery_info.host,
+                CONF_SERIAL: str(serial),
+                CONF_FRIENDLY_NAME: name,
+            }
+            # Show the friendly name on the discovery card and confirm dialog.
+            self.context["title_placeholders"] = {"name": name}
+            return await self.async_step_zeroconf_confirm()
+        except AbortFlow:
+            raise
+        except Exception as e:
+            _LOGGER.error("%s - ConfigFlowHandler: async_step_zeroconf failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__)
+            return self.async_abort(reason="exception")
+
+
+    async def async_step_zeroconf_confirm(self, user_input: Optional[Dict[str, Any]] = None):
+        """Ask the user for the password of a discovered charger."""
+        _LOGGER.debug("%s - ConfigFlowHandler: async_step_zeroconf_confirm", DOMAIN)
+        try:
+            name = self.data.get(CONF_FRIENDLY_NAME, DEFAULT_NAME)
+            if user_input is not None:
+                self.data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
+                self.data[CONF_TIMEOUT] = user_input.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
+                return self.async_create_entry(title=name, data=self.data)
+            schema = vol.Schema({
+                vol.Required(CONF_PASSWORD): cv.string,
+                vol.Optional(CONF_TIMEOUT, default=DEFAULT_TIMEOUT): cv.positive_int,
+            })
+            return self.async_show_form(step_id="zeroconf_confirm", data_schema=schema, description_placeholders={"name": name})
+        except Exception as e:
+            _LOGGER.error("%s - ConfigFlowHandler: async_step_zeroconf_confirm failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__)
+            return self.async_abort(reason="exception")
 
 
     async def async_step_connection(self, user_input: Optional[Dict[str, Any]] = None):

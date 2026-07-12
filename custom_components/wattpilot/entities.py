@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity
+from homeassistant.util import slugify
 from homeassistant.const import (
     CONF_FRIENDLY_NAME,
     CONF_IP_ADDRESS,
@@ -37,15 +38,20 @@ class ChargerPlatformEntity(Entity):
     Entities are built from YAML definitions (see the per-platform ``*.yaml``
     catalogs), so this class is generic over three value ``source`` kinds:
 
-    - ``property``     -> a key in ``charger.allProps`` (push-capable).
+    - ``property``     -> a key in ``charger.all_properties`` (push-capable).
     - ``attribute``    -> a plain attribute on the charger object (poll-only).
     - ``namespacelist`` -> an indexed ``SimpleNamespace`` inside a property.
 
     ``_state_attr`` names the attribute a subclass stores its state in
     (e.g. ``_attr_native_value`` for sensor/number), letting the shared
     update logic write state without knowing the concrete platform.
+
+    ``_attr_has_entity_name`` is set so Home Assistant composes the visible
+    name from the device name plus a translated entity name looked up via
+    ``_attr_translation_key`` (see the ``entity`` section of ``strings.json``).
     """
     _state_attr='state'
+    _attr_has_entity_name = True
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, entity_cfg, charger) -> None:
         """Initialize the object."""
@@ -84,7 +90,12 @@ class ChargerPlatformEntity(Entity):
                     self._init_failed=True
             if self._init_failed == True: return None
             
-            self._attr_name = self._charger_id + ' ' + self._entity_cfg.get('name', self._entity_cfg.get('id'))
+            # Home Assistant resolves the visible name from the device name plus
+            # the translated entity name; the translation key is derived from the
+            # entity's uid (falling back to its id), matching the keys generated
+            # into the 'entity' section of strings.json. Do not set _attr_name:
+            # it would override the translated name.
+            self._attr_translation_key = slugify(str(self._entity_cfg.get('uid', self._entity_cfg.get('id', self._identifier))))
             self._attr_icon = self._entity_cfg.get('icon', None)
             self._attr_device_class = self._entity_cfg.get('device_class', None)
             self._entity_category = self._entity_cfg.get('entity_category', None)
@@ -223,7 +234,7 @@ class ChargerPlatformEntity(Entity):
         elif not getattr(self._charger,'connected', True):
             _LOGGER.debug("%s - %s: available: false because charger disconnected", self._charger_id, self._identifier)
             return False
-        elif not getattr(self._charger,'allPropsInitialized', True):
+        elif not getattr(self._charger,'properties_initialized', True):
             _LOGGER.debug("%s - %s: available: false because not all properties initialized", self._charger_id, self._identifier)
             return False
         elif self._source == 'attribute' and not hasattr(self._charger, self._identifier):
@@ -278,7 +289,7 @@ class ChargerPlatformEntity(Entity):
         info = DeviceInfo(
             identifiers={(DOMAIN, getattr(self._charger,'serial', GetChargerProp(self._charger,'sse',None)))},
             manufacturer=getattr(self._charger,'manufacturer',STATE_UNKNOWN),
-            model=GetChargerProp(self._charger,'typ',getattr(self._charger,'devicetype',STATE_UNKNOWN)),
+            model=GetChargerProp(self._charger,'typ',getattr(self._charger,'device_type',STATE_UNKNOWN)),
             name=getattr(self._charger,'name',getattr(self._charger,'hostname',STATE_UNKNOWN)),
             sw_version=getattr(self._charger,'firmware',STATE_UNKNOWN),
             hw_version=str(GetChargerProp(self._charger,'var',STATE_UNKNOWN))+' KW',

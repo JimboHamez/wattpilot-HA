@@ -56,7 +56,7 @@ async def test_force_type_float(mock_charger):
 
 
 async def test_namespace_value_sent_as_dict(mock_charger):
-    mock_charger.allProps["cll"] = SimpleNamespace(requestedCurrent=16)
+    mock_charger.all_properties["cll"] = SimpleNamespace(requestedCurrent=16)
     await utils.async_SetChargerProp(mock_charger, "cll", SimpleNamespace(requestedCurrent=16))
     assert mock_charger.sent[-1] == ("cll", {"requestedCurrent": 16})
 

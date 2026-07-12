@@ -1,4 +1,4 @@
-"""Sensor entities for the Fronius Wattpilot integration."""
+"""Update entities for the Fronius Wattpilot integration."""
 
 from __future__ import annotations
 from typing import Any, Final
@@ -11,7 +11,6 @@ import re
 from packaging.version import Version
 
 from homeassistant.core import (
-    callback,
     HomeAssistant,
 )
 from homeassistant.config_entries import ConfigEntry
@@ -23,7 +22,6 @@ from homeassistant.components.update import (
 from homeassistant.const import (
     CONF_PARAMS,
     CONF_TIMEOUT,
-    STATE_UNKNOWN,
 )
 
 from .entities import ChargerPlatformEntity

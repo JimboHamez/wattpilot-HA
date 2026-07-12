@@ -32,7 +32,9 @@ from .const import (
 _LOGGER: Final = logging.getLogger(__name__)
 
 CONNECTION_SCHEMA: Final = vol.Schema({
-    vol.Required(CONF_CONNECTION, default=CONF_LOCAL): SelectSelector(SelectSelectorConfig(options=[CONF_LOCAL, CONF_CLOUD])),
+    vol.Required(CONF_CONNECTION, default=CONF_LOCAL): SelectSelector(
+        SelectSelectorConfig(options=[CONF_LOCAL, CONF_CLOUD], translation_key=CONF_CONNECTION)
+    ),
 })
 
 
