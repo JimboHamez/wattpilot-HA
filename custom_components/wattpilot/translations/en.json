@@ -55,12 +55,27 @@
                     "password": "The local charger password configured in the Wattpilot app.",
                     "timeout": "Seconds to wait for the connection to be established and initialised."
                 }
+            },
+            "reauth_confirm": {
+                "title": "Wattpilot charger",
+                "description": "The password for \"{name}\" is no longer valid. Enter the current charger password.",
+                "data": {
+                    "password": "Password"
+                },
+                "data_description": {
+                    "password": "The local charger password configured in the Wattpilot app."
+                }
             }
         },
         "abort": {
             "already_configured": "This charger is already configured.",
             "exception": "An unexpected error occurred. Please check the logs for details.",
-            "no_serial": "The discovered device did not advertise a serial number."
+            "no_serial": "The discovered device did not advertise a serial number.",
+            "reauth_successful": "Reauthentication was successful."
+        },
+        "error": {
+            "invalid_auth": "Invalid password. Please check the charger password and try again.",
+            "cannot_connect": "Failed to connect to the charger. Please check it is online and try again."
         }
     },
     "options": {

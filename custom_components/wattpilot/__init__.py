@@ -6,8 +6,10 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Final, Literal
 
+from wattpilot_api.exceptions import AuthenticationError
+
 from homeassistant.const import CONF_PARAMS
-from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.loader import async_get_integration
 
 from .const import (
@@ -89,6 +91,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             raise ConfigEntryNotReady(f"Unable to connect to Wattpilot charger for entry {entry.entry_id}")
     except ConfigEntryNotReady:
         raise
+    except AuthenticationError as e:
+        # Wrong password: ask the user to re-enter it via a reauth flow.
+        raise ConfigEntryAuthFailed(f"Authentication failed for Wattpilot charger for entry {entry.entry_id}") from e
     except Exception as e:
         _LOGGER.error(
             "%s - async_setup_entry: Connecting charger failed: %s (%s.%s)",

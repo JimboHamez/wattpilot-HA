@@ -55,12 +55,27 @@
                     "password": "Das in der Wattpilot-App festgelegte lokale Passwort der Ladestation.",
                     "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
                 }
+            },
+            "reauth_confirm": {
+                "title": "Wattpilot Ladestation",
+                "description": "Das Passwort für „{name}“ ist nicht mehr gültig. Gib das aktuelle Passwort der Ladestation ein.",
+                "data": {
+                    "password": "Passwort"
+                },
+                "data_description": {
+                    "password": "Das in der Wattpilot-App festgelegte lokale Passwort der Ladestation."
+                }
             }
         },
         "abort": {
             "already_configured": "Diese Ladestation ist bereits konfiguriert.",
             "exception": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Logdateien für Details.",
-            "no_serial": "Das gefundene Gerät hat keine Seriennummer bereitgestellt."
+            "no_serial": "Das gefundene Gerät hat keine Seriennummer bereitgestellt.",
+            "reauth_successful": "Die erneute Authentifizierung war erfolgreich."
+        },
+        "error": {
+            "invalid_auth": "Ungültiges Passwort. Bitte prüfe das Passwort der Ladestation und versuche es erneut.",
+            "cannot_connect": "Verbindung zur Ladestation fehlgeschlagen. Bitte prüfe, ob sie online ist, und versuche es erneut."
         }
     },
     "options": {

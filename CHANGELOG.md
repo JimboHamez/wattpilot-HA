@@ -38,6 +38,9 @@ firmware 43.4).
 - Bumped integration version to 0.5.0.
 
 ### Added
+- **Reauthentication flow:** an authentication failure (e.g. a changed charger
+  password) now raises `ConfigEntryAuthFailed` and prompts the user to re-enter the
+  password, instead of leaving the entry permanently failed.
 - **mDNS/zeroconf discovery:** Wattpilot chargers advertising `_http._tcp.local.`
   with `devicefamily=wattpilot` are auto-discovered; the flow asks only for the
   password and keys the entry by serial (refreshing the stored IP on rediscovery).

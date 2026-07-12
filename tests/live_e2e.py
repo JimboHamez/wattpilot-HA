@@ -8,6 +8,7 @@ change). Read-only apart from that single idempotent write.
 Usage:
     .venv-test/bin/python tests/live_e2e.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,11 +23,16 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 from custom_components.wattpilot.const import (  # noqa: E402
-    CONF_CONNECTION, CONF_LOCAL, CONF_CLOUD, CONF_SERIAL,
+    CONF_CONNECTION,
+    CONF_LOCAL,
+    CONF_CLOUD,
+    CONF_SERIAL,
 )
 from custom_components.wattpilot.utils import (  # noqa: E402
-    async_ConnectCharger, async_DisconnectCharger,
-    async_GetChargerProp, async_SetChargerProp,
+    async_ConnectCharger,
+    async_DisconnectCharger,
+    async_GetChargerProp,
+    async_SetChargerProp,
 )
 
 SECRETS_FILE = os.path.join(REPO_ROOT, ".wp_test.json")
@@ -49,7 +55,9 @@ async def main() -> None:
     charger = await async_ConnectCharger("live-e2e", data)
     if charger is False:
         sys.exit("   FAILED to connect (see logged error).")
-    print(f"   connected: name={charger.name} connected={charger.connected} initialized={charger.properties_initialized}")
+    print(
+        f"   connected: name={charger.name} connected={charger.connected} initialized={charger.properties_initialized}"
+    )
 
     # 2) Live property push via the same callback mechanism the integration uses.
     pushes: list[tuple[str, object]] = []

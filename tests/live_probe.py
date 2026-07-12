@@ -9,6 +9,7 @@ Usage:
     cp .wp_test.example.json .wp_test.json   # then edit in your charger details
     .venv-test/bin/python tests/live_probe.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,11 +36,18 @@ async def _run(cfg: dict) -> None:
     con = cfg.get("connection", "local")
     timeout = float(cfg.get("timeout", 30))
     if con == "cloud":
-        charger = Wattpilot(host=cfg["serial"], password=cfg["password"], serial=cfg["serial"],
-                            cloud=True, connect_timeout=timeout, init_timeout=timeout)
+        charger = Wattpilot(
+            host=cfg["serial"],
+            password=cfg["password"],
+            serial=cfg["serial"],
+            cloud=True,
+            connect_timeout=timeout,
+            init_timeout=timeout,
+        )
     else:
-        charger = Wattpilot(host=cfg["ip"], password=cfg["password"], serial=cfg["ip"],
-                            connect_timeout=timeout, init_timeout=timeout)
+        charger = Wattpilot(
+            host=cfg["ip"], password=cfg["password"], serial=cfg["ip"], connect_timeout=timeout, init_timeout=timeout
+        )
 
     print(f"Connecting ({con}) ...")
     await charger.connect()
