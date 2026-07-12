@@ -7,7 +7,6 @@ from typing import (
     Any,
 )
 import logging
-import asyncio
 
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -22,9 +21,7 @@ from .const import (
     DOMAIN,
 )
 
-from .utils import (
-    wattpilot,
-)
+import wattpilot_api
 
 REDACT_CONFIG = {CONF_IP_ADDRESS, CONF_PASSWORD}
 REDACT_ALLPROPS = {'wifis', 'scan', 'data', 'dll', 'cak', 'ocppck', 'ocppcc', 'ocppsc' }
@@ -51,15 +48,15 @@ async def async_get_config_entry_diagnostics( hass: HomeAssistant, entry: Config
 
     try:
         _LOGGER.debug("%s - async_get_config_entry_diagnostics %s: Add charger properties to output", entry.entry_id, platform)
-        diag["charger_properties"] = async_redact_data(charger.allProps, REDACT_ALLPROPS)
+        diag["charger_properties"] = async_redact_data(charger.all_properties, REDACT_ALLPROPS)
     except Exception as e:
         _LOGGER.error("%s - async_get_config_entry_diagnostics %s: Adding charger properties to output failed: %s (%s.%s)", entry.entry_id, platform, str(e), e.__class__.__module__, type(e).__name__)
         return diag
 
     try:
         _LOGGER.debug("%s - async_get_config_entry_diagnostics %s: Add python modules version", entry.entry_id, platform)
-        diag["wattpilot_module"] = version('wattpilot')
-        diag["wattpilot_file"] = wattpilot.__file__
+        diag["wattpilot_module"] = version('wattpilot-api')
+        diag["wattpilot_file"] = wattpilot_api.__file__
         diag["pyyaml_module"] = version('pyyaml')
         diag["importlib_metadata_module"] = version('importlib_metadata')
         diag["aiofiles_module"] = version('aiofiles')

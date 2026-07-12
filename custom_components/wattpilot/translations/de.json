@@ -1,39 +1,636 @@
 {
     "config": {
-        "abort": {
-            "single_instance_allowed": "Nur eine Instanz dieser Konfiguration is erlaubt.",
-            "exception": "Es ist ein unbekannter Fehler aufgetreten - Bitte Logdateien prüfen.",
-            "not_supported": "Dieser workflow is leider noch nicht supportet. Bitte warte auf ein Versionsupdate."
-        },
+        "flow_title": "{name}",
         "step": {
-            "charger": {
+            "connection": {
+                "title": "Wattpilot Ladestation",
+                "description": "Wähle aus, wie Home Assistant sich mit deiner Wattpilot Ladestation verbinden soll.",
                 "data": {
-		    "friendly_name": "Name der Ladestation (nur Anzeigename)",
- 		    "ip_address": "Lokale IP Adresse der Ladestation",
-                    "password": "Password für die lokale verbindung zur Ladestation",
-                    "timeout": "Zeitüberschreitung für die Verbindungsherstellung und initialisierung"
+                    "connection": "Verbindungsart"
                 },
-                "title": "Ladestation konfigurieren",
-                "description": "Konfiguration"
+                "data_description": {
+                    "connection": "Lokal verbindet direkt über dein LAN. Cloud verbindet über die go-e Cloud anhand der Seriennummer der Ladestation."
+                }
+            },
+            "local": {
+                "title": "Lokale Verbindung",
+                "description": "Gib die lokalen Netzwerkdaten deiner Wattpilot Ladestation ein.",
+                "data": {
+                    "friendly_name": "Name",
+                    "ip_address": "IP-Adresse",
+                    "password": "Passwort",
+                    "timeout": "Zeitüberschreitung"
+                },
+                "data_description": {
+                    "friendly_name": "Anzeigename der Ladestation in Home Assistant.",
+                    "ip_address": "Lokale IP-Adresse der Ladestation in deinem Netzwerk.",
+                    "password": "Das in der Wattpilot-App festgelegte lokale Passwort der Ladestation.",
+                    "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
+                }
+            },
+            "cloud": {
+                "title": "Cloud-Verbindung",
+                "description": "Gib die go-e Cloud-Daten deiner Wattpilot Ladestation ein.",
+                "data": {
+                    "friendly_name": "Name",
+                    "serial": "Seriennummer",
+                    "password": "Passwort",
+                    "timeout": "Zeitüberschreitung"
+                },
+                "data_description": {
+                    "friendly_name": "Anzeigename der Ladestation in Home Assistant.",
+                    "serial": "Seriennummer der Ladestation, über die sie in der go-e Cloud erreicht wird.",
+                    "password": "Das für deine Ladestation festgelegte Cloud-Passwort.",
+                    "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
+                }
+            },
+            "zeroconf_confirm": {
+                "title": "Wattpilot Ladestation",
+                "description": "Richte die gefundene Wattpilot Ladestation „{name}“ ein.",
+                "data": {
+                    "password": "Passwort",
+                    "timeout": "Zeitüberschreitung"
+                },
+                "data_description": {
+                    "password": "Das in der Wattpilot-App festgelegte lokale Passwort der Ladestation.",
+                    "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
+                }
             }
-        }        
+        },
+        "abort": {
+            "already_configured": "Diese Ladestation ist bereits konfiguriert.",
+            "exception": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Logdateien für Details.",
+            "no_serial": "Das gefundene Gerät hat keine Seriennummer bereitgestellt."
+        }
     },
     "options": {
-        "abort": {
-            "single_instance_allowed": "Nur eine Instanz dieser Konfiguration is erlaubt.",
-            "exception": "Es ist ein unbekannter Fehler aufgetreten - Bitte Logdateien prüfen.",
-            "not_supported": "Dieser workflow is leider noch nicht supportet. Bitte warte auf ein Versionsupdate."
-        },
         "step": {
-            "charger": {
+            "config_connection": {
+                "title": "Wattpilot Ladestation",
+                "description": "Wähle aus, wie Home Assistant sich mit deiner Wattpilot Ladestation verbinden soll.",
                 "data": {
-		    "friendly_name": "Name der Ladestation (nur Anzeigename)",
- 		    "ip_address": "Lokale IP Adresse der Ladestation",
-                    "password": "Password für die lokale verbindung zur Ladestation",
-                    "timeout": "Zeitüberschreitung für die Verbindungsherstellung und initialisierung"
+                    "connection": "Verbindungsart"
                 },
-                "title": "Ladestation konfigurieren",
-                "description": "Konfiguration"
+                "data_description": {
+                    "connection": "Lokal verbindet direkt über dein LAN. Cloud verbindet über die go-e Cloud anhand der Seriennummer der Ladestation."
+                }
+            },
+            "config_local": {
+                "title": "Lokale Verbindung",
+                "description": "Aktualisiere die lokalen Netzwerkdaten deiner Wattpilot Ladestation.",
+                "data": {
+                    "friendly_name": "Name",
+                    "ip_address": "IP-Adresse",
+                    "password": "Passwort",
+                    "timeout": "Zeitüberschreitung"
+                },
+                "data_description": {
+                    "friendly_name": "Anzeigename der Ladestation in Home Assistant.",
+                    "ip_address": "Lokale IP-Adresse der Ladestation in deinem Netzwerk.",
+                    "password": "Das in der Wattpilot-App festgelegte lokale Passwort der Ladestation.",
+                    "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
+                }
+            },
+            "config_cloud": {
+                "title": "Cloud-Verbindung",
+                "description": "Aktualisiere die go-e Cloud-Daten deiner Wattpilot Ladestation.",
+                "data": {
+                    "friendly_name": "Name",
+                    "serial": "Seriennummer",
+                    "password": "Passwort",
+                    "timeout": "Zeitüberschreitung"
+                },
+                "data_description": {
+                    "friendly_name": "Anzeigename der Ladestation in Home Assistant.",
+                    "serial": "Seriennummer der Ladestation, über die sie in der go-e Cloud erreicht wird.",
+                    "password": "Das für deine Ladestation festgelegte Cloud-Passwort.",
+                    "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
+                }
+            }
+        },
+        "abort": {
+            "exception": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Logdateien für Details.",
+            "not_supported": "Diese Konfigurationsquelle wird noch nicht unterstützt. Bitte warte auf ein zukünftiges Versionsupdate."
+        }
+    },
+    "selector": {
+        "connection": {
+            "options": {
+                "local": "Lokal (LAN)",
+                "cloud": "go-e Cloud"
+            }
+        }
+    },
+    "services": {
+        "set_next_trip": {
+            "name": "Nächste Fahrt festlegen",
+            "description": "Legt die Abfahrtszeit fest, die vom Lademodus „Nächste Fahrt“ verwendet wird.",
+            "fields": {
+                "device_id": {
+                    "name": "Ladestation",
+                    "description": "Ladestation, auf die die Änderung angewendet wird."
+                },
+                "trigger_time": {
+                    "name": "Nächste Fahrt",
+                    "description": "Abfahrtszeit der nächsten Fahrt."
+                }
+            }
+        },
+        "set_goe_cloud": {
+            "name": "go-e Cloud festlegen",
+            "description": "Aktiviert oder deaktiviert den go-e Cloud-Zugriff für die Ladestation.",
+            "fields": {
+                "device_id": {
+                    "name": "Ladestation",
+                    "description": "Ladestation, auf die die Änderung angewendet wird."
+                },
+                "cloud_api": {
+                    "name": "Cloud-API",
+                    "description": "Schaltet den Zugriff auf die go-e Cloud-API ein oder aus."
+                }
+            }
+        },
+        "set_debug_properties": {
+            "name": "Debug-Eigenschaften festlegen",
+            "description": "Aktiviert oder deaktiviert das Protokollieren von Eigenschaftsänderungen der Ladestation als Warnungen im Log.",
+            "fields": {
+                "device_id": {
+                    "name": "Ladestation",
+                    "description": "Ladestation, auf die die Änderung angewendet wird."
+                },
+                "debug_properties": {
+                    "name": "Debug-Eigenschaften",
+                    "description": "TRUE protokolliert alle Eigenschaftsänderungen, FALSE keine, oder gib eine Liste von Eigenschafts-Codes an, um nur diese zu protokollieren."
+                }
+            }
+        },
+        "disconnect_charger": {
+            "name": "Ladestation trennen",
+            "description": "Trennt eine bestehende Verbindung zur Ladestation. Entitäten werden bis zur erneuten Verbindung nicht verfügbar.",
+            "fields": {
+                "device_id": {
+                    "name": "Ladestation",
+                    "description": "Ladestation, auf die die Änderung angewendet wird."
+                }
+            }
+        },
+        "reconnect_charger": {
+            "name": "Ladestation erneut verbinden",
+            "description": "Stellt eine getrennte Verbindung zur Ladestation wiederher.",
+            "fields": {
+                "device_id": {
+                    "name": "Ladestation",
+                    "description": "Ladestation, auf die die Änderung angewendet wird."
+                }
+            }
+        }
+    },
+    "entity": {
+        "sensor": {
+            "access_state": {
+                "name": "Zugriffsstatus"
+            },
+            "car_connected": {
+                "name": "Fahrzeug verbunden"
+            },
+            "cards_0": {
+                "name": "ID-Chip 0"
+            },
+            "cards_1": {
+                "name": "ID-Chip 1"
+            },
+            "cards_2": {
+                "name": "ID-Chip 2"
+            },
+            "cards_3": {
+                "name": "ID-Chip 3"
+            },
+            "cards_4": {
+                "name": "ID-Chip 4"
+            },
+            "cards_5": {
+                "name": "ID-Chip 5"
+            },
+            "cards_6": {
+                "name": "ID-Chip 6"
+            },
+            "cards_7": {
+                "name": "ID-Chip 7"
+            },
+            "cards_8": {
+                "name": "ID-Chip 8"
+            },
+            "cards_9": {
+                "name": "ID-Chip 9"
+            },
+            "car": {
+                "name": "Fahrzeugstatus",
+                "state": {
+                    "unknown": "Unbekannt",
+                    "idle": "Leerlauf",
+                    "charging": "Lädt",
+                    "wait_car": "Warte auf Fahrzeug",
+                    "complete": "Abgeschlossen",
+                    "error": "Fehler"
+                }
+            },
+            "cci": {
+                "name": "Wechselrichter"
+            },
+            "ccw": {
+                "name": "WLAN-Verbindung"
+            },
+            "cus": {
+                "name": "Kabelentriegelung",
+                "state": {
+                    "unknown": "Unbekannt",
+                    "unlocked": "Entriegelt",
+                    "unlockfailed": "Entriegelung fehlgeschlagen",
+                    "locked": "Verriegelt",
+                    "lockfailed": "Verriegelung fehlgeschlagen",
+                    "lockunlockpowerout": "Ver-/Entriegeln bei Stromausfall"
+                }
+            },
+            "err": {
+                "name": "Interner Fehler",
+                "state": {
+                    "none": "None",
+                    "fiac": "FiAc",
+                    "fidc": "FiDc",
+                    "phase": "Phase",
+                    "overvolt": "Overvolt",
+                    "overamp": "Overamp",
+                    "diode": "Diode",
+                    "ppinvalid": "PpInvalid",
+                    "gndinvalid": "GndInvalid",
+                    "contactorstuck": "ContactorStuck",
+                    "contactormiss": "ContactorMiss",
+                    "fiunknown": "FiUnknown",
+                    "unknown": "Unknown",
+                    "overtemp": "Overtemp",
+                    "nocomm": "NoComm",
+                    "statuslockstuckopen": "StatusLockStuckOpen",
+                    "statuslockstucklocked": "StatusLockStuckLocked",
+                    "reserved20": "Reserved20",
+                    "reserved21": "Reserved21",
+                    "reserved22": "Reserved22",
+                    "reserved23": "Reserved23",
+                    "reserved24": "Reserved24"
+                }
+            },
+            "eto": {
+                "name": "Gesamt geladen"
+            },
+            "ffb": {
+                "name": "Verriegelungsrückmeldung",
+                "state": {
+                    "unknown": "Unbekannt",
+                    "unlocked": "Entriegelt",
+                    "unlockfailed": "Entriegelung fehlgeschlagen",
+                    "locked": "Verriegelt",
+                    "lockfailed": "Verriegelung fehlgeschlagen",
+                    "lockunlockpowerout": "Ver-/Entriegeln bei Stromausfall"
+                }
+            },
+            "lck": {
+                "name": "Effektive Verriegelungseinstellung",
+                "state": {
+                    "normal": "Normal",
+                    "autounlock": "Automatisch entriegeln",
+                    "alwayslock": "Immer verriegeln",
+                    "forceunlock": "Entriegeln erzwingen"
+                }
+            },
+            "loc": {
+                "name": "Ortszeit"
+            },
+            "modelstatus": {
+                "name": "Ladegrund",
+                "state": {
+                    "notchargingbecausenochargectrldata": "NotChargingBecauseNoChargeCtrlData",
+                    "notchargingbecauseovertemperature": "NotChargingBecauseOvertemperature",
+                    "notchargingbecauseaccesscontrolwait": "NotChargingBecauseAccessControlWait",
+                    "chargingbecauseforcestateon": "ChargingBecauseForceStateOn",
+                    "notchargingbecauseforcestateoff": "NotChargingBecauseForceStateOff",
+                    "notchargingbecausescheduler": "NotChargingBecauseScheduler",
+                    "notchargingbecauseenergylimit": "NotChargingBecauseEnergyLimit",
+                    "chargingbecauseawattarpricelow": "ChargingBecauseAwattarPriceLow",
+                    "chargingbecauseautomaticstoptestladung": "ChargingBecauseAutomaticStopTestLadung",
+                    "chargingbecauseautomaticstopnotenoughtime": "ChargingBecauseAutomaticStopNotEnoughTime",
+                    "chargingbecauseautomaticstop": "ChargingBecauseAutomaticStop",
+                    "chargingbecauseautomaticstopnoclock": "ChargingBecauseAutomaticStopNoClock",
+                    "chargingbecausepvsurplus": "ChargingBecausePvSurplus",
+                    "chargingbecausefallbackgoedefault": "ChargingBecauseFallbackGoEDefault",
+                    "chargingbecausefallbackgoescheduler": "ChargingBecauseFallbackGoEScheduler",
+                    "chargingbecausefallbackdefault": "ChargingBecauseFallbackDefault",
+                    "notchargingbecausefallbackgoeawattar": "NotChargingBecauseFallbackGoEAwattar",
+                    "notchargingbecausefallbackawattar": "NotChargingBecauseFallbackAwattar",
+                    "notchargingbecausefallbackautomaticstop": "NotChargingBecauseFallbackAutomaticStop",
+                    "chargingbecausecarcompatibilitykeepalive": "ChargingBecauseCarCompatibilityKeepAlive",
+                    "chargingbecausechargepausenotallowed": "ChargingBecauseChargePauseNotAllowed",
+                    "notchargingbecausesimulateunplugging": "NotChargingBecauseSimulateUnplugging",
+                    "notchargingbecausephaseswitch": "NotChargingBecausePhaseSwitch",
+                    "notchargingbecauseminpauseduration": "NotChargingBecauseMinPauseDuration",
+                    "notchargingbecauseerror": "NotChargingBecauseError",
+                    "notchargingbecauseloadmanagementdoesntwant": "NotChargingBecauseLoadManagementDoesntWant",
+                    "notchargingbecauseocppdoesntwant": "NotChargingBecauseOcppDoesntWant",
+                    "notchargingbecausereconnectdelay": "NotChargingBecauseReconnectDelay",
+                    "notchargingbecauseadapterblocking": "NotChargingBecauseAdapterBlocking",
+                    "notchargingbecauseunderfrequencycontrol": "NotChargingBecauseUnderfrequencyControl",
+                    "notchargingbecauseunbalancedload": "NotChargingBecauseUnbalancedLoad",
+                    "chargingbecausedischargingpvbattery": "ChargingBecauseDischargingPvBattery",
+                    "notchargingbecausegridmonitoring": "NotChargingBecauseGridMonitoring",
+                    "notchargingbecauseocppfallback": "NotChargingBecauseOcppFallback"
+                }
+            },
+            "nrg": {
+                "name": "Ladeleistung"
+            },
+            "qsw": {
+                "name": "Webserver-Warteschlange"
+            },
+            "rbc": {
+                "name": "Neustart-Zähler"
+            },
+            "rbt": {
+                "name": "Zeit seit Neustart"
+            },
+            "rssi": {
+                "name": "WLAN-Signal"
+            },
+            "tma": {
+                "name": "Ladestationstemperatur"
+            },
+            "trx": {
+                "name": "Aktueller ID-Chip",
+                "state": {
+                    "no_chip": "No Chip",
+                    "id_chip_0": "ID Chip 0",
+                    "id_chip_1": "ID Chip 1",
+                    "id_chip_2": "ID Chip 2",
+                    "id_chip_3": "ID Chip 3",
+                    "id_chip_4": "ID Chip 4",
+                    "id_chip_5": "ID Chip 5",
+                    "id_chip_6": "ID Chip 6",
+                    "id_chip_7": "ID Chip 7",
+                    "id_chip_8": "ID Chip 8",
+                    "id_chip_9": "ID Chip 9",
+                    "no_transaction": "No Transaction"
+                }
+            },
+            "wcch": {
+                "name": "HTTP-Clients"
+            },
+            "wccw": {
+                "name": "WebSocket-Clients"
+            },
+            "wh": {
+                "name": "Geladen (aktuelle Verbindung)"
+            },
+            "wst": {
+                "name": "WLAN-Status",
+                "state": {
+                    "idle_status": "IDLE_STATUS",
+                    "no_ssid_avail": "NO_SSID_AVAIL",
+                    "scan_completed": "SCAN_COMPLETED",
+                    "connected": "CONNECTED",
+                    "connect_failed": "CONNECT_FAILED",
+                    "connection_lost": "CONNECTION_LOST",
+                    "disconnected": "DISCONNECTED",
+                    "connecting": "CONNECTING",
+                    "disconnecting": "DISCONNECTING",
+                    "no_shield": "NO_SHIELD"
+                }
+            }
+        },
+        "switch": {
+            "bac": {
+                "name": "Auswahl der Sperrstufe"
+            },
+            "ebe": {
+                "name": "Boost"
+            },
+            "fap": {
+                "name": "Ladepause"
+            },
+            "fre": {
+                "name": "Im Eco-Modus bleiben"
+            },
+            "ful": {
+                "name": "Lumina Strom/aWATTar"
+            },
+            "fup": {
+                "name": "PV-Überschuss"
+            },
+            "loe": {
+                "name": "Lastverteilung"
+            },
+            "lse": {
+                "name": "LED-Energiesparen"
+            },
+            "nmo": {
+                "name": "Erdungsprüfung"
+            },
+            "pdte": {
+                "name": "PV-Batterie entladen"
+            },
+            "su": {
+                "name": "Ausstecken simulieren"
+            },
+            "tse": {
+                "name": "Network Time Protocol"
+            },
+            "upo": {
+                "name": "Entriegeln bei Stromausfall"
+            },
+            "wda": {
+                "name": "Hotspot automatisch deaktivieren"
+            }
+        },
+        "select": {
+            "acs": {
+                "name": "Zugriffskontrolle",
+                "state": {
+                    "open": "Offen",
+                    "authentication_required": "Authentifizierung erforderlich"
+                }
+            },
+            "awc": {
+                "name": "aWATTar-Land",
+                "state": {
+                    "austria": "Austria",
+                    "belgium": "Belgium",
+                    "bulgaria": "Bulgaria",
+                    "croatia": "Croatia",
+                    "czechia": "Czechia",
+                    "denmark_dk1": "Denmark DK1",
+                    "denmark_dk2": "Denmark DK2",
+                    "denmark_dk1_tibber": "Denmark DK1 Tibber",
+                    "denmark_dk2_tibber": "Denmark DK2 Tibber",
+                    "estonia": "Estonia",
+                    "finland": "Finland",
+                    "france": "France",
+                    "germany": "Germany",
+                    "greece": "Greece",
+                    "hungary": "Hungary",
+                    "italy_calabria": "Italy Calabria",
+                    "italy_centre_noth": "Italy Centre-Noth",
+                    "italy_centre_south": "Italy Centre-South",
+                    "italy_north": "Italy North",
+                    "italy_sacoac": "Italy SacoAC",
+                    "italy_sacodc": "Italy SacoDC",
+                    "italy_sardinia": "Italy Sardinia",
+                    "italy_sicily": "Italy Sicily",
+                    "italy_south": "Italy South",
+                    "latvia": "Latvia",
+                    "lithuania": "Lithuania",
+                    "montenegro": "Montenegro",
+                    "netherlands": "Netherlands",
+                    "norway_elspot1": "Norway Elspot1",
+                    "norway_elspot2": "Norway Elspot2",
+                    "norway_elspot3": "Norway Elspot3",
+                    "norway_elspot4": "Norway Elspot4",
+                    "norway_elspot5": "Norway Elspot5",
+                    "norway_no2nsl": "Norway NO2NSL",
+                    "poland": "Poland",
+                    "portugal": "Portugal",
+                    "romania": "Romania",
+                    "serbia": "Serbia",
+                    "slovakia": "Slovakia",
+                    "slovenia": "Slovenia",
+                    "spain": "Spain",
+                    "sweden_elspot1": "Sweden Elspot1",
+                    "sweden_elspot2": "Sweden Elspot2",
+                    "sweden_elspot3": "Sweden Elspot3",
+                    "sweden_elspot4": "Sweden Elspot4",
+                    "sweden_tibber_elspot1": "Sweden Tibber Elspot1",
+                    "sweden_tibber_elspot2": "Sweden Tibber Elspot2",
+                    "sweden_tibber_elspot3": "Sweden Tibber Elspot3",
+                    "sweden_tibber_elspot4": "Sweden Tibber Elspot4",
+                    "switzerland": "Switzerland",
+                    "ukraine": "Ukraine"
+                }
+            },
+            "bac": {
+                "name": "Auswahl der Sperrstufe",
+                "state": {
+                    "always_locked": "Immer gesperrt",
+                    "locked_when_car_is_connected": "Gesperrt bei verbundenem Fahrzeug",
+                    "never_locked": "Nie gesperrt"
+                }
+            },
+            "ct": {
+                "name": "Fahrzeug",
+                "state": {
+                    "standard": "Standard",
+                    "kia_soul": "Kia Soul",
+                    "renault_zoe_twingo": "Renault Zoe/Twingo",
+                    "mitsubishi_imiev": "Mitsubishi iMiev",
+                    "citroen_c_zero": "Citroen c zero",
+                    "peugeot_ion": "Peugeot iOn",
+                    "opel_corsa_e": "Opel Corsa-e",
+                    "vw_id_sw_3_2": "VW ID (SW <3.2)",
+                    "vw_id_sw_3_2_4_1": "VW ID (SW 3.2-4.1)",
+                    "vw_id_sw_5_x": "VW ID (SW 5.x)",
+                    "cupra_born_standard": "Cupra Born Standard",
+                    "cupra_born_alternativ": "Cupra Born Alternativ",
+                    "ford_explorer": "Ford Explorer",
+                    "porsche_taycan": "Porsche Taycan",
+                    "skoda_enyaq": "Skoda Enyaq",
+                    "dacia_spring": "Dacia Spring",
+                    "mercedes": "Mercedes",
+                    "ssangyong": "Ssangyong"
+                }
+            },
+            "ebo": {
+                "name": "Boost-Typ",
+                "state": {
+                    "one_time": "Einmalig",
+                    "repeat_for_as_long_as_vehicle_is_plugged_in": "Wiederholen, solange das Fahrzeug angesteckt ist"
+                }
+            },
+            "lmo": {
+                "name": "Lademodus"
+            },
+            "psm": {
+                "name": "Phasenumschaltung",
+                "state": {
+                    "auto": "Automatisch",
+                    "1_phase": "1 Phase",
+                    "3_phases": "3 Phasen"
+                }
+            },
+            "tds": {
+                "name": "Sommerzeit",
+                "state": {
+                    "none": "Keine",
+                    "europeansummertime": "Europäische Sommerzeit",
+                    "usdaylighttime": "US-Sommerzeit",
+                    "aueasterndaylighttime": "Australische Ost-Sommerzeit"
+                }
+            },
+            "ust": {
+                "name": "Kabelentriegelung"
+            }
+        },
+        "number": {
+            "amp": {
+                "name": "Maximaler Ladestrom"
+            },
+            "awp": {
+                "name": "Maximaler Preis"
+            },
+            "ebt": {
+                "name": "Boost entlädt bis"
+            },
+            "fam": {
+                "name": "PV-Batterie-Schwelle"
+            },
+            "fmt": {
+                "name": "Minimale Ladezeit"
+            },
+            "fot": {
+                "name": "Ohmpilot-Schwelle"
+            },
+            "fst": {
+                "name": "Laden starten bei"
+            },
+            "fte": {
+                "name": "Laden für nächste Fahrt"
+            },
+            "mpwst": {
+                "name": "Phasenumschaltungsverzögerung"
+            },
+            "mptwt": {
+                "name": "Phasenumschaltungsintervall"
+            },
+            "pdt": {
+                "name": "PV-Batterie entlädt bis"
+            },
+            "spl3": {
+                "name": "3-Phasen-Leistungsstufe"
+            }
+        },
+        "button": {
+            "frc0": {
+                "name": "Laden starten"
+            },
+            "frc1": {
+                "name": "Laden stoppen"
+            },
+            "frc2": {
+                "name": "Laden erzwingen"
+            },
+            "rst": {
+                "name": "Neustart"
+            },
+            "trx": {
+                "name": "Authentifizieren"
+            }
+        },
+        "update": {
+            "onv": {
+                "name": "Firmware-Update"
             }
         }
     }

@@ -21,6 +21,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import STATE_UNKNOWN
 from homeassistant.util import dt as dt_util
+from homeassistant.util import slugify
 
 from .entities import ChargerPlatformEntity
 
@@ -96,6 +97,12 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
             self._attr_state_class= SensorStateClass((self._entity_cfg.get('state_class')).lower())
         if not self._entity_cfg.get('enum', None) is None:
            self._state_enum = dict(self._entity_cfg.get('enum', None))
+           # Expose enum sensors as translated enum device-class entities: the
+           # native value is a stable slug per raw code, translated for display
+           # via entity.sensor.<key>.state.<slug> in strings.json.
+           self._enum_slugs = {k: slugify(str(v)) for k, v in self._state_enum.items()}
+           self._attr_device_class = SensorDeviceClass.ENUM
+           self._attr_options = list(self._enum_slugs.values())
         if not self._entity_cfg.get('html_unescape', None) is None:
            self._html_unescape = True
 
@@ -129,17 +136,27 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
                     return None
                 return self._parse_timestamp(state)
             if state is None or state == 'None':
+                # Numeric sensors (temperature, power, energy, …) and enum
+                # sensors reject the 'unknown' string; HA only accepts None (or,
+                # for enum, an option) for a missing value. Returning None leaves
+                # the last value in place rather than raising ValueError. Only
+                # plain text sensors may display the STATE_UNKNOWN string.
+                if self._numeric_state_expected or self._attr_device_class == SensorDeviceClass.ENUM:
+                    return None
                 state = STATE_UNKNOWN
             elif hasattr(self,'_html_unescape') and self._html_unescape:
                 state = html.unescape(state)
             elif not hasattr(self,'_state_enum'):
                 pass
-            elif state in list(self._state_enum.keys()):
-                state = self._state_enum[state]
-            elif state in list(self._state_enum.values()):
+            elif state in self._state_enum:
+                state = self._enum_slugs[state]
+            elif state in self._enum_slugs.values():
                 pass
             else:
+                # Unknown enum code: return None rather than a value outside the
+                # option list, which Home Assistant rejects for an enum sensor.
                 _LOGGER.warning("%s - %s: _async_update_validate_platform_state failed: state %s not within enum values: %s", self._charger_id, self._identifier, state, self._state_enum)
+                return None
             if not self._attr_native_unit_of_measurement is None: self._attr_native_value = state
             return state
         except Exception as e:

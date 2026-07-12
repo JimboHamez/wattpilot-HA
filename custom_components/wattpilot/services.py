@@ -1,4 +1,4 @@
-"""Support for dScriptModule services."""
+"""Service actions for the Fronius Wattpilot integration."""
 
 from __future__ import annotations
 from typing import Final
@@ -206,7 +206,7 @@ async def async_service_ReConnectCharger(hass: HomeAssistant, call: ServiceCall)
             _LOGGER.error("%s - async_service_ReConnectCharger: unable to get charger for: %s", DOMAIN, CONF_DEVICE_ID)
             return False
 
-        if charger._connected == True:
+        if charger.connected:
             _LOGGER.debug("%s - async_service_ReConnectCharger: first disconnect charger: %s", DOMAIN, device_id)
             disconnect = await async_service_DisconnectCharger(hass, call)
             if not disconnect == True:
@@ -239,11 +239,7 @@ async def async_service_DisconnectCharger(hass: HomeAssistant, call: ServiceCall
             _LOGGER.error("%s - async_service_DisconnectCharger: unable to get charger for: %s", DOMAIN, CONF_DEVICE_ID)
             return False
 
-        if hasattr(charger, 'disconnect') and callable(charger.disconnect):
-            charger.disconnect()
-        else: #workaround unitl wattpilot python package > 0.2 with built in disconnect is released
-            charger._wsapp.close()
-            charger._connected=False
+        await charger.disconnect()
         _LOGGER.info("%s - async_service_DisconnectCharger: Charger disconnected: %s", DOMAIN, charger.name)
         return True
 

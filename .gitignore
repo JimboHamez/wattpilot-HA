@@ -109,6 +109,8 @@ celerybeat.pid
 # Environments
 .env
 .venv
+.venv-test
+.wp_test.json
 env/
 venv/
 ENV/

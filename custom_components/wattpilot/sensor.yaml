@@ -27,12 +27,14 @@ sensor:
 #    html_unescape: <optional boolean to unescape HTML characters in state value>
 
   - source: attribute
-    id: AccessState
+    id: access_state
+    name: "Access State"
     description: "State of access for the charger - values are: 'open', 'locked', 'auto'"
     icon: "mdi:lock-question"
 
   - source: attribute
-    id: carConnected
+    id: car_connected
+    name: "Car Connected"
     description: "State of the car plug - values are: 'no car', 'charging', 'ready','complete'"
     icon: "mdi:ev-plug-type2"
 
