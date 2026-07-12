@@ -346,7 +346,8 @@ async def async_ConnectCharger(
     Builds a wattpilot_api ``Wattpilot`` client (unless reconnecting an existing
     one) and awaits ``connect()``, which internally waits for authentication and
     property initialisation and raises on failure. Returns the connected charger,
-    or ``False`` on any error, matching the log-and-degrade convention.
+    or ``False`` on a connection error. ``AuthenticationError`` is re-raised so
+    callers (config-entry setup) can trigger a reauthentication flow.
     """
     try:
         con = data.get(CONF_CONNECTION, CONF_LOCAL)
@@ -386,7 +387,7 @@ async def async_ConnectCharger(
         _LOGGER.error(
             "%s - async_ConnectCharger: Authentication failed - check charger password: %s", entry_or_device_id, str(e)
         )
-        return False
+        raise
     except WattpilotError as e:
         _LOGGER.error(
             "%s - async_ConnectCharger: Connecting charger failed: %s (%s.%s)",

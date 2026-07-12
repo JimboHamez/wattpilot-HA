@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any, ClassVar, Final
 
 import voluptuous as vol
+from wattpilot_api.exceptions import AuthenticationError
 
 import homeassistant.helpers.config_validation as cv
 from homeassistant import config_entries
@@ -23,8 +24,11 @@ from .configuration_schema import (
     async_get_OPTIONS_LOCAL_SCHEMA,
 )
 from .const import CONF_CLOUD, CONF_CONNECTION, CONF_LOCAL, CONF_SERIAL, DEFAULT_NAME, DEFAULT_TIMEOUT, DOMAIN
+from .utils import async_ConnectCharger, async_DisconnectCharger
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from homeassistant.config_entries import ConfigFlowResult
     from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
@@ -63,6 +67,38 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 type(e).__name__,
             )
             return self.async_abort(reason="exception")
+
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
+        """Handle a reauthentication flow triggered by an authentication failure."""
+        _LOGGER.debug("%s - ConfigFlowHandler: async_step_reauth", DOMAIN)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Ask the user for the charger password again and validate it."""
+        _LOGGER.debug("%s - ConfigFlowHandler: async_step_reauth_confirm", DOMAIN)
+        errors: dict[str, str] = {}
+        reauth_entry = self._get_reauth_entry()
+        if user_input is not None:
+            data = {**reauth_entry.data, CONF_PASSWORD: user_input[CONF_PASSWORD]}
+            try:
+                charger = await async_ConnectCharger("reauth", data)
+            except AuthenticationError:
+                errors["base"] = "invalid_auth"
+            else:
+                if charger is False:
+                    errors["base"] = "cannot_connect"
+                else:
+                    # Connection only validates the new password; setup reconnects on reload.
+                    await async_DisconnectCharger("reauth", charger)
+                    return self.async_update_reload_and_abort(
+                        reauth_entry, data_updates={CONF_PASSWORD: user_input[CONF_PASSWORD]}
+                    )
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=vol.Schema({vol.Required(CONF_PASSWORD): cv.string}),
+            description_placeholders={"name": reauth_entry.title},
+            errors=errors,
+        )
 
     async def async_step_zeroconf(self, discovery_info: ZeroconfServiceInfo) -> ConfigFlowResult:
         """Handle a charger discovered on the network via mDNS/zeroconf."""

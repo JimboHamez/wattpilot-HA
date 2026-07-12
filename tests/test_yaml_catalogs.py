@@ -33,9 +33,7 @@ def _load(platform: str) -> list[dict]:
 
 def test_all_platform_yaml_files_exist():
     for platform in PLATFORMS:
-        assert os.path.isfile(
-            os.path.join(COMPONENT_DIR, f"{platform}.yaml")
-        ), f"missing {platform}.yaml"
+        assert os.path.isfile(os.path.join(COMPONENT_DIR, f"{platform}.yaml")), f"missing {platform}.yaml"
 
 
 def test_every_yaml_file_parses():

@@ -32,9 +32,9 @@ def test_supported_platforms_have_yaml_catalogs():
         # 'diagnostics' has no YAML catalog; every other platform must.
         if platform == "diagnostics":
             continue
-        assert os.path.isfile(
-            os.path.join(COMPONENT_DIR, f"{platform}.yaml")
-        ), f"platform '{platform}' has no {platform}.yaml"
+        assert os.path.isfile(os.path.join(COMPONENT_DIR, f"{platform}.yaml")), (
+            f"platform '{platform}' has no {platform}.yaml"
+        )
 
 
 def test_manifest_domain_matches_const():
