@@ -12,6 +12,22 @@ for attribution.
 
 _Nothing yet._
 
+## [0.5.1] - 2026-07-12
+
+Patch release fixing an empty charging-mode dropdown introduced by the 0.5.0
+migration to `wattpilot-api`.
+
+### Fixed
+- The **Charging Mode** (`lmo`) and **Cable unlock** (`ust`) selects had no
+  options: they sourced them from `charger.lmoValues` / `charger.ustValues`
+  attributes that only existed on the old vendored library. Their options are
+  now static (`lmo`: Default / Eco / Next Trip; `ust`: Normal / AutoUnlock /
+  AlwaysLock), with matching English and German option translations, and are
+  validated against a physical charger.
+
+### Added
+- Regression tests for the `lmo` / `ust` select options and slug round-trip.
+
 ## [0.5.0] - 2026-07-12
 
 Major release advancing the Home Assistant Integration Quality Scale: migration to

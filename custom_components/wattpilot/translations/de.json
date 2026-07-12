@@ -565,7 +565,12 @@
                 }
             },
             "lmo": {
-                "name": "Lademodus"
+                "name": "Lademodus",
+                "state": {
+                    "default": "Standard",
+                    "eco": "Eco",
+                    "next_trip": "Nächste Fahrt"
+                }
             },
             "psm": {
                 "name": "Phasenumschaltung",
@@ -585,7 +590,12 @@
                 }
             },
             "ust": {
-                "name": "Kabelentriegelung"
+                "name": "Kabelentriegelung",
+                "state": {
+                    "normal": "Normal",
+                    "autounlock": "Automatisch entriegeln",
+                    "alwayslock": "Immer verriegeln"
+                }
             }
         },
         "number": {

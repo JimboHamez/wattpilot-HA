@@ -565,7 +565,12 @@
                 }
             },
             "lmo": {
-                "name": "Charging Mode"
+                "name": "Charging Mode",
+                "state": {
+                    "default": "Default",
+                    "eco": "Eco",
+                    "next_trip": "Next Trip"
+                }
             },
             "psm": {
                 "name": "Phase Switch",
@@ -585,7 +590,12 @@
                 }
             },
             "ust": {
-                "name": "Cable unlock"
+                "name": "Cable unlock",
+                "state": {
+                    "normal": "Normal",
+                    "autounlock": "AutoUnlock",
+                    "alwayslock": "AlwaysLock"
+                }
             }
         },
         "number": {
