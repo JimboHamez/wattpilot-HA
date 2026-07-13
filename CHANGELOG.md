@@ -12,6 +12,36 @@ for attribution.
 
 _Nothing yet._
 
+## [0.5.3] - 2026-07-13
+
+Fixes for errors reported from a live charger on 0.5.2.
+
+### Fixed
+- **Missing entities: Access State and Car Connected.** The entity `id` was split on `_` for
+  every source, so these attribute sensors looked for an `access` / `car` attribute (which does
+  not exist) instead of `access_state` / `car_connected`, and were dropped at setup with
+  "Charger does not have an attribute". Only a `namespacelist` id (`cards_0`) carries an index
+  suffix; every other id is now used verbatim.
+- **Entities failing to be added: ChargingReason, ID Chip current, Local Time.** The first state
+  Home Assistant writes happens at add time, before any poll or push, and the STATE_UNKNOWN
+  *string* is rejected by strict device classes — enum sensors ("state value 'unknown' … not in
+  the list of options") and timestamp sensors ("has timestamp device class but provides state
+  unknown"). Sensors now start from `None` (which HA renders as unknown) unless the catalog gives
+  an explicit `default_state`.
+- **'Unknown' entities after every restart.** The charger only pushes a property when it
+  *changes*, and the first poll tick was up to 30 s away, so entities sat at unknown after a
+  restart even though the value was already known. Every entity is now seeded from the charger as
+  soon as it is added. This is the actual cause of **PV Surplus** and **Remain in Eco Mode**
+  showing no on/off state — not the `0`/`1` encoding guessed at in 0.5.2 (the go-e API defines
+  `fup` as a bool; the widened coercion is kept as it is still correct for other properties).
+- Absent optional properties (`ffb`, `lck`, `tse`, `upo`, `ust`, RFID card slots beyond those the
+  charger has) are no longer logged as **errors** at every setup. The catalogs are deliberately a
+  superset of what any one model/firmware reports, so a missing value means "skip this entity" and
+  is now logged at debug.
+
+### Added
+- Regression tests for entity identification and startup state (`tests/test_entity_init_state.py`).
+
 ## [0.5.2] - 2026-07-13
 
 Entity units are now human-scale (minutes / kW / kWh instead of the charger's raw

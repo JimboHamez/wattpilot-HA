@@ -53,11 +53,17 @@ class ChargerPlatformEntity(Entity):
         """Initialize the object."""
         try:
             self._charger_id = str(entry.data.get(CONF_FRIENDLY_NAME, entry.data.get(CONF_IP_ADDRESS, DEFAULT_NAME)))
-            self._identifier = str(entity_cfg.get("id")).split("_")[0]
+            self._source = entity_cfg.get("source", "property")
+            # Only a namespacelist id carries its item index as a suffix
+            # ('cards_0' -> property 'cards', item 0). Every other id is used
+            # verbatim: attribute names contain underscores of their own
+            # ('car_connected', 'access_state'), and splitting them would look
+            # up a 'car' / 'access' attribute that does not exist.
+            raw_id = str(entity_cfg.get("id"))
+            self._identifier = raw_id.split("_", 1)[0] if self._source == "namespacelist" else raw_id
             _LOGGER.debug("%s - %s: __init__", self._charger_id, self._identifier)
 
             self._charger = charger
-            self._source = entity_cfg.get("source", "property")
             self._namespace_id = int(entity_cfg.get("namespace_id", 0))
             self._default_state = entity_cfg.get("default_state")
             self._entity_cfg = entity_cfg
@@ -77,9 +83,14 @@ class ChargerPlatformEntity(Entity):
                 return None
 
             self._init_failed = False
+            # A charger only reports the properties its model and firmware
+            # support (e.g. no 'ust'/'lck' on some Flex firmwares, fewer than ten
+            # RFID card slots). The catalogs are deliberately a superset, so an
+            # absent value means "skip this entity", not "something went wrong":
+            # log it at debug, or every setup floods the log with errors.
             if self._fw_supported is not False:
                 if self._source == "attribute" and not hasattr(self._charger, self._identifier):
-                    _LOGGER.error(
+                    _LOGGER.debug(
                         "%s - %s: __init__: Charger does not have an attribute: %s (maybe a property?)",
                         self._charger_id,
                         self._identifier,
@@ -90,7 +101,7 @@ class ChargerPlatformEntity(Entity):
                     self._source == "property"
                     and GetChargerProp(self._charger, self._identifier, self._default_state) is None
                 ):
-                    _LOGGER.error(
+                    _LOGGER.debug(
                         "%s - %s: __init__: Charger does not have a property: %s (maybe an attribute?)",
                         self._charger_id,
                         self._identifier,
@@ -98,7 +109,7 @@ class ChargerPlatformEntity(Entity):
                     )
                     self._init_failed = True
                 elif self._source == "namespacelist" and self._get_namespacelist_item() is None:
-                    _LOGGER.error(
+                    _LOGGER.debug(
                         "%s - %s: __init__: Charger does not have a namespacelist item: %s[%s]",
                         self._charger_id,
                         self._identifier,
@@ -151,11 +162,16 @@ class ChargerPlatformEntity(Entity):
         pass
 
     async def async_added_to_hass(self) -> None:
-        """Subscribe to pushed updates for this entity's property.
+        """Subscribe to pushed updates for this entity's property and seed its state.
 
         Property-source entities receive live updates via a dispatcher signal
         keyed on (config entry, property id); the subscription is released
         automatically on removal through ``async_on_remove``.
+
+        The charger only pushes a property when it *changes*, and the first poll
+        tick is up to 30 seconds away, so an entity would otherwise sit at
+        'unknown' after every restart even though the value is already known.
+        Seed it from the charger straight away.
         """
         await super().async_added_to_hass()
         if self._source == "property":
@@ -166,6 +182,7 @@ class ChargerPlatformEntity(Entity):
                     self._handle_property_update,
                 )
             )
+        self.hass.async_create_task(self.async_local_poll())
 
     @callback
     def _handle_property_update(self, value: Any) -> None:
@@ -355,11 +372,15 @@ class ChargerPlatformEntity(Entity):
         Attribute and namespacelist sources have no push channel, so they always
         poll. A property source polls only until its first push arrives: while it
         still holds the default state we poll to seed an initial value, then rely
-        on the property callback for subsequent updates.
+        on the property callback for subsequent updates. A state of None counts as
+        unseeded too: platforms whose device classes reject the STATE_UNKNOWN
+        string (sensor enum/timestamp) start from None instead of that sentinel.
         """
+        state = getattr(self, self._state_attr, STATE_UNKNOWN)
         return bool(
             self._source in {"attribute", "namespacelist"}
-            or getattr(self, self._state_attr, STATE_UNKNOWN) == self._entity_cfg.get("default_state", STATE_UNKNOWN)
+            or state is None
+            or state == self._entity_cfg.get("default_state", STATE_UNKNOWN)
         )
 
     @property

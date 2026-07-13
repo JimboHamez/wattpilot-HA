@@ -115,6 +115,14 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
 
     def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
+        if "default_state" not in self._entity_cfg:
+            # Home Assistant validates the very first state it writes (at add
+            # time, before any poll or push) against the device class: an enum
+            # sensor rejects anything outside its options, and a timestamp
+            # sensor requires a datetime. The STATE_UNKNOWN *string* fails both
+            # and the entity is dropped, so start from None instead — which HA
+            # renders as 'unknown' anyway.
+            self._attr_native_value = None
         self._attr_native_unit_of_measurement = self._entity_cfg.get("unit_of_measurement", None)
         if (
             unit_converter := UNIT_CONVERTERS.get(self._attr_device_class)
