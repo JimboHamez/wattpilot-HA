@@ -25,6 +25,12 @@ _LOGGER: Final = logging.getLogger(__name__)
 platform = "switch"
 PARALLEL_UPDATES = 0  # local push over a single WebSocket; no rate limit needed
 
+# The charger encodes boolean properties inconsistently: some come back as JSON
+# booleans, others as 0/1 numbers. Both have to resolve to a switch state, or the
+# entity stays stuck at STATE_UNKNOWN.
+TRUE_VALUES: Final = frozenset({"true", "1", "1.0", STATE_ON})
+FALSE_VALUES: Final = frozenset({"false", "0", "0.0", STATE_OFF})
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the switch platform."""
@@ -106,11 +112,11 @@ class ChargerSwitch(ChargerPlatformEntity):
     async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for switch specific requirements."""
         try:
-            if str(state) in [STATE_ON, STATE_OFF, STATE_UNKNOWN]:
+            if str(state) == STATE_UNKNOWN:
                 pass
-            elif str(state).lower() == "true":
+            elif str(state).lower() in TRUE_VALUES:
                 state = STATE_ON
-            elif str(state).lower() == "false":
+            elif str(state).lower() in FALSE_VALUES:
                 state = STATE_OFF
             else:
                 _LOGGER.warning(

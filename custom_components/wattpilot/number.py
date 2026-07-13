@@ -104,10 +104,12 @@ class ChargerNumber(ChargerPlatformEntity, NumberEntity):
     """Number class for Fronius Wattpilot integration."""
 
     _state_attr = "_attr_native_value"
+    _factor: float = 1.0
 
     def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
         self._attr_native_unit_of_measurement = self._entity_cfg.get("unit_of_measurement", None)
+        self._factor = float(self._entity_cfg.get("factor", 1) or 1)
         if (
             self._attr_device_class is not None
             and (unit_converter := UNIT_CONVERTERS.get(self._attr_device_class)) is not None
@@ -134,6 +136,8 @@ class ChargerNumber(ChargerPlatformEntity, NumberEntity):
 
     async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for sensor specific requirements."""
+        if self._factor != 1 and isinstance(state, (int, float)) and not isinstance(state, bool):
+            state = state / self._factor
         if self._attr_native_unit_of_measurement is not None:
             self._attr_native_value = state
         return state
@@ -154,7 +158,7 @@ class ChargerNumber(ChargerPlatformEntity, NumberEntity):
                     self._identifier,
                 )
                 await async_SetChargerProp(self._charger, "esk", True)
-            await async_SetChargerProp(self._charger, self._identifier, value, force_type=self._set_type)
+            await async_SetChargerProp(self._charger, self._identifier, value * self._factor, force_type=self._set_type)
         except Exception as e:
             _LOGGER.error(
                 "%s - %s: update failed: %s (%s.%s)",

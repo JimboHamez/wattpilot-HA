@@ -14,7 +14,8 @@ sensor:
 #    enabled: <optional: if set to False entity is by default disabled>
 #    device_class: <optional: key within HA>
 #    state_class: <optional: key within HA>
-#    unit_of_measurement: <optional: key within HA>
+#    unit_of_measurement: <optional: key within HA - the unit the charger property itself uses>
+#    suggested_unit_of_measurement: <optional: unit the sensor is displayed in - HA converts from unit_of_measurement. Only honoured if the device class has a unit converter and both units are valid for it, e.g. "kWh" for a "Wh" energy sensor>
 #    entity_category: <optional: key within HA>
 #    value_id: <required for charger properties of type namespace: define which namespace attribute should be used as state value>
 #    namespace_id: <required for namespacelist source objects: define which item from the list of namespaces should be used>
@@ -46,6 +47,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -61,6 +63,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -76,6 +79,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -91,6 +95,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -106,6 +111,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -121,6 +127,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -136,6 +143,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -151,6 +159,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -166,6 +175,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -181,6 +191,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     enabled: False
     value_id: energy
@@ -293,6 +304,7 @@ sensor:
     device_class: energy
     state_class: total
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: -1
     #entity_category: diagnostic
 
@@ -384,6 +396,7 @@ sensor:
     device_class: power
     state_class: measurement
     unit_of_measurement: W
+    suggested_unit_of_measurement: "kW"
     default_state: -1
     value_id: 11
     attribute_ids:
@@ -499,6 +512,7 @@ sensor:
     device_class: energy
     state_class: total_increasing
     unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
     default_state: 0
 
   - source: property

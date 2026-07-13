@@ -1,4 +1,9 @@
-[Wattpilot Custom Component](https://github.com/mk-maddin/wattpilot-HA) for homeassistant
+[Wattpilot Custom Component](https://github.com/JimboHamez/wattpilot-HA) for homeassistant
+
+> Downstream fork of [mk-maddin/wattpilot-HA](https://github.com/mk-maddin/wattpilot-HA), now
+> substantially diverged (async `wattpilot-api` library, translated entities, quality-scale work,
+> human-scale entity units). **Report issues for this version
+> [here](https://github.com/JimboHamez/wattpilot-HA/issues), not upstream.**
 
 # What This Is:
 

@@ -9,13 +9,23 @@
 [![Validate](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/validate.yml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/validate.yml)
 [![Security](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/security.yml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/security.yml)
 
-> **Note:** This repository is a fork/downstream copy of the upstream project
+> **Note:** This repository began as a fork of
 > [mk-maddin/wattpilot-HA](https://github.com/mk-maddin/wattpilot-HA) by Martin Kraemer
-> ([@mk-maddin](https://github.com/mk-maddin)), which is the original source and the place to
-> get official releases, report issues, and support the author. All credit for the integration
-> belongs upstream; it is redistributed here under its original
-> [Apache-2.0](LICENSE) license. For official releases, issues, and support, go to the
-> upstream project — the badges above track this fork.
+> ([@mk-maddin](https://github.com/mk-maddin)), and the original design is his — full credit
+> belongs upstream, and it is redistributed here under its original [Apache-2.0](LICENSE) license.
+>
+> **The two have since diverged substantially.** As of 0.5.0 this fork replaced the vendored,
+> synchronous `wattpilot` library with the maintained async
+> [`wattpilot-api`](https://pypi.org/project/wattpilot-api/), rewrote the entities around it,
+> added translated names and states, mDNS discovery and a reauthentication flow, and works
+> through the Home Assistant Integration Quality Scale. Behaviour, entity names and entity units
+> differ from upstream in ways upstream cannot support.
+>
+> **Please report issues with *this* integration
+> [here](https://github.com/JimboHamez/wattpilot-HA/issues), not upstream.** Bug reports about
+> this fork's code are not upstream's to answer. Go to
+> [mk-maddin/wattpilot-HA](https://github.com/mk-maddin/wattpilot-HA) if you are running
+> the original integration.
 
 # What This Is:
 
@@ -54,10 +64,15 @@ Allows for control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energ
 
 * create a light integration for LED color control etc.
 
-## Known Errors:
+## Reporting issues:
 
-* No explicit known errors
-* See https://github.com/mk-maddin/wattpilot-HA/issues for issues.
+Issues for this fork are tracked at
+[JimboHamez/wattpilot-HA/issues](https://github.com/JimboHamez/wattpilot-HA/issues) — please
+report them there rather than upstream, since this code has diverged from the original.
+
+When reporting, include the integration version, your charger model/variant and firmware, the
+[debug log](#troubleshooting) for the affected entity, and (if possible) the redacted
+**diagnostics** download from the device page.
 
 # Screenshots
 
@@ -145,6 +160,81 @@ property change. A small poll fallback seeds the initial value of each entity an
 covers the few attributes the charger does not push. Because it is push-based, there
 is no polling interval to configure.
 
+## Under the hood: `wattpilot-api`
+
+Since **0.5.0** this integration talks to the charger through the maintained, **async**
+[`wattpilot-api`](https://pypi.org/project/wattpilot-api/) library (`wattpilot-api>=1.4.0`,
+installed automatically from `manifest.json`). It replaced the original project's *vendored*
+copy of the synchronous [`wattpilot`](https://github.com/joscha82/wattpilot) module, which was
+shipped inside the component and driven from a background thread.
+
+What that means in practice:
+
+- The WebSocket connection is native `asyncio`, so nothing blocks Home Assistant's event loop
+  and property updates reach entities directly instead of being marshalled across threads.
+- The library is a normal dependency, so it is installed and updated by Home Assistant like any
+  other requirement — no vendored code to keep in sync.
+- It is still a **community, reverse-engineered** library: there is no official Fronius API, and
+  a charger firmware update can break it.
+
+This is the main reason this fork's behaviour differs from upstream, and why issues belong
+[here](https://github.com/JimboHamez/wattpilot-HA/issues).
+
+## Entity units
+
+The charger reports raw values in the units its firmware happens to use — milliseconds, watts,
+watt-hours. Those are awkward to read and to set, so the integration presents several entities
+in human-scale units instead. **The charger still receives its native units**; the conversion is
+in the integration.
+
+| Entity | Charger sends | Shown in Home Assistant |
+|---|---|---|
+| Min Charging Time (`fmt`) | milliseconds | **minutes** (1–60) |
+| Next Trip Charging (`fte`) | Wh | **kWh** (5–120, slider) |
+| Start Charging at (`fst`) | W | **kW** (1.4–22) |
+| 3-Phase power level (`spl3`) | W | **kW** (0–22) |
+| Charging Power (`nrg`) | W | **kW** |
+| Totally Charged (`eto`), Connection Charged (`wh`), ID Chip counters | Wh | **kWh** |
+
+Two different mechanisms do this, and the difference matters if you look closely:
+
+- The **numbers** (`fmt`, `fte`, `fst`, `spl3`) are rescaled by the integration, so their
+  recorded value itself changes scale.
+- The **sensors** (`nrg`, `eto`, `wh`, ID chips) keep their native unit and use Home Assistant's
+  own unit conversion, so long-term statistics stay continuous and you can override the displayed
+  unit per entity from the entity settings.
+
+> **Upgrading from 0.5.1 or earlier:** the four numbers above change scale, so their history shows
+> a step at the upgrade, and any automation or dashboard that referenced them in raw ms/W/Wh must
+> be updated (e.g. a `Start Charging at` of `4000` now means 4000 kW, not 4000 W — set `4.0`).
+> Per-phase powers exposed as *attributes* of Charging Power (`L1_Power`, `TotalPower`, …) are
+> **not** converted and remain in watts.
+
+## Local Time (charger clock vs HA clock)
+
+The **Local Time** sensor (disabled by default, diagnostic) reports the charger's own clock as a
+proper timestamp. Home Assistant renders timestamp sensors as *relative* time, so it will read
+something like *"In 4 seconds"* or *"2 minutes ago"* rather than a wall-clock time.
+
+That is not a bug — and it is the useful part: **the relative reading is the drift between your
+charger's clock and Home Assistant's clock.** A few seconds is normal. A large or growing offset
+is worth investigating, because the charger's own clock is what drives time-dependent behaviour
+such as next-trip charging and daylight-saving handling (`tds`) — if the charger thinks it is an
+hour off, your next trip will charge an hour off.
+
+To see the absolute time instead, click the entity (the more-info dialog shows the full date and
+time), or set the row format in a dashboard:
+
+```yaml
+type: entities
+entities:
+  - entity: sensor.<your_charger>_local_time
+    format: datetime   # or date / time / relative / total
+```
+
+In templates and automations the state is already a `datetime`, so `as_timestamp()` and friends
+work on it directly.
+
 ## Known limitations
 
 - There is **no official Fronius API** — everything is built on the reverse-engineered
@@ -188,6 +278,12 @@ if you installed manually, also remove the `custom_components/wattpilot` folder.
 
 Big thank you go to [@joscha82](https://github.com/joscha82).
 Without his greate prework in the [wattpilot python module](https://github.com/joscha82/wattpilot) it would be not possible to create this.
+
+Thanks also to [@mk-maddin](https://github.com/mk-maddin), whose
+[wattpilot-HA](https://github.com/mk-maddin/wattpilot-HA) integration this is forked from and
+whose data-driven entity design it still uses, and to the maintainers of
+[`wattpilot-api`](https://pypi.org/project/wattpilot-api/), the async library this integration
+has been built on since 0.5.0.
 
 # License
 

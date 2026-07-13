@@ -12,6 +12,45 @@ for attribution.
 
 _Nothing yet._
 
+## [0.5.2] - 2026-07-13
+
+Entity units are now human-scale (minutes / kW / kWh instead of the charger's raw
+milliseconds / watts / watt-hours), plus a switch-state fix. **Not yet validated against a live
+charging session** — see the note on the switch fix below.
+
+### Changed
+- **BREAKING — entity units.** Several entities now present human-scale units instead of the
+  charger's raw ones. The charger still receives its native units; the conversion is in the
+  integration. See "Entity units" in the README.
+  - **Min Charging Time** (`fmt`): milliseconds → **minutes** (1–60).
+  - **Next Trip Charging** (`fte`): Wh → **kWh**, as a 5–120 kWh slider.
+  - **Start Charging at** (`fst`): W → **kW**, bounded 1.4–22 (was effectively unbounded).
+  - **3-Phase power level** (`spl3`): W → **kW**, bounded 0–22.
+  - **Charging Power** (`nrg`): displayed in **kW**.
+  - **Totally Charged** (`eto`), **Connection Charged** (`wh`) and the ID-chip energy
+    counters: displayed in **kWh**.
+
+  The four *numbers* are rescaled by the integration, so their recorded values change scale:
+  history shows a step at the upgrade, and automations or dashboards referencing them in raw
+  ms/W/Wh must be updated. The *sensors* keep their native unit and use Home Assistant's unit
+  conversion, so their long-term statistics stay continuous. Per-phase power **attributes**
+  (`L1_Power`, `TotalPower`, …) are not converted and remain in watts.
+- `spl3`'s `device_class` corrected from `energy` to `power` — it is a power value in W, and the
+  previous combination was an invalid unit/device-class pair.
+
+### Added
+- Number catalog: optional `factor:` key (raw charger units per entity unit) — the raw value is
+  divided by it on read and multiplied on write.
+- Sensor catalog: optional `suggested_unit_of_measurement:` key, so a sensor can keep its native
+  unit while being displayed in another (honoured only where the device class has a unit
+  converter).
+
+### Fixed
+- Boolean switches whose property is reported as `0`/`1` rather than `true`/`false` no longer get
+  stuck at `unknown` after startup — the switch state coercion now accepts both encodings.
+  (Suspected cause of **PV Surplus** and **Remain in Eco Mode** showing no on/off state; awaiting
+  confirmation against a live charger.)
+
 ## [0.5.1] - 2026-07-12
 
 Patch release fixing an empty charging-mode dropdown introduced by the 0.5.0

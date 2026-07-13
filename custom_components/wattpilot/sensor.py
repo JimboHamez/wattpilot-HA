@@ -119,7 +119,9 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
         if (
             unit_converter := UNIT_CONVERTERS.get(self._attr_device_class)
         ) is not None and self._attr_native_unit_of_measurement in unit_converter.VALID_UNITS:
-            self._attr_suggested_unit_of_measurement = self._entity_cfg.get("unit_of_measurement", None)
+            suggested = self._entity_cfg.get("suggested_unit_of_measurement", self._attr_native_unit_of_measurement)
+            if suggested in unit_converter.VALID_UNITS:
+                self._attr_suggested_unit_of_measurement = suggested
         if self._entity_cfg.get("state_class", None) is not None:
             self._attr_state_class = SensorStateClass(str(self._entity_cfg.get("state_class")).lower())
         if self._entity_cfg.get("enum", None) is not None:

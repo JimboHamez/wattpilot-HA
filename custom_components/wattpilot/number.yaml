@@ -14,6 +14,7 @@ number:
 #    native_min_value: <optional: the minimum accepted value - default is 0>
 #    native_max_value: <optional: the maximum accepted value - default is 100>
 #    native_step: <optional: Defines the resolution of the values, i.e. the smallest increment or decrement - default is 0>
+#    factor: <optional: number of raw charger property units per one entity unit - the raw value is divided by it when read and multiplied by it when written. Use e.g. 60000 to expose a millisecond property in minutes. native_min_value/native_max_value/native_step are given in entity units>
 #    mode: <optional: Defines how the number should be displayed in the UI. 'auto', 'box' or 'slider' >
 #    enabled: <optional: if set to False entity is by default disabled>
 #    device_class: <optional: key within HA>
@@ -93,10 +94,11 @@ number:
     description: "Minimum charging time after the charging has started"
     icon: "mdi:car-clock"
     device_class: duration
-    native_min_value: 60000
-    native_max_value: 3600000
-    native_step: 60000
-    unit_of_measurement: "ms"
+    factor: 60000
+    native_min_value: 1
+    native_max_value: 60
+    native_step: 1
+    unit_of_measurement: "min"
     entity_category: config
 
   - id: fot
@@ -116,10 +118,11 @@ number:
     name: "Start Charging at"
     description: "PV Surplus start charging power"
     icon: "mdi:solar-power"
-    native_min_value: 0
-    native_max_value: 999999
-    native_step: 1
-    unit_of_measurement: "W"
+    factor: 1000
+    native_min_value: 1.4
+    native_max_value: 22
+    native_step: 0.1
+    unit_of_measurement: "kW"
     device_class: power
     entity_category: config
 
@@ -128,11 +131,13 @@ number:
     name: "Next Trip Charging"
     description: "Defined amount of energy will be provided unitl the next scheduled ride"
     icon: "mdi:road-variant"
-    native_min_value: 0
-    native_max_value: 999999
-    native_step: 10
+    factor: 1000
+    native_min_value: 5
+    native_max_value: 120
+    native_step: 1
+    mode: slider
     device_class: energy
-    unit_of_measurement: "Wh"
+    unit_of_measurement: "kWh"
 
   - id: mpwst
     set_type: int
@@ -175,9 +180,11 @@ number:
     name: "3-Phase power level"
     description: "Value at which the Wattpilot switches from 1- to 3-phase surplus energy charging"
     icon: "mdi:connection"
+    factor: 1000
     native_min_value: 0
-    native_max_value: 999999
-    device_class: energy
-    unit_of_measurement: "W"
+    native_max_value: 22
+    native_step: 0.1
+    device_class: power
+    unit_of_measurement: "kW"
     enabled: false
     entity_category: config

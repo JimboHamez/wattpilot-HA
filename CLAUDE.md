@@ -30,10 +30,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What This Is
 
 A Home Assistant custom integration (HACS-distributed) that controls Fronius Wattpilot
-wallbox / EV charging devices. It wraps the unofficial, reverse-engineered
-[`wattpilot` Python module](https://github.com/joscha82/wattpilot), which talks to the
+wallbox / EV charging devices. It wraps the unofficial, reverse-engineered async
+[`wattpilot-api`](https://pypi.org/project/wattpilot-api/) library, which talks to the
 charger over a WebSocket (locally on the LAN, or via the go-e cloud). There is no official
 Fronius API — everything is built on that community library and may break at any time.
+
+This repo is a **downstream fork** of [mk-maddin/wattpilot-HA](https://github.com/mk-maddin/wattpilot-HA)
+that has diverged substantially (0.5.0 replaced the vendored synchronous `wattpilot` module with
+async `wattpilot-api`, plus translated entities, discovery/reauth, quality-scale work, and
+human-scale entity units). Issues are tracked in **this** repo, not upstream.
 
 The installable component lives entirely in `custom_components/wattpilot/`. Everything else
 (`packages/`, `doc/`, `info.md`, `set_values_test.py`) is documentation, HA config examples,
@@ -47,38 +52,53 @@ There is no build step (it is an HA custom component, copied into `config/custom
   and run `pytest`. Layers:
   - `test_yaml_catalogs.py` / `test_const.py` — dependency-free (pyyaml + isolated `const.py`
     load); validate the data-driven entity catalogs and manifest/const consistency.
-  - `test_utils.py` — imports the integration (pulls in Home Assistant + the vendored `wattpilot`
-    library, which needs `websocket-client`); tests `async_SetChargerProp` coercion and
-    `GetChargerProp`. Skips cleanly if those deps are absent.
+  - `test_utils.py` / `test_entities.py` / `test_sensor.py` / `test_select.py` / `test_setup.py` /
+    `test_config_flow.py` — import the integration (pulling in Home Assistant and the
+    `wattpilot-api` client) and skip cleanly if those deps are absent. `test_config_flow.py` and
+    `test_setup.py` use the `hass` fixture from `pytest-homeassistant-custom-component`.
   - `conftest.py` provides `MockCharger` / `mock_charger` / `make_charger` — a fake charger with
-    an `allProps` dict and a `send_update` recorder; use it instead of a live device.
-  - `pytest.ini` disables the `pytest-homeassistant-custom-component` plugin
-    (`-p no:homeassistant`) because its autouse event-loop fixtures clash with the plain
-    `asyncio.run()` helpers. Re-enable it (and add its `hass` fixture) when writing full
-    end-to-end integration tests.
+    an `all_properties` dict and a `set_property` recorder; use it instead of a live device.
+  - `pytest.ini` sets `asyncio_mode = auto` and **enables** the
+    `pytest-homeassistant-custom-component` plugin (it used to be disabled via `-p no:homeassistant`).
 - **Static analysis** — `./scan.sh` runs bandit, semgrep, mypy and pip-audit in a `.venv`, scoped
-  to `custom_components/wattpilot` and excluding the vendored `wattpilot/` subtree. Note the code
-  predates the strict-typing/style standards in the header above, so mypy/bandit will be noisy.
+  to `custom_components/wattpilot`. (Its exclusion logic for the old vendored `wattpilot/` subtree
+  is now a no-op — the subtree is gone.) The code is ruff-formatted and strict-mypy clean; keep it
+  that way (`ruff format`, `ruff check`).
 - **Manual/live check** — copy `custom_components/wattpilot/` into a running HA, restart, and read
   the debug logs. The codebase logs verbosely under the `custom_components.wattpilot` logger
   namespace — enable `logger` debug there to trace behaviour.
-- `set_values_test.py` (repo root) is a **standalone manual script**, not part of the pytest
-  suite. It talks directly to the vendored `wattpilot` library to probe/set raw charger
-  properties against a real device (edit the IP/password placeholders first); it is the reference
-  for how raw `send_update` / property values behave.
+- **Live device scripts** — `tests/live_probe.py` (read-only property dump) and `tests/live_e2e.py`
+  run against a physical charger using `wattpilot-api`, reading its address/password from a
+  gitignored `.wp_test.json` (see `.wp_test.example.json`). Never log or commit those credentials.
+- `set_values_test.py` (repo root) is **legacy**: a standalone manual script that still imports the
+  removed synchronous `wattpilot` module. It no longer runs against this codebase — keep it only as
+  the reference for raw property values and the type-coercion order.
 - The integration `version` is set in `custom_components/wattpilot/manifest.json` and must be
   bumped there for HACS releases.
 
 ## Architecture
 
-### Vendored, dynamically-loaded `wattpilot` library
-`utils.py` (`_dynamic_load_module`) loads the `wattpilot` package **from the local vendored
-copy** at `custom_components/wattpilot/wattpilot/src/wattpilot/` if present, otherwise falls
-back to the pip-installed one declared in `manifest.json` (`wattpilot>=0.2`). The module-level
-`wattpilot = _dynamic_load_module('wattpilot')` in `utils.py` is the single import point — reuse
-it, don't re-import elsewhere. The code defensively supports both older and newer library APIs
-(e.g. `register_property_callback` vs `add_event_handler`; a manual `_wsapp.close()` disconnect
-fallback for library versions without `disconnect()`).
+### The `wattpilot-api` client library
+The integration talks to the charger through the maintained **async** `wattpilot-api` package
+(`manifest.json` requirements: `wattpilot-api>=1.4.0`), imported normally:
+`from wattpilot_api import Wattpilot`. It is a plain pip dependency — there is **no vendored
+library and no dynamic module loading** (both were removed in 0.5.0, along with the old
+synchronous `wattpilot` module and its `websocket-client` thread).
+
+Consequences to keep in mind when editing:
+- The client is natively `asyncio`, and its property callbacks fire **on Home Assistant's own
+  event loop** — no `run_coroutine_threadsafe` bridging, no executor jobs.
+- The property dict is `charger.all_properties` (not `allProps`), and writes go through
+  `await charger.set_property(id, value)` (not `send_update`).
+- `charger.on_property_change(cb)` registers an async callback and **returns an unsubscribe
+  function**, stored in the entry's runtime data and called on unload.
+- Errors come from `wattpilot_api.exceptions` (`WattpilotError`, `AuthenticationError`);
+  `utils.py::async_ConnectCharger` maps them onto HA's `ConfigEntryNotReady` / reauth.
+
+`set_values_test.py` (repo root) still imports the *old* synchronous `wattpilot` module and is
+therefore legacy: keep it only as a record of raw property/coercion behaviour. For live work use
+`tests/live_probe.py` (read-only) and `tests/live_e2e.py`, which use `wattpilot-api` and read
+charger details from a gitignored `.wp_test.json`.
 
 ### Data-driven entities (the core pattern)
 Entities are **not hard-coded**. Each platform has a matching YAML catalog next to its Python
@@ -90,10 +110,26 @@ usually do not touch Python. `sensor.yaml`'s header comment documents every supp
 `attribute_ids`, `default_state`, etc.).
 
 An entity's value `source` is one of:
-- `property` — a key in `charger.allProps` (the charger's live property dict). Push-capable.
+- `property` — a key in `charger.all_properties` (the charger's live property dict). Push-capable.
 - `attribute` — a Python attribute on the `Wattpilot` charger object (e.g. `carConnected`). Poll-only.
 - `namespacelist` — an indexed item (`namespace_id`) inside a property that is a list of
   `SimpleNamespace` objects (e.g. RFID cards). `value_id` picks which namespace field is the state.
+
+### Entity units: the charger's units are not the user's units
+The charger reports raw ms / W / Wh. Several entities are presented in human-scale units, by two
+different mechanisms — pick the right one:
+- **`number.yaml` `factor:`** (raw charger units per entity unit). `number.py` divides the raw
+  value by it on read and multiplies on write, so the charger still gets its native unit. Used
+  because the *number* platform has unit converters only for a few device classes (temperature,
+  reactive energy, volume flow rate) — **not** duration, energy or power. Current users:
+  `fmt` (ms→min, 60000), `fte` (Wh→kWh, 1000), `fst` and `spl3` (W→kW, 1000).
+  Caveat: this rescales the stored value, so changing a `factor:` is a breaking change for
+  history and for any automation using the entity.
+- **`sensor.yaml` `suggested_unit_of_measurement:`** — the sensor keeps its native unit and HA's
+  own converter handles display, so long-term statistics stay continuous. Prefer this whenever
+  the device class has a converter (the *sensor* platform has them for energy, power, and most
+  others). Current users: `nrg` (W, shown kW); `eto`, `wh`, `cards_*` (Wh, shown kWh).
+  Note extra state **attributes** (e.g. `nrg`'s `L1_Power`) are never unit-converted.
 
 ### Base entity: `entities.py::ChargerPlatformEntity`
 All platform entities subclass this. It centralizes:
@@ -107,32 +143,37 @@ All platform entities subclass this. It centralizes:
   e.g. switch maps true/false ↔ `STATE_ON`/`STATE_OFF` with optional `invert`).
 
 ### Push + poll hybrid update model
-- **Push:** `__init__.py::async_setup_entry` registers `PropertyUpdateHandler` as the charger's
-  property callback. On each property change the library fires it; `utils.py` bridges the
-  library's (possibly non-async, non-HA-loop) thread into HA via
-  `asyncio.run_coroutine_threadsafe` → `async_PropertyUpdateHandler`, which looks up the entity
-  in the per-entry `push_entities` dict (keyed by property id) and calls its `async_local_push`.
-  Only `source: property` entities register for push.
+- **Push:** `__init__.py::async_setup_entry` registers an async callback with
+  `charger.on_property_change(...)`, which calls `utils.py::async_PropertyUpdateHandler`. That
+  handler **dispatches** the value over HA's dispatcher on a per-(entry, property) signal
+  (`utils.py::property_update_signal`). Each `source: property` entity subscribes to its own
+  signal in `entities.py::async_added_to_hass` (released via `async_on_remove`) and pushes the
+  value into `async_local_push`. There is no central `push_entities` registry any more, and no
+  cross-thread bridging — the callback already runs on the event loop.
 - **Poll:** entities whose `should_poll` is true (attribute/namespacelist sources, or a
-  property still at its default state) fall back to `async_local_poll`.
+  property still at its default state) fall back to `async_local_poll`. Note the corollary: an
+  entity whose real value happens to equal its `default_state` keeps polling.
 - The same handler also **fires HA events** (`wattpilot_property_message`) for properties listed
   in `const.py::EVENT_PROPS` (`ftt`, `cak`), and drives optional property-change debug logging.
 
 ### Reading and writing charger values
 Always go through the `utils.py` helpers rather than touching the charger object directly:
-- Read: `GetChargerProp` / `async_GetChargerProp` (safe access into `charger.allProps`).
+- Read: `GetChargerProp` / `async_GetChargerProp` (safe access into `charger.all_properties`).
 - Write: `async_SetChargerProp` — it type-coerces the value (bool/int/float/str, honoring an
-  optional `force_type` / the entity's `set_type`) before calling `charger.send_update`. This
-  mirrors the coercion logic in `set_values_test.py`.
+  optional `force_type` / the entity's `set_type`) before awaiting `charger.set_property`. The
+  coercion order (explicit `force_type` → bool → int → float → str) mirrors the legacy
+  `set_values_test.py`.
 
 ### Config, per-entry state, and services
 - `config_flow.py` is a multi-step flow: connection type → local (IP + password) or cloud
-  (serial + password), plus a matching options flow. Schemas live in `configuration_schema.py`.
-  Options edits go through `__init__.py::options_update_listener`, which reloads the config entry.
-- Per-entry runtime state is stored under `hass.data[DOMAIN][entry_id]` with keys from `const.py`
-  (`CONF_CHARGER` = the connected charger object, `CONF_PARAMS`, `CONF_PUSH_ENTITIES`,
-  `CONF_DBG_PROPS`, etc.). `utils.py` has `async_GetChargerFromDeviceID` /
-  `async_GetDataStoreFromDeviceID` to resolve these from a HA `device_id` (used by services).
+  (serial + password), plus mDNS/zeroconf discovery, a reauth flow, and a matching options flow.
+  Schemas live in `configuration_schema.py`. Options edits go through
+  `__init__.py::options_update_listener`, which reloads the config entry.
+- Per-entry runtime state lives on **`entry.runtime_data`** (a dict), *not* `hass.data[DOMAIN]`
+  — keys from `const.py`: `CONF_CHARGER` (the connected charger object), `CONF_PARAMS`,
+  `CONF_DBG_PROPS`, plus the option-update listener and the `on_property_change` unsubscribe
+  handle. `utils.py` has `async_GetChargerFromDeviceID` / `async_GetDataStoreFromDeviceID` to
+  resolve these from a HA `device_id` (used by services).
 - Services are defined in `services.py`, described for the UI in `services.yaml`, and registered
   once in `__init__.py::async_setup` (not per entry): `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`
   (enable/disable go-e cloud API), `set_debug_properties` (toggle property-change warning logs),
@@ -148,7 +189,7 @@ the redacted diagnostics download.
 Values are addressed by terse short-codes — the `id` of an entity in the YAML catalogs and the
 identifier passed to `GetChargerProp` / `async_SetChargerProp`. The list below is the subset
 actually wired up in this repo; it is **not exhaustive**. The per-platform `*.yaml` files are the
-source of truth for what this integration exposes. Most are `charger.allProps` keys; a few
+source of truth for what this integration exposes. Most are `charger.all_properties` keys; a few
 sensors read Python attributes on the charger object instead (marked *attr*).
 
 **Provenance (verified against the go-e reference):** The Wattpilot is Fronius-rebranded go-e
@@ -202,8 +243,8 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
 | Code | Meaning |
 |------|---------|
 | `fup` / `fap` | Enable PV-surplus charging / charge-pause toggle |
-| `fst`, `fmt`, `fam` | Surplus start power (W) / min charge time (ms) / battery threshold (%) |
-| `spl3`, `mpwst`, `mptwt` | 3-phase power level (W) / phase-switch delay / interval (ms) |
+| `fst`, `fmt`, `fam` | Surplus start power (W, shown kW) / min charge time (ms, shown min) / battery threshold (%) |
+| `spl3`, `mpwst`, `mptwt` | 3-phase power level (W, shown kW) / phase-switch delay / interval (ms) |
 | `ebe`, `ebo`, `ebt`, `ebv` | Battery boost enable / type / discharge-until % / (raw set in test script) |
 | `pdte`, `pdt`, `fot` | Discharge PV battery enable / level % / Ohmpilot temp threshold |
 | `ful`, `awc`, `awp` | Lumina Strom/aWattar enable / country / max price (EUR cent) |
@@ -213,7 +254,7 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
 | Code | Meaning |
 |------|---------|
 | `ftt` | Next-trip timestamp — written by `set_next_trip`; also in `EVENT_PROPS` |
-| `fte` | Next-trip energy target (Wh). Setting it forces `esk: true` (kWh instead of km) |
+| `fte` | Next-trip energy target (Wh, shown kWh). Setting it forces `esk: true` (kWh instead of km) |
 | `esk` | Next-trip distance unit flag (workaround in `number.py::async_set_native_value`) |
 | `tds` | Daylight-saving mode — `set_next_trip` adds an hour when `tds == 1` |
 
