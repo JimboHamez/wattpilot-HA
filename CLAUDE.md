@@ -184,6 +184,41 @@ Registered in `const.py::SUPPORTED_PLATFORMS`: `button`, `number`, `select`, `se
 `update`. (`manifest.json` `dependencies` also lists `diagnostics`.) `diagnostics.py` provides
 the redacted diagnostics download.
 
+## Quality scale
+
+The integration targets the [HA Integration Quality Scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/).
+`manifest.json` declares `"quality_scale": "bronze"`, and
+`custom_components/wattpilot/quality_scale.yaml` tracks every rule as `done`, `exempt` (with a
+reason) or `todo`. **Bronze is fully met**; much of Gold and Platinum is already done out of order.
+
+Keep the file honest — it is a self-declaration, and the `manifest.json` tier must not run ahead
+of it:
+- When adding a feature, update the affected rule(s) in `quality_scale.yaml` in the same change.
+- Only raise the `manifest.json` tier when *every* rule of that tier is `done` or `exempt`.
+- `exempt` always carries a `comment` explaining why the rule cannot apply.
+
+Outstanding work, by tier (as of 0.5.2):
+- **Silver** (blocks the next tier bump): `action-exceptions` — services follow the repo's
+  log-and-degrade convention instead of raising `ServiceValidationError` / `HomeAssistantError`;
+  `log-when-unavailable` — no log-once-on-disconnect; `test-coverage` — below the 95% threshold.
+- **Gold:** `exception-translations`, `icon-translations` (entities set mdi icons directly rather
+  than shipping `icons.json`), `reconfiguration-flow` (settings change via the options flow; no
+  `async_step_reconfigure`).
+- **Platinum:** `async-dependency` and `strict-typing` are **done** (the move to `wattpilot-api`
+  and the strict-mypy pass); `inject-websession` is exempt because the library speaks
+  `websockets`, not an aiohttp/httpx session.
+
+Note the Silver `action-exceptions` rule is in direct tension with the log-and-degrade convention
+below: satisfying it means services must raise. Do not "fix" the convention repo-wide to chase the
+rule without agreeing that trade first.
+
+## HACS packaging
+`hacs.json` (repo root) declares the HACS metadata; `"homeassistant"` is the **minimum HA version**
+and must not drift below what the code actually needs — `entry.runtime_data` requires **2024.6**,
+which is what it declares. Bump it whenever a newer core API is adopted. HACS installs from GitHub
+**releases**, so a version bump in `manifest.json` only reaches users once a matching tag/release
+is cut.
+
 ## Common Charger Property Codes
 
 Values are addressed by terse short-codes — the `id` of an entity in the YAML catalogs and the
