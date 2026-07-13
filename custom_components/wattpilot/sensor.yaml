@@ -30,14 +30,27 @@ sensor:
   - source: attribute
     id: access_state
     name: "Access State"
-    description: "State of access for the charger - values are: 'open', 'locked', 'auto'"
+    description: "Access control setting of the charger"
     icon: "mdi:lock-question"
+    # wattpilot-api returns the raw 'acs' code (AccessState: Open=0, Wait=1).
+    enum:
+      0: "Open"
+      1: "Wait"
 
   - source: attribute
     id: car_connected
     name: "Car Connected"
-    description: "State of the car plug - values are: 'no car', 'charging', 'ready','complete'"
+    description: "State of the car plug"
     icon: "mdi:ev-plug-type2"
+    # wattpilot-api returns the raw 'car' code (CarStatus: NoCar=1, Charging=2,
+    # Ready=3, Complete=4); 0 and 5 mirror the 'car' property's unknown/error.
+    enum:
+      0: "Unknown"
+      1: "No Car"
+      2: "Charging"
+      3: "Ready"
+      4: "Complete"
+      5: "Error"
 
   - source: namespacelist
     id: cards_0

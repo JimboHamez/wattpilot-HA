@@ -203,10 +203,22 @@
     "entity": {
         "sensor": {
             "access_state": {
-                "name": "Access State"
+                "name": "Access State",
+                "state": {
+                    "open": "Open",
+                    "wait": "Wait"
+                }
             },
             "car_connected": {
-                "name": "Car Connected"
+                "name": "Car Connected",
+                "state": {
+                    "unknown": "Unknown",
+                    "no_car": "No Car",
+                    "charging": "Charging",
+                    "ready": "Ready",
+                    "complete": "Complete",
+                    "error": "Error"
+                }
             },
             "cards_0": {
                 "name": "ID Chip 0"

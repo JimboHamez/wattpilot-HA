@@ -86,6 +86,41 @@ def test_explicit_default_state_is_still_honoured(make_charger):
     assert entity._attr_native_value == -1
 
 
+def test_enum_default_state_is_not_written_raw(make_charger):
+    """trx's 999 sentinel is a charger code, not an HA option: it must not be the first state.
+
+    HA rejected it at add time with "provides state value '999', which is not in
+    the list of options provided", dropping the entity.
+    """
+    charger = make_charger(props={"trx": 999})
+    entity = _build(
+        ChargerSensor,
+        {
+            "source": "property",
+            "id": "trx",
+            "default_state": 999,
+            "enum": {0: "No Chip", 999: "No Transaction"},
+        },
+        charger,
+    )
+
+    assert entity._attr_native_value is None
+    assert "no_transaction" in entity._attr_options
+
+
+@pytest.mark.asyncio
+async def test_attribute_enum_sensor_maps_raw_code_to_slug(make_charger):
+    """wattpilot-api returns raw ints for car_connected / access_state."""
+    charger = make_charger(props={}, car_connected=1)
+    entity = _build(
+        ChargerSensor,
+        {"source": "attribute", "id": "car_connected", "enum": {1: "No Car", 2: "Charging"}},
+        charger,
+    )
+
+    assert await entity._async_update_validate_platform_state(1) == "no_car"
+
+
 def test_none_state_still_polls(make_charger):
     """Starting at None must not switch polling off, or nothing seeds the value."""
     charger = make_charger(props={"loc": "2026-07-12T01:41:26.437 +10:00"})

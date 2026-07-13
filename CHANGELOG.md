@@ -12,6 +12,25 @@ for attribution.
 
 _Nothing yet._
 
+## [0.5.4] - 2026-07-13
+
+Follow-up to 0.5.3, from a second live-charger restart.
+
+### Fixed
+- **ID Chip Current failed to be added.** Its `default_state: 999` (the "no transaction" sentinel)
+  is a *charger* code, not a Home Assistant option, and 0.5.3 still wrote it as the entity's first
+  state — HA rejected it with "provides state value '999', which is not in the list of options".
+  Enum and timestamp sensors now always start at `None` regardless of `default_state`; the first
+  poll supplies a validated value.
+- **Access State and Car Connected showed a raw number** (e.g. `1` with no car connected). The old
+  vendored library derived friendly strings from these; `wattpilot-api` returns the raw `acs` /
+  `car` codes. They are now enum sensors with translated states — Access State reads Open / Wait,
+  Car Connected reads No Car / Charging / Ready / Complete (mirroring the library's `AccessState`
+  and `CarStatus`).
+
+### Added
+- English and German state translations for the two sensors above.
+
 ## [0.5.3] - 2026-07-13
 
 Fixes for errors reported from a live charger on 0.5.2.

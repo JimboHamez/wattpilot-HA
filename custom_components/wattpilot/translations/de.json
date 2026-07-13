@@ -203,10 +203,22 @@
     "entity": {
         "sensor": {
             "access_state": {
-                "name": "Zugriffsstatus"
+                "name": "Zugriffsstatus",
+                "state": {
+                    "open": "Offen",
+                    "wait": "Warten"
+                }
             },
             "car_connected": {
-                "name": "Fahrzeug verbunden"
+                "name": "Fahrzeug verbunden",
+                "state": {
+                    "unknown": "Unbekannt",
+                    "no_car": "Kein Fahrzeug",
+                    "charging": "Lädt",
+                    "ready": "Bereit",
+                    "complete": "Abgeschlossen",
+                    "error": "Fehler"
+                }
             },
             "cards_0": {
                 "name": "ID-Chip 0"

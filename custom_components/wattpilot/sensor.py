@@ -115,14 +115,6 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
 
     def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
-        if "default_state" not in self._entity_cfg:
-            # Home Assistant validates the very first state it writes (at add
-            # time, before any poll or push) against the device class: an enum
-            # sensor rejects anything outside its options, and a timestamp
-            # sensor requires a datetime. The STATE_UNKNOWN *string* fails both
-            # and the entity is dropped, so start from None instead — which HA
-            # renders as 'unknown' anyway.
-            self._attr_native_value = None
         self._attr_native_unit_of_measurement = self._entity_cfg.get("unit_of_measurement", None)
         if (
             unit_converter := UNIT_CONVERTERS.get(self._attr_device_class)
@@ -142,6 +134,19 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
             self._attr_options = list(self._enum_slugs.values())
         if self._entity_cfg.get("html_unescape", None) is not None:
             self._html_unescape = True
+
+        # Home Assistant validates the very first state it writes (at add time,
+        # before any poll or push) against the device class. An enum sensor
+        # rejects anything outside its options and a timestamp sensor demands a
+        # datetime, so neither the STATE_UNKNOWN string nor a raw default_state
+        # (e.g. trx's 999 sentinel, which is a *charger* code, not an HA option)
+        # may be written. Start those at None -- HA renders it as unknown -- and
+        # let the first poll supply a validated value.
+        if (
+            self._attr_device_class in (SensorDeviceClass.ENUM, SensorDeviceClass.TIMESTAMP)
+            or "default_state" not in self._entity_cfg
+        ):
+            self._attr_native_value = None
 
     def _parse_timestamp(self, value: Any) -> datetime | None:
         """Parse a charger datetime string into a timezone-aware datetime.
