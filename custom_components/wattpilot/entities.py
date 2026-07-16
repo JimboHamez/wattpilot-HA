@@ -425,7 +425,7 @@ class ChargerPlatformEntity(Entity):
             # _LOGGER.debug("%s - %s: async_update", self._charger_id, self._identifier)
             if self.should_poll:
                 _LOGGER.debug("%s - %s: async_update is done via poll - initiate", self._charger_id, self._identifier)
-                await self.hass.async_create_task(self.async_local_poll())
+                await self.async_local_poll()
             else:
                 _LOGGER.debug(
                     "%s - %s: async_update is done via push - do nothing / wait for push event",
@@ -559,7 +559,7 @@ class ChargerPlatformEntity(Entity):
                 self.async_write_ha_state()
                 # _LOGGER.debug("%s - %s: async_local_push complete: %s", self._charger_id, self._identifier, state)
             else:
-                await self.hass.async_create_task(self.async_local_poll())
+                await self.async_local_poll()
         except Exception as e:
             if type(e).__name__ == "NoEntitySpecifiedError" and initwait is False:
                 _LOGGER.debug(
