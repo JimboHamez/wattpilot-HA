@@ -10,6 +10,12 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.5.5] - 2026-07-17
+
+Readable Charging Reason and Internal Error states, and a completed German translation.
+
 ### Changed
 - **Charging Reason and Internal Error now read as prose instead of raw API codes.** Both sensors
   passed the charger's identifiers straight through to the UI in *both* languages — Charging Reason
@@ -25,6 +31,11 @@ for attribution.
 - **German translations completed for the aWATTar Country and ID Chip Current sensors.** Country
   names were left in English (Austria, Germany, Switzerland → Österreich, Deutschland, Schweiz),
   and the ID chip states now read "Kein Chip" / "Keine Transaktion" / "ID-Chip 0"–"ID-Chip 9".
+
+- Entity updates await the poll coroutine directly. `async_update` and `async_local_push` wrapped
+  `async_local_poll` in a tracked task and immediately awaited it, adding scheduler bookkeeping and
+  detaching from the current cancellation scope for no benefit. The fire-and-forget
+  `async_create_task` calls are unchanged, as they must not block their synchronous callers.
 
 ## [0.5.4] - 2026-07-13
 
@@ -237,6 +248,12 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.4...v0.5.5
+[0.5.4]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.3...v0.5.4
+[0.5.3]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.2...v0.5.3
+[0.5.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/JimboHamez/wattpilot-HA/releases/tag/v0.4.0
