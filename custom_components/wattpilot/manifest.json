@@ -1,7 +1,7 @@
 {
   "domain": "wattpilot",
   "name": "Fronius Wattpilot",
-  "codeowners": ["@mk-maddin"],
+  "codeowners": ["@JimboHamez"],
   "config_flow": true,
   "dependencies": ["sensor","switch","select","number","button","diagnostics"],
   "documentation": "https://github.com/JimboHamez/wattpilot-HA",
