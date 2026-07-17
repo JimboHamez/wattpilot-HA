@@ -10,7 +10,21 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **Charging Reason and Internal Error now read as prose instead of raw API codes.** Both sensors
+  passed the charger's identifiers straight through to the UI in *both* languages — Charging Reason
+  showed `ChargingBecausePvSurplus` and `NotChargingBecauseUnbalancedLoad`, Internal Error showed
+  `FiAc` and `ContactorStuck`. They now read "Charging: PV surplus" / "Not charging: unbalanced
+  load" and "Residual current (AC)" / "Contactor stuck", with matching German ("Lädt:
+  PV-Überschuss", "Fehlerstrom (AC)").
+  Only the display strings changed. The entity state remains the slug (`chargingbecausepvsurplus`),
+  which `sensor.py` derives from the `sensor.yaml` enum, so **automations and history are
+  unaffected**.
+
+### Fixed
+- **German translations completed for the aWATTar Country and ID Chip Current sensors.** Country
+  names were left in English (Austria, Germany, Switzerland → Österreich, Deutschland, Schweiz),
+  and the ID chip states now read "Kein Chip" / "Keine Transaktion" / "ID-Chip 0"–"ID-Chip 9".
 
 ## [0.5.4] - 2026-07-13
 
