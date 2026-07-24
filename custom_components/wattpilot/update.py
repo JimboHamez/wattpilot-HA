@@ -15,7 +15,7 @@ from packaging.version import Version
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.const import CONF_PARAMS, CONF_TIMEOUT
 
-from .const import CONF_CHARGER, DEFAULT_TIMEOUT, DOMAIN
+from .const import CONF_CHARGER, DEFAULT_TIMEOUT
 from .entities import ChargerPlatformEntity
 from .utils import GetChargerProp, async_SetChargerProp
 
@@ -236,7 +236,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
             # Resolve the configured connection timeout (falling back to the
             # default). A firmware flash plus reboot takes far longer than a
             # normal connect, so allow up to 4x that budget below.
-            entry_data = self.hass.data[DOMAIN].get(self._entry.entry_id, None)
+            entry_data = getattr(self._entry, "runtime_data", None)
             config_params = entry_data.get(CONF_PARAMS, None) if entry_data else None
             timeout = DEFAULT_TIMEOUT if config_params is None else config_params.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
             timeout = timeout * 4
