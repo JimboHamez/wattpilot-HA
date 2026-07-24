@@ -206,10 +206,12 @@ of it:
 - `exempt` always carries a `comment` explaining why the rule cannot apply.
 
 Outstanding work, by tier (as of 0.5.5):
-- **Silver** (blocks the next tier bump): `action-exceptions` — services follow the repo's
-  log-and-degrade convention instead of raising `ServiceValidationError` / `HomeAssistantError`;
-  `test-coverage` — below the 95% threshold. (`log-when-unavailable` is done — see the
-  connection monitor in the update-model section above.)
+- **Silver** (blocks the next tier bump): `test-coverage` only — measured at ~63%, against the
+  95% threshold. Run it with
+  `pytest --cov=custom_components.wattpilot --cov-report=term-missing`; the biggest gaps are
+  `update.py`, `utils.py`, `diagnostics.py` and the `except` branches everywhere.
+  (`log-when-unavailable` and `action-exceptions` are done — see the connection monitor and the
+  services convention below.)
 - **Gold:** `exception-translations`, `icon-translations` (entities set mdi icons directly rather
   than shipping `icons.json`), `reconfiguration-flow` (settings change via the options flow; no
   `async_step_reconfigure`).
@@ -217,9 +219,12 @@ Outstanding work, by tier (as of 0.5.5):
   and the strict-mypy pass); `inject-websession` is exempt because the library speaks
   `websockets`, not an aiohttp/httpx session.
 
-Note the Silver `action-exceptions` rule is in direct tension with the log-and-degrade convention
-below: satisfying it means services must raise. Do not "fix" the convention repo-wide to chase the
-rule without agreeing that trade first.
+The Silver `action-exceptions` rule was in direct tension with the log-and-degrade convention
+below, and the trade was settled deliberately: **`services.py` raises, everything else still logs
+and degrades.** A service action is invoked by a person or a script, so its failure has to reach
+the UI and stop the calling automation; an entity update or a background poll has no such caller.
+Do not extend the raising style past `services.py` (entity command methods included) without
+agreeing that separately.
 
 ## HACS packaging
 `hacs.json` (repo root) declares the HACS metadata; `"homeassistant"` is the **minimum HA version**
@@ -324,6 +329,14 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
   `"%s - <func>: <msg>: %s (%s.%s)"` with the entry/charger id, the exception string, and the
   exception's module/type, then returns a falsy sentinel (`False`/`None`) rather than raising.
   Match this style; failures are logged-and-degraded, not propagated.
+- **`services.py` is the one exception** (quality-scale `action-exceptions`): its handlers keep the
+  same `try/except` shape and the same log line, but end in a raise — `ServiceValidationError` for
+  a bad call (missing parameter, unknown device, unusable value), `HomeAssistantError` for a valid
+  call the charger could not carry out. Each handler re-raises `HomeAssistantError` untouched and
+  funnels anything unexpected through `_raise_service_failure`, which logs it and returns the
+  wrapping error. Resolve targets via `_required` / `_async_get_charger` / `_async_get_entry_data`
+  so those validation errors stay uniform. Messages are plain English for now; giving them
+  translation keys is the separate Gold `exception-translations` rule.
 - Charger property short-codes (e.g. `nrg`, `acs`, `amp`, `frc`) largely come from the go-e API;
   the field reference is
   https://github.com/goecharger/go-eCharger-API-v2/blob/main/API_KEYS_FIRMWARE/apikeys-de.md

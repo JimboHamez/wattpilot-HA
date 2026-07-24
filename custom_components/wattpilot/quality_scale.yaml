@@ -38,11 +38,7 @@ rules:
   unique-config-entry: done
 
   # Silver
-  action-exceptions:
-    status: todo
-    comment: >-
-      Service actions follow the integration's log-and-degrade convention rather
-      than raising ServiceValidationError / HomeAssistantError on failure.
+  action-exceptions: done
   config-entry-unloading: done
   docs-configuration-parameters: done
   docs-installation-parameters: done
