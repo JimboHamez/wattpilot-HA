@@ -73,9 +73,7 @@ rules:
   exception-translations:
     status: todo
     comment: Raised exceptions are not yet backed by translation keys.
-  icon-translations:
-    status: todo
-    comment: Entities use mdi icons directly rather than an icons.json translation set.
+  icon-translations: done
   reconfiguration-flow:
     status: todo
     comment: Settings are changed via the options flow; a dedicated async_step_reconfigure is not implemented.

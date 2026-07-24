@@ -11,7 +11,7 @@ select:
 #    uid: <optional: unique ID postfix - required if mutliple entities wiht same <id> value exist>
 #    name: <optional: name of the switch within HA>
 #    description: <optional: key within HA>
-#    icon: <optional: key within HA>
+#    (icons are not set here: they live in icons.json, keyed by the entity's uid/id)
 #    enabled: <optional: if set to False entity is by default disabled>
 #    entity_category: <optional: key within HA>
 #    firmware: <optional string ">=1.1" | "<=1.1" | "==1.1" | "<1.1" | ">1.1" to setup entity only if charger firmware matches>
@@ -25,7 +25,6 @@ select:
       0: "Open"
       1: "Authentication Required"
     description: "Access control user setting"
-    icon: "mdi:access-point-check"
     entity_category: config
 
   - id: awc
@@ -83,7 +82,6 @@ select:
       10035: "Switzerland"
       10002: "Ukraine"
     description: "Lumina Strom/aWattar country"
-    icon: "mdi:map-marker"
     entity_category: config
 
 # IN FIRMWARE < 38.5 this was a switch (ON/OFF) value
@@ -96,13 +94,11 @@ select:
 #      2: "Unknown Value"
       3: "Never locked"
     description: "Locks the button on the device so that changing the current level is not possible"
-    icon: "mdi:account-cancel"
     firmware: ">=38.5"
 
   - id: ct
     name: "Car"
     description: "Car profile selected"
-    icon: "mdi:car-outline"
     options:
       default: "Standard"
       kiaSoul: "Kia Soul"
@@ -126,7 +122,6 @@ select:
   - id: ebo
     name: "Boost type"
     description: "Type of boost charge from battery"
-    icon: "mdi:battery-clock"
     options:
       True: "One-Time"
       False: "Repeat for as long as vehicle is plugged in"
@@ -140,7 +135,6 @@ select:
       4: "Eco"
       5: "Next Trip"
     description: "Charging mode Default, Eco or Next Trip"
-    icon: "mdi:leaf"
 
   - id: psm
     name: "Phase Switch"
@@ -149,7 +143,6 @@ select:
       1: "1 Phase"
       2: "3 Phases"
     description: "Choose how the charger switches phases"
-    icon: "mdi:car-3-plus"
     entity_category: config
 
   - id: tds
@@ -160,7 +153,6 @@ select:
       2: "UsDaylightTime"
       3: "AUEasternDaylightTime"      
     description: "Timezone daylight saving mode"
-    icon: "mdi:map-clock"
     entity_category: config
 
   - id: ust
@@ -170,5 +162,4 @@ select:
       1: "AutoUnlock"
       2: "AlwaysLock"
     description: "Lock cable when the car is connected (Normal), while the car is charging (AutoUnlock) or (AlwaysLock)"
-    icon: "mdi:lock-outline"
     entity_category: config

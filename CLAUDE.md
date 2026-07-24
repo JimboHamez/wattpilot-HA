@@ -109,6 +109,15 @@ usually do not touch Python. `sensor.yaml`'s header comment documents every supp
 (`source`, `id`, `uid`, `enum`, `firmware`, `variant`, `connection`, `value_id`, `namespace_id`,
 `attribute_ids`, `default_state`, etc.).
 
+**Icons are the one exception to "edit the YAML".** They live in `icons.json`, keyed by platform
+and then by the entity's translation key — `slugify(uid or id)`, the same key
+`entities.py::__init__` assigns to `_attr_translation_key`. The catalogs no longer accept an
+`icon:` field and no entity sets `_attr_icon`; Home Assistant serves `icons.json` and the
+**frontend** resolves the icon per key, so an entity's state no longer carries an `icon`
+attribute (quality-scale rule `icon-translations`). Adding an entity with an icon therefore means
+touching both files — `tests/test_icons.py` fails on an orphaned key, a re-added YAML `icon:`, or
+a non-`mdi:` value, and `tests/test_setup.py` asserts HA actually loads the file.
+
 An entity's value `source` is one of:
 - `property` — a key in `charger.all_properties` (the charger's live property dict). Push-capable.
 - `attribute` — a Python attribute on the `Wattpilot` charger object (e.g. `carConnected`). Poll-only.
@@ -212,8 +221,7 @@ Outstanding work, by tier (as of 0.5.5):
   `update.py`, `utils.py`, `diagnostics.py` and the `except` branches everywhere.
   (`log-when-unavailable` and `action-exceptions` are done — see the connection monitor and the
   services convention below.)
-- **Gold:** `exception-translations`, `icon-translations` (entities set mdi icons directly rather
-  than shipping `icons.json`), `reconfiguration-flow` (settings change via the options flow; no
+- **Gold:** `exception-translations`, `reconfiguration-flow` (settings change via the options flow; no
   `async_step_reconfigure`).
 - **Platinum:** `async-dependency` and `strict-typing` are **done** (the move to `wattpilot-api`
   and the strict-mypy pass); `inject-websession` is exempt because the library speaks

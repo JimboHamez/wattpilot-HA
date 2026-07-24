@@ -1,0 +1,235 @@
+{
+  "entity": {
+    "button": {
+      "frc0": {
+        "default": "mdi:play"
+      },
+      "frc1": {
+        "default": "mdi:stop"
+      },
+      "frc2": {
+        "default": "mdi:play-circle-outline"
+      },
+      "trx": {
+        "default": "mdi:credit-card-wireless-outline"
+      }
+    },
+    "number": {
+      "amp": {
+        "default": "mdi:car-electric"
+      },
+      "awp": {
+        "default": "mdi:cash-100"
+      },
+      "ebt": {
+        "default": "mdi:power-plug-battery"
+      },
+      "fam": {
+        "default": "mdi:battery-charging-medium"
+      },
+      "fmt": {
+        "default": "mdi:car-clock"
+      },
+      "fot": {
+        "default": "mdi:thermometer-water"
+      },
+      "fst": {
+        "default": "mdi:solar-power"
+      },
+      "fte": {
+        "default": "mdi:road-variant"
+      },
+      "mptwt": {
+        "default": "mdi:sun-clock-outline"
+      },
+      "mpwst": {
+        "default": "mdi:solar-power"
+      },
+      "pdt": {
+        "default": "mdi:power-plug-battery"
+      },
+      "spl3": {
+        "default": "mdi:connection"
+      }
+    },
+    "select": {
+      "acs": {
+        "default": "mdi:access-point-check"
+      },
+      "awc": {
+        "default": "mdi:map-marker"
+      },
+      "bac": {
+        "default": "mdi:account-cancel"
+      },
+      "ct": {
+        "default": "mdi:car-outline"
+      },
+      "ebo": {
+        "default": "mdi:battery-clock"
+      },
+      "lmo": {
+        "default": "mdi:leaf"
+      },
+      "psm": {
+        "default": "mdi:car-3-plus"
+      },
+      "tds": {
+        "default": "mdi:map-clock"
+      },
+      "ust": {
+        "default": "mdi:lock-outline"
+      }
+    },
+    "sensor": {
+      "access_state": {
+        "default": "mdi:lock-question"
+      },
+      "car": {
+        "default": "mdi:state-machine"
+      },
+      "car_connected": {
+        "default": "mdi:ev-plug-type2"
+      },
+      "cards_0": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_1": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_2": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_3": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_4": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_5": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_6": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_7": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_8": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cards_9": {
+        "default": "mdi:credit-card-chip"
+      },
+      "cci": {
+        "default": "mdi:solar-power"
+      },
+      "ccw": {
+        "default": "mdi:wifi"
+      },
+      "cus": {
+        "default": "mdi:state-machine"
+      },
+      "err": {
+        "default": "mdi:alert-circle"
+      },
+      "eto": {
+        "default": "mdi:meter-electric"
+      },
+      "ffb": {
+        "default": "mdi:lock-reset"
+      },
+      "lck": {
+        "default": "mdi:lock"
+      },
+      "loc": {
+        "default": "mdi:clock-outline"
+      },
+      "modelstatus": {
+        "default": "mdi:ev-station"
+      },
+      "nrg": {
+        "default": "mdi:lightning-bolt-circle"
+      },
+      "qsw": {
+        "default": "mdi:web-sync"
+      },
+      "rbc": {
+        "default": "mdi:restart"
+      },
+      "rbt": {
+        "default": "mdi:av-time"
+      },
+      "rssi": {
+        "default": "mdi:wifi"
+      },
+      "tma": {
+        "default": "mdi:thermometer"
+      },
+      "trx": {
+        "default": "mdi:credit-card-wireless"
+      },
+      "wcch": {
+        "default": "mdi:web-box"
+      },
+      "wccw": {
+        "default": "mdi:web-box"
+      },
+      "wh": {
+        "default": "mdi:ev-station"
+      },
+      "wst": {
+        "default": "mdi:wifi-settings"
+      }
+    },
+    "switch": {
+      "bac": {
+        "default": "mdi:account-cancel"
+      },
+      "ebe": {
+        "default": "mdi:home-battery"
+      },
+      "fap": {
+        "default": "mdi:motion-pause"
+      },
+      "fre": {
+        "default": "mdi:leaf-circle-outline"
+      },
+      "ful": {
+        "default": "mdi:chart-timeline-variant"
+      },
+      "fup": {
+        "default": "mdi:solar-power"
+      },
+      "loe": {
+        "default": "mdi:scale-balance"
+      },
+      "lse": {
+        "default": "mdi:led-off"
+      },
+      "nmo": {
+        "default": "mdi:home-floor-g"
+      },
+      "pdte": {
+        "default": "mdi:battery-arrow-down-outline"
+      },
+      "su": {
+        "default": "mdi:connection"
+      },
+      "tse": {
+        "default": "mdi:timeline-clock-outline"
+      },
+      "upo": {
+        "default": "mdi:transmission-tower-off"
+      },
+      "wda": {
+        "default": "mdi:wifi-cog"
+      }
+    },
+    "update": {
+      "onv": {
+        "default": "mdi:update"
+      }
+    }
+  }
+}

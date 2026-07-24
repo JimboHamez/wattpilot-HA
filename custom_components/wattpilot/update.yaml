@@ -13,7 +13,7 @@ update:
 #    uid: <optional: unique ID postfix - required if mutliple entities wiht same <id> value exist>
 #    name: <optional: name of the entity within HA>
 #    description: <optional: key within HA>
-#    icon: <optional: key within HA>
+#    (icons are not set here: they live in icons.json, keyed by the entity's uid/id)
 #    enabled: <optional: if set to False entity is by default disabled>
 #    device_class: <optional: key within HA>
 #    entity_category: <optional: key within HA>
@@ -30,6 +30,5 @@ update:
     set_type: string
     name: "Firmware Update"
     description: "Install firmware update available"
-    icon: "mdi:update"
     device_class: firmware
     entity_category: diagnostic

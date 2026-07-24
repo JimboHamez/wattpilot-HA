@@ -128,7 +128,8 @@ class ChargerPlatformEntity(Entity):
             self._attr_translation_key = slugify(
                 str(self._entity_cfg.get("uid", self._entity_cfg.get("id", self._identifier)))
             )
-            self._attr_icon = self._entity_cfg.get("icon", None)
+            # No _attr_icon: icons come from icons.json, looked up by the same
+            # translation key (quality-scale rule icon-translations).
             self._attr_device_class = self._entity_cfg.get("device_class", None)
             self._entity_category = self._entity_cfg.get("entity_category", None)
             self._set_type = self._entity_cfg.get("set_type", None)
