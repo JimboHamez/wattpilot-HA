@@ -48,16 +48,25 @@ or manual test scaffolding.
 
 There is no build step (it is an HA custom component, copied into `config/custom_components/`).
 
-- **Tests** — a pytest scaffold lives in `tests/`. Install with `pip install -r requirements_test.txt`
-  and run `pytest`. Layers:
+- **Tests** — the suite lives in `tests/`. Install with `pip install -r requirements_test.txt`
+  and run `pytest`. Coverage is a **quality-scale rule (Silver, ≥95%)** — check it with
+  `pytest --cov=custom_components.wattpilot --cov-report=term-missing` before claiming a change is
+  done. Layers:
   - `test_yaml_catalogs.py` / `test_const.py` — dependency-free (pyyaml + isolated `const.py`
     load); validate the data-driven entity catalogs and manifest/const consistency.
-  - `test_utils.py` / `test_entities.py` / `test_sensor.py` / `test_select.py` / `test_setup.py` /
-    `test_config_flow.py` — import the integration (pulling in Home Assistant and the
-    `wattpilot-api` client) and skip cleanly if those deps are absent. `test_config_flow.py` and
-    `test_setup.py` use the `hass` fixture from `pytest-homeassistant-custom-component`.
+  - Everything else imports the integration (pulling in Home Assistant and the `wattpilot-api`
+    client) and skips cleanly if those deps are absent. Roughly by target: `test_init.py` (entry
+    setup/teardown and every failure branch), `test_utils.py`, `test_services.py`,
+    `test_entity_base.py` (gating, availability, poll/push), `test_platform_setup.py` (the shared
+    per-platform setup skeleton, parametrized over all six), `test_platform_entities.py` (what each
+    platform does with a value), `test_config_flow.py` / `test_options_flow.py`,
+    `test_availability.py`, `test_diagnostics.py`, `test_icons.py`, `test_setup.py`.
   - `conftest.py` provides `MockCharger` / `mock_charger` / `make_charger` — a fake charger with
     an `all_properties` dict and a `set_property` recorder; use it instead of a live device.
+  - Because the repo convention wraps every function in `try/except`, **the error branches are
+    most of the uncovered surface**. The established way to reach them is to patch the collaborator
+    the function calls (`patch("custom_components.wattpilot.<module>.<helper>", side_effect=...)`)
+    and assert on `caplog` — see `test_platform_setup.py` for the parametrized version.
   - `pytest.ini` sets `asyncio_mode = auto` and **enables** the
     `pytest-homeassistant-custom-component` plugin (it used to be disabled via `-p no:homeassistant`).
 - **Static analysis** — `./scan.sh` runs bandit, semgrep, mypy and pip-audit in a `.venv`, scoped
@@ -204,9 +213,10 @@ the redacted diagnostics download.
 ## Quality scale
 
 The integration targets the [HA Integration Quality Scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/).
-`manifest.json` declares `"quality_scale": "bronze"`, and
+`manifest.json` declares `"quality_scale": "silver"`, and
 `custom_components/wattpilot/quality_scale.yaml` tracks every rule as `done`, `exempt` (with a
-reason) or `todo`. **Bronze is fully met**; much of Gold and Platinum is already done out of order.
+reason) or `todo`. **Bronze and Silver are fully met**; much of Gold and Platinum is already done
+out of order.
 
 Keep the file honest — it is a self-declaration, and the `manifest.json` tier must not run ahead
 of it:
@@ -214,15 +224,10 @@ of it:
 - Only raise the `manifest.json` tier when *every* rule of that tier is `done` or `exempt`.
 - `exempt` always carries a `comment` explaining why the rule cannot apply.
 
-Outstanding work, by tier (as of 0.5.5):
-- **Silver** (blocks the next tier bump): `test-coverage` only — measured at ~63%, against the
-  95% threshold. Run it with
-  `pytest --cov=custom_components.wattpilot --cov-report=term-missing`; the biggest gaps are
-  `update.py`, `utils.py`, `diagnostics.py` and the `except` branches everywhere.
-  (`log-when-unavailable` and `action-exceptions` are done — see the connection monitor and the
-  services convention below.)
-- **Gold:** `exception-translations`, `reconfiguration-flow` (settings change via the options flow; no
-  `async_step_reconfigure`).
+Outstanding work, by tier (as of 0.6.0):
+- **Gold** (blocks the next tier bump): `exception-translations` — the errors `services.py` raises
+  carry plain English messages rather than `translation_key`s; `reconfiguration-flow` — settings
+  change through the options flow, with no `async_step_reconfigure`.
 - **Platinum:** `async-dependency` and `strict-typing` are **done** (the move to `wattpilot-api`
   and the strict-mypy pass); `inject-websession` is exempt because the library speaks
   `websockets`, not an aiohttp/httpx session.

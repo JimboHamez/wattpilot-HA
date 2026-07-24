@@ -10,8 +10,9 @@ registration and device-id resolution are exercised too.
 from __future__ import annotations
 
 import datetime
+import logging
 import time
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -236,3 +237,103 @@ async def test_set_goe_cloud_write_failure_raises(hass, charger_device):
         await hass.services.async_call(
             DOMAIN, "set_goe_cloud", {"device_id": device_id, "cloud_api": False}, blocking=True
         )
+
+
+async def test_service_registration_failure_is_logged(caplog):
+    """A failure while registering a service is logged, not raised."""
+    from custom_components.wattpilot.services import async_registerService
+
+    hass = MagicMock()
+    hass.services.has_service.side_effect = RuntimeError("boom")
+
+    with caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.services"):
+        await async_registerService(hass, "set_next_trip", AsyncMock())
+
+    assert any("async_registerService: failed" in r.getMessage() for r in caplog.records)
+
+
+async def test_registering_an_existing_service_is_skipped():
+    """Re-registering an existing service is a no-op."""
+    from custom_components.wattpilot.services import async_registerService
+
+    hass = MagicMock()
+    hass.services.has_service.return_value = True
+
+    await async_registerService(hass, "set_next_trip", AsyncMock())
+
+    hass.services.async_register.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("service", "data"),
+    [
+        ("set_next_trip", {"trigger_time": "07:30:00"}),
+        ("set_goe_cloud", {"cloud_api": True}),
+        ("set_debug_properties", {CONF_DBG_PROPS: True}),
+        ("reconnect_charger", {}),
+        ("disconnect_charger", {}),
+    ],
+)
+async def test_every_service_requires_a_device(hass, charger_device, service, data):
+    """Each service rejects a call that names no device."""
+    with pytest.raises(ServiceValidationError, match="device_id"):
+        await hass.services.async_call(DOMAIN, service, dict(data), blocking=True)
+
+
+@pytest.mark.parametrize(
+    ("service", "data", "target"),
+    [
+        ("set_next_trip", {"trigger_time": "07:30:00"}, "async_GetChargerProp"),
+        ("set_goe_cloud", {"cloud_api": True}, "async_SetChargerProp"),
+        ("reconnect_charger", {}, "async_ConnectCharger"),
+    ],
+)
+async def test_unexpected_failures_become_home_assistant_errors(hass, charger_device, service, data, target):
+    """An unexpected error inside a service is wrapped, logged and raised."""
+    _charger, device_id, _entry = charger_device
+
+    with (
+        patch(f"custom_components.wattpilot.services.{target}", side_effect=RuntimeError("boom")),
+        pytest.raises(HomeAssistantError, match="failed"),
+    ):
+        await hass.services.async_call(DOMAIN, service, {"device_id": device_id, **data}, blocking=True)
+
+
+async def test_set_debug_properties_accepts_bool_like_strings(hass, charger_device):
+    """'true' and 'false' strings are accepted as debug states."""
+    _charger, device_id, entry = charger_device
+
+    await hass.services.async_call(
+        DOMAIN, "set_debug_properties", {"device_id": device_id, CONF_DBG_PROPS: "true"}, blocking=True
+    )
+    assert entry.runtime_data[CONF_DBG_PROPS] is True
+
+    await hass.services.async_call(
+        DOMAIN, "set_debug_properties", {"device_id": device_id, CONF_DBG_PROPS: "false"}, blocking=True
+    )
+    assert entry.runtime_data[CONF_DBG_PROPS] is False
+
+
+async def test_set_goe_cloud_enable_failure_raises(hass, charger_device):
+    """A charger refusing to enable the cloud API surfaces as an error."""
+    _charger, device_id, _entry = charger_device
+
+    with (
+        patch("custom_components.wattpilot.services.async_SetChargerProp", new=AsyncMock(return_value=False)),
+        pytest.raises(HomeAssistantError, match="Unable to enable the go-e cloud API"),
+    ):
+        await hass.services.async_call(
+            DOMAIN, "set_goe_cloud", {"device_id": device_id, "cloud_api": True}, blocking=True
+        )
+
+
+async def test_reconnect_charger_skips_disconnect_when_already_offline(hass, charger_device):
+    """A charger that is already offline is reconnected without disconnecting."""
+    charger, device_id, _entry = charger_device
+    charger.connected = False
+    charger.disconnect = AsyncMock()
+
+    with patch("custom_components.wattpilot.services.async_ConnectCharger", new=AsyncMock(return_value=charger)):
+        await hass.services.async_call(DOMAIN, "reconnect_charger", {"device_id": device_id}, blocking=True)
+
+    charger.disconnect.assert_not_awaited()

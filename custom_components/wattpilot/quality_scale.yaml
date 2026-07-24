@@ -47,9 +47,7 @@ rules:
   log-when-unavailable: done
   parallel-updates: done
   reauthentication-flow: done
-  test-coverage:
-    status: todo
-    comment: Test coverage does not yet meet the 95% Silver threshold.
+  test-coverage: done
 
   # Gold
   devices: done
