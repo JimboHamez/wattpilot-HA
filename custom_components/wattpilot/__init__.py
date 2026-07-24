@@ -12,10 +12,12 @@ from homeassistant.const import CONF_PARAMS
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.loader import async_get_integration
 
+from .availability import ChargerConnectionMonitor
 from .const import (
     CONF_CHARGER,
     CONF_DBG_PROPS,
     DOMAIN,
+    FUNC_CONNECTION_MONITOR,
     FUNC_OPTION_UPDATES,
     FUNC_PROPERTY_UPDATES_CALLBACK,
     SUPPORTED_PLATFORMS,
@@ -175,6 +177,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await async_unload_entry(hass, entry)
         return False
 
+    try:
+        _LOGGER.debug("%s - async_setup_entry: start charger connection monitor", entry.entry_id)
+        entry_data[FUNC_CONNECTION_MONITOR] = ChargerConnectionMonitor(hass, entry.entry_id, charger).async_start()
+    except Exception as e:
+        _LOGGER.error(
+            "%s - async_setup_entry: Could not start charger connection monitor: %s (%s.%s)",
+            entry.entry_id,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
+        await async_unload_entry(hass, entry)
+        return False
+
     _LOGGER.debug("%s - async_setup_entry: Completed", entry.entry_id)
     return True
 
@@ -218,6 +234,22 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry_data = entry.runtime_data
             entry_data[FUNC_OPTION_UPDATES]()
             charger = entry_data[CONF_CHARGER]
+
+            try:
+                _LOGGER.debug("%s - async_unload_entry: stop charger connection monitor", entry.entry_id)
+                # async_start returned the timer-cancel callable at setup.
+                stop_monitor = entry_data.get(FUNC_CONNECTION_MONITOR)
+                if callable(stop_monitor):
+                    stop_monitor()
+            except Exception as e:
+                _LOGGER.error(
+                    "%s - async_unload_entry: failed to stop charger connection monitor: %s (%s.%s)",
+                    entry.entry_id,
+                    str(e),
+                    e.__class__.__module__,
+                    type(e).__name__,
+                )
+                pass
 
             try:
                 _LOGGER.debug("%s - async_unload_entry: remove registered event handlers", entry.entry_id)

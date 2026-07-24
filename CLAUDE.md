@@ -155,6 +155,14 @@ All platform entities subclass this. It centralizes:
   entity whose real value happens to equal its `default_state` keeps polling.
 - The same handler also **fires HA events** (`wattpilot_property_message`) for properties listed
   in `const.py::EVENT_PROPS` (`ftt`, `cak`), and drives optional property-change debug logging.
+- **Availability logging:** the client reconnects its WebSocket on its own and exposes no
+  connection-state callback, so `availability.py::ChargerConnectionMonitor` samples
+  `connected` / `properties_initialized` every `const.py::AVAILABILITY_SCAN_INTERVAL` (30 s) and
+  logs *only transitions* — one warning when the connection drops, one info when it returns
+  (the quality-scale `log-when-unavailable` rule). `charger_available()` in the same module is
+  the shared predicate; `entities.py::available` checks the same two flags per entity, at debug
+  level. Started in `async_setup_entry`, its cancel callable is stored under
+  `FUNC_CONNECTION_MONITOR` and invoked on unload.
 
 ### Reading and writing charger values
 Always go through the `utils.py` helpers rather than touching the charger object directly:
@@ -171,8 +179,8 @@ Always go through the `utils.py` helpers rather than touching the charger object
   `__init__.py::options_update_listener`, which reloads the config entry.
 - Per-entry runtime state lives on **`entry.runtime_data`** (a dict), *not* `hass.data[DOMAIN]`
   — keys from `const.py`: `CONF_CHARGER` (the connected charger object), `CONF_PARAMS`,
-  `CONF_DBG_PROPS`, plus the option-update listener and the `on_property_change` unsubscribe
-  handle. `utils.py` has `async_GetChargerFromDeviceID` / `async_GetDataStoreFromDeviceID` to
+  `CONF_DBG_PROPS`, plus the option-update listener, the `on_property_change` unsubscribe
+  handle, and the connection-monitor cancel callable (`FUNC_CONNECTION_MONITOR`). `utils.py` has `async_GetChargerFromDeviceID` / `async_GetDataStoreFromDeviceID` to
   resolve these from a HA `device_id` (used by services).
 - Services are defined in `services.py`, described for the UI in `services.yaml`, and registered
   once in `__init__.py::async_setup` (not per entry): `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`
@@ -197,10 +205,11 @@ of it:
 - Only raise the `manifest.json` tier when *every* rule of that tier is `done` or `exempt`.
 - `exempt` always carries a `comment` explaining why the rule cannot apply.
 
-Outstanding work, by tier (as of 0.5.2):
+Outstanding work, by tier (as of 0.5.5):
 - **Silver** (blocks the next tier bump): `action-exceptions` — services follow the repo's
   log-and-degrade convention instead of raising `ServiceValidationError` / `HomeAssistantError`;
-  `log-when-unavailable` — no log-once-on-disconnect; `test-coverage` — below the 95% threshold.
+  `test-coverage` — below the 95% threshold. (`log-when-unavailable` is done — see the
+  connection monitor in the update-model section above.)
 - **Gold:** `exception-translations`, `icon-translations` (entities set mdi icons directly rather
   than shipping `icons.json`), `reconfiguration-flow` (settings change via the options flow; no
   `async_step_reconfigure`).
