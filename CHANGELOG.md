@@ -12,6 +12,26 @@ for attribution.
 
 _Nothing yet._
 
+## [0.6.1] - 2026-07-24
+
+A firmware-update fix found by the test suite, which now meets the Silver
+quality-scale bar.
+
+### Fixed
+- **Installing a firmware update reported success even when it went wrong.** The install
+  handler looked up its connection timeout in a store that was removed in 0.5.0, so it
+  failed immediately after telling the charger to flash. The update itself still started,
+  but the integration never waited for the charger to reboot and never reported a failure —
+  a timeout or a charger that did not come back looked exactly like success. It now reads
+  the timeout from the config entry, so the wait and its error reporting work again.
+
+### Internal
+- Test coverage raised from 63% to 97%, above the 95% Silver threshold, growing the suite
+  from 98 to 342 tests.
+- With every Bronze and Silver rule met, `manifest.json` now declares
+  `"quality_scale": "silver"` (was `bronze`). Gold needs `exception-translations` and
+  `reconfiguration-flow`.
+
 ## [0.6.0] - 2026-07-24
 
 Quality-scale work: the integration now tells you when it loses the charger, service
@@ -287,7 +307,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.3...v0.5.4
