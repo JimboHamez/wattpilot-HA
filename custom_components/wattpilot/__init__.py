@@ -14,6 +14,7 @@ from homeassistant.loader import async_get_integration
 
 from .availability import ChargerConnectionMonitor
 from .const import (
+    AUTH_FAILURE_REAUTH_THRESHOLD,
     CONF_CHARGER,
     CONF_DBG_PROPS,
     DOMAIN,
@@ -39,6 +40,12 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 _LOGGER: Final = logging.getLogger(__name__)
+
+# Maps entry_id -> consecutive password rejections seen during setup retries.
+# The stored password is not the problem when this grows: a charger that has
+# just been re-powered can reject its (correct) password for a few seconds while
+# it boots, so those early failures are retried instead of forcing a reauth.
+_AUTH_FAILURE_COUNTS: Final[dict[str, int]] = {}
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
@@ -90,10 +97,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # marking the entry permanently failed (e.g. charger briefly offline).
         if charger is False:
             raise ConfigEntryNotReady(f"Unable to connect to Wattpilot charger for entry {entry.entry_id}")
+        # A clean connect clears any earlier transient password rejections.
+        _AUTH_FAILURE_COUNTS.pop(entry.entry_id, None)
     except ConfigEntryNotReady:
         raise
     except AuthenticationError as e:
-        # Wrong password: ask the user to re-enter it via a reauth flow.
+        # A charger that has just been re-powered can reject its (correct)
+        # password for a few seconds while it boots. Retry those early failures
+        # as "not ready"; only escalate to a reauth flow once the rejection has
+        # persisted across AUTH_FAILURE_REAUTH_THRESHOLD consecutive attempts.
+        failures = _AUTH_FAILURE_COUNTS.get(entry.entry_id, 0) + 1
+        _AUTH_FAILURE_COUNTS[entry.entry_id] = failures
+        if failures < AUTH_FAILURE_REAUTH_THRESHOLD:
+            _LOGGER.warning(
+                "%s - async_setup_entry: charger rejected the password (attempt %s of %s), "
+                "retrying in case it is still starting up",
+                entry.entry_id,
+                failures,
+                AUTH_FAILURE_REAUTH_THRESHOLD,
+            )
+            raise ConfigEntryNotReady(f"Charger rejected the password for entry {entry.entry_id}, retrying") from e
+        # The rejection persisted: treat the stored password as genuinely wrong
+        # and ask the user to re-enter it via a reauth flow.
+        _AUTH_FAILURE_COUNTS.pop(entry.entry_id, None)
         raise ConfigEntryAuthFailed(f"Authentication failed for Wattpilot charger for entry {entry.entry_id}") from e
     except Exception as e:
         _LOGGER.error(
@@ -216,6 +242,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     try:
         _LOGGER.debug("Unloading config entry: %s", entry.entry_id)
+        _AUTH_FAILURE_COUNTS.pop(entry.entry_id, None)
         all_ok = True
         for platform in SUPPORTED_PLATFORMS:
             _LOGGER.debug("%s - async_unload_entry: unload platform: %s", entry.entry_id, platform)

@@ -12,6 +12,19 @@ for attribution.
 
 _Nothing yet._
 
+## [0.6.2] - 2026-07-24
+
+A reconnection fix so a charger power-cycle no longer forces a reauthentication.
+
+### Fixed
+- **Cutting power to the charger triggered an unnecessary reauthentication when it came
+  back.** A just-re-powered Wattpilot briefly rejects its (correct) password while its auth
+  subsystem boots, and setup escalated that first rejection straight to a reauth flow — even
+  though the stored password was fine (re-entering the same password resolved it). Setup now
+  tolerates a few consecutive rejections during startup, retrying them as "not ready", and
+  only asks you to re-enter the password once a rejection persists. A genuinely wrong password
+  still prompts reauth.
+
 ## [0.6.1] - 2026-07-24
 
 A firmware-update fix found by the test suite, which now meets the Silver
@@ -307,7 +320,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.4...v0.5.5

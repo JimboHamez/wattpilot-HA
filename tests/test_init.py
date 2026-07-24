@@ -27,6 +27,7 @@ from custom_components.wattpilot import (
     options_update_listener,
 )
 from custom_components.wattpilot.const import (
+    AUTH_FAILURE_REAUTH_THRESHOLD,
     CONF_CHARGER,
     CONF_CONNECTION,
     CONF_LOCAL,
@@ -126,8 +127,8 @@ async def test_setup_entry_retries_when_the_charger_is_unreachable(hass):
         await async_setup_entry(hass, entry)
 
 
-async def test_setup_entry_starts_reauth_on_a_bad_password(hass):
-    """A rejected password asks the user to re-enter it."""
+async def test_setup_entry_retries_a_transient_password_rejection(hass):
+    """An early password rejection is retried, not escalated to reauth."""
     entry = _entry(hass)
 
     with (
@@ -135,7 +136,55 @@ async def test_setup_entry_starts_reauth_on_a_bad_password(hass):
             "custom_components.wattpilot.async_ConnectCharger",
             new=AsyncMock(side_effect=AuthenticationError("nope")),
         ),
-        pytest.raises(ConfigEntryAuthFailed),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, entry)
+
+
+async def test_setup_entry_starts_reauth_after_repeated_bad_passwords(hass):
+    """A password rejected on every retry eventually asks the user to re-enter it."""
+    entry = _entry(hass)
+
+    with patch(
+        "custom_components.wattpilot.async_ConnectCharger",
+        new=AsyncMock(side_effect=AuthenticationError("nope")),
+    ):
+        # The first attempts retry as "not ready"; the threshold-th escalates.
+        for _ in range(AUTH_FAILURE_REAUTH_THRESHOLD - 1):
+            with pytest.raises(ConfigEntryNotReady):
+                await async_setup_entry(hass, entry)
+        with pytest.raises(ConfigEntryAuthFailed):
+            await async_setup_entry(hass, entry)
+
+
+async def test_setup_entry_resets_auth_failures_after_a_clean_connect(hass, make_charger):
+    """A successful connect clears earlier transient rejections."""
+    charger = make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB")
+    entry = _entry(hass)
+
+    # One transient rejection primes the per-entry counter.
+    with (
+        patch(
+            "custom_components.wattpilot.async_ConnectCharger",
+            new=AsyncMock(side_effect=AuthenticationError("nope")),
+        ),
+        pytest.raises(ConfigEntryNotReady),
+    ):
+        await async_setup_entry(hass, entry)
+
+    # A clean connect must reset the count so the next rejection starts over.
+    with (
+        _no_platforms(hass),
+        patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)),
+    ):
+        assert await async_setup_entry(hass, entry) is True
+
+    with (
+        patch(
+            "custom_components.wattpilot.async_ConnectCharger",
+            new=AsyncMock(side_effect=AuthenticationError("nope")),
+        ),
+        pytest.raises(ConfigEntryNotReady),
     ):
         await async_setup_entry(hass, entry)
 
