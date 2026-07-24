@@ -28,6 +28,12 @@ DEFAULT_TIMEOUT: Final = 15
 # unavailable and the log entry explaining why land at roughly the same time.
 AVAILABILITY_SCAN_INTERVAL: Final = timedelta(seconds=30)
 
+# Consecutive password rejections during setup tolerated before a reauth flow is
+# started. A just-re-powered charger can briefly reject the (correct) password
+# while its auth subsystem boots, so early failures are retried as "not ready"
+# and only a persistent rejection is treated as genuinely wrong credentials.
+AUTH_FAILURE_REAUTH_THRESHOLD: Final = 3
+
 EVENT_PROPS_ID: Final = DOMAIN + "_property_message"
 EVENT_PROPS: Final = ["ftt", "cak"]
 
