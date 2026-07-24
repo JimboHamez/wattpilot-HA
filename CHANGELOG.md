@@ -12,6 +12,45 @@ for attribution.
 
 _Nothing yet._
 
+## [0.6.0] - 2026-07-24
+
+Quality-scale work: the integration now tells you when it loses the charger, service
+actions report their failures, and entity icons move to Home Assistant's icon
+translations. Two of these change behaviour you may be relying on — see **Changed**.
+
+### Added
+- **A lost connection is now logged.** The charger's connection state is sampled every
+  30 seconds and each change is logged once: a warning when the WebSocket drops
+  ("connection to charger lost, entities stay unavailable until it reconnects") and an
+  info line when it comes back. A charger that stays offline for hours produces one
+  warning, not a repeating stream. Entities already went unavailable in this situation;
+  there was simply nothing in the log explaining why.
+
+### Changed
+- **Service actions now raise on failure instead of only logging.** All five services
+  (`set_next_trip`, `set_goe_cloud`, `set_debug_properties`, `reconnect_charger`,
+  `disconnect_charger`) report a bad call as a validation error — missing parameter,
+  unknown device, unparseable trigger time, invalid debug state — and a charger-side
+  failure as an error dialog. **This aborts the calling automation or script**, where
+  previously the failure was written to the log and the script carried on. Successful
+  calls behave exactly as before.
+- **Entity icons moved into `icons.json`.** Icons are unchanged in the UI, but Home
+  Assistant now resolves them in the frontend rather than storing them on each entity,
+  so **entity states no longer carry an `icon` attribute** (and the entity registry's
+  `original_icon` is empty). Only a template or dashboard reading
+  `state_attr('sensor.…', 'icon')` is affected; icons you set yourself in the UI are
+  untouched.
+
+### Fixed
+- `set_next_trip` no longer fails when the charger reports no daylight-saving value.
+- Disabling the go-e cloud API now checks that the charger accepted the change instead
+  of reporting success regardless.
+
+### Internal
+- Quality scale: `log-when-unavailable`, `action-exceptions` and `icon-translations`
+  are met. Silver is now blocked only by `test-coverage`.
+- Test suite grown from 64 to 98 tests, with `services.py` coverage going from 13% to 89%.
+
 ## [0.5.5] - 2026-07-17
 
 Readable Charging Reason and Internal Error states, and a completed German translation.
@@ -248,7 +287,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.5...v0.6.0
 [0.5.5]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.2...v0.5.3
