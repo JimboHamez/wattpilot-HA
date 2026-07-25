@@ -10,13 +10,9 @@ for attribution.
 
 ## [Unreleased]
 
-### Changed
-- **Service action errors are now translatable** (quality-scale Gold rule
-  `exception-translations`). Every error raised by an action — a missing parameter, an
-  unknown device, an unparseable next-trip time, a charger that refused a write — carries a
-  translation key instead of a hardcoded English message, so the text shown in the UI and in
-  automation traces follows the Home Assistant language. English and German messages ship in
-  `strings.json` and `translations/`.
+The integration now declares the **platinum** quality scale (it was silver). Every rule in
+`quality_scale.yaml` is `done` or `exempt` — checked against the rule list in Home Assistant
+core rather than against the file alone — after the two changes below closed the last gaps.
 
 ### Added
 - **Reconfigure an existing charger without removing it** (quality-scale Gold rule
@@ -25,9 +21,25 @@ for attribution.
   moves to a new IP address. The details are tested before they are stored, the entry keeps
   its connection type, and pointing an entry at a *different* charger is refused rather than
   silently rebinding it. The existing Configure (options) dialog still works as before.
+- **Documentation for the parts that only existed in code.** The README gained an **Actions**
+  section documenting all five service actions and their parameters, a **Use cases** section,
+  and **Example automations** (protecting a house battery during surplus charging, and setting
+  the next-trip time from a calendar).
 
-With this, every rule in `quality_scale.yaml` is `done` or `exempt`. The declared tier in
-`manifest.json` stays at silver for now.
+### Changed
+- **Service action errors are now translatable** (quality-scale Gold rule
+  `exception-translations`). Every error raised by an action — a missing parameter, an
+  unknown device, an unparseable next-trip time, a charger that refused a write — carries a
+  translation key instead of a hardcoded English message, so the text shown in the UI and in
+  automation traces follows the Home Assistant language. English and German messages ship in
+  `strings.json` and `translations/`.
+- The example package in `packages/wattpilot/` was updated to current Home Assistant
+  automation syntax, and its debug-logging example now names the `wattpilot_api` logger
+  instead of the `wattpilot` module that was dropped in 0.5.0.
+
+### Removed
+- The example "reload the integration when the connection drops" automation, which keyed off
+  a log message that no longer exists — the client reconnects on its own now.
 
 ## [0.6.4] - 2026-07-25
 

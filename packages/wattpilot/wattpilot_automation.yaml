@@ -1,38 +1,43 @@
-# version: 2022.03.03
-# author: Martin Kraemer, mk.maddin@gmail.com
 # description: home assistant configuration file - yaml structure
 # 	the topic this file handles is described by its filename
+#
+# Keeps the input_datetime helper from wattpilot_input_datetime.yaml and the charger's
+# next-trip time (property 'ftt') in sync in both directions: writing the helper pushes
+# the new departure time to the charger, and a change made in the Wattpilot app comes
+# back as a wattpilot_property_message event and updates the helper.
+#
+# Replace the device_id below with your charger's (Settings > Devices > Wattpilot).
 
 automation:
-
   - id: wattpilot_sync_nexttrip
     alias: wattpilot_sync_nexttrip
     description: 'Sync next trip information of wattpilot to input_datetime'
     mode: queued
-    trigger:
+    triggers:
       - id: 'set_value'
-        platform: state
+        trigger: state
         entity_id: input_datetime.wattpilot_next_trip_timing
       - id: 'get_value'
-        platform: event
+        trigger: event
         event_type: 'wattpilot_property_message'
         event_data:
-#          charger_id: "Wattpilot" #if you have multiple chargers you can define here which charger to hanlde with this input_datetime
-          property: "ftt" #ftt is the property name of nexttrip timing
-    action:
+          # If you have multiple chargers, add charger_id here to pick which one this
+          # automation handles.
+          property: "ftt" # ftt is the property name of nexttrip timing
+    actions:
       - variables:
           input_dt: 'input_datetime.wattpilot_next_trip_timing'
-          device_id: 46685168f8c86080645840dd194e2f06 #PLEASE CHANGE: device_id of your charger
+          device_id: 46685168f8c86080645840dd194e2f06 # PLEASE CHANGE: device_id of your charger
       - choose:
-          - conditions:      
+          - conditions:
               - condition: trigger
                 id: 'set_value'
             sequence:
-              - service: wattpilot.set_next_trip
-                data_template:
+              - action: wattpilot.set_next_trip
+                data:
                   device_id: "{{ device_id }}"
                   trigger_time: "{{ states(input_dt) | string }}"
-          - conditions:      
+          - conditions:
               - condition: trigger
                 id: 'get_value'
             sequence:
@@ -45,46 +50,20 @@ automation:
                           {% set new = trigger.event.data.value %}
                           {{ not new == current }}
                     sequence:
-                      - service: input_datetime.set_datetime
-                        data_template:
+                      - action: input_datetime.set_datetime
+                        target:
                           entity_id: "{{ input_dt }}"
+                        data:
                           timestamp: "{{ trigger.event.data.value }}"
                 default:
-                  - service: system_log.write
-                    data_template:
+                  - action: system_log.write
+                    data:
                       message: "Values of input_datetime & wattpilot already match: {{ trigger.event.data.value }}"
                       logger: homeassistant.components.automation.wattpilot_sync_nexttrip
                       level: debug
         default:
-          - service: system_log.write
-            data_template:
+          - action: system_log.write
+            data:
               message: "Unhandled trigger: {{ trigger }}"
               logger: homeassistant.components.automation.wattpilot_sync_nexttrip
               level: error
-
-
-  - id: wattpilot_disconnect_reload
-    alias: wattpilot_disconnect_reload
-    description: 'Reload wattpilot device integration on disconnect'
-    mode: queued
-    max_exceeded: silent
-    trigger:
-      - id: 'system_log' 
-        platform: event
-        event_type: system_log_event
-        event_data:
-          level: ERROR
-          name: custom_components.wattpilot.utils
-          message:
-            - >-
-              46685168f8c86080645840dd194e2f06 - PropertyUpdateHandler: Could not 'self' execute async: '46685168f8c86080645840dd194e2f06' (builtins.KeyError) 
-              #PLEASE CHANGE: device_id of your charger / your reload error message
-    action:
-      - service: system_log.write
-        data_template:
-          message: "Reload wattpilot device after disconnect"
-          logger: homeassistant.components.automation.wattpilot_disconnect_reload
-          level: warning
-      - service: homeassistant.reload_config_entry
-        target:
-          device_id: 46685168f8c86080645840dd194e2f06 #PLEASE CHANGE: device_id of your charger

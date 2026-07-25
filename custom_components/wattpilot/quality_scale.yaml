@@ -1,6 +1,10 @@
 # Home Assistant Integration Quality Scale status for the Fronius Wattpilot
 # custom integration. Statuses are self-declared and kept honest: `done`,
 # `exempt` (with a reason), or `todo`.
+#
+# The rule list is the full set from home-assistant/core
+# script/hassfest/quality_scale.py (54 rules); every one is `done` or `exempt`,
+# which is what backs the "platinum" declaration in manifest.json.
 rules:
   # Bronze
   action-setup: done

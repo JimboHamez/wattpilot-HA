@@ -227,10 +227,9 @@ the redacted diagnostics download.
 ## Quality scale
 
 The integration targets the [HA Integration Quality Scale](https://developers.home-assistant.io/docs/core/integration-quality-scale/).
-`manifest.json` declares `"quality_scale": "silver"`, and
+`manifest.json` declares `"quality_scale": "platinum"`, and
 `custom_components/wattpilot/quality_scale.yaml` tracks every rule as `done`, `exempt` (with a
-reason) or `todo`. **Bronze and Silver are fully met**; much of Gold and Platinum is already done
-out of order.
+reason) or `todo`. **All four tiers are met** — every one of the 54 rules is `done` or `exempt`.
 
 Keep the file honest — it is a self-declaration, and the `manifest.json` tier must not run ahead
 of it:
@@ -246,9 +245,14 @@ landed after 0.6.4. Platinum's `async-dependency` and `strict-typing` were alrea
 `wattpilot-api` move and the strict-mypy pass; `inject-websession` is exempt because the library
 speaks `websockets`, not an aiohttp/httpx session.
 
-`manifest.json` still declares **silver**. Raising it to gold or platinum is now unblocked by the
-rule list, but the declaration is a public claim — re-read the `docs-*` rules against the actual
-README before making it.
+`manifest.json` declares **platinum**, backed by an audit rather than by the file alone: the rule
+list was diffed against `script/hassfest/quality_scale.py` in `home-assistant/core@dev` (54 rules,
+none missing, none invented), the `brands` claim was confirmed against
+`home-assistant/brands/custom_integrations/wattpilot`, and `strict-typing` rests on a clean
+`mypy --strict` plus `py.typed` in both this package and the installed `wattpilot-api`. The two
+weakest `docs-*` rules (`docs-use-cases`, `docs-examples`) and `docs-actions` were thin claims
+until the README gained its **Use cases**, **Example automations** and **Actions** sections —
+if you change what those sections cover, the rules go with them.
 
 The Silver `action-exceptions` rule was in direct tension with the log-and-degrade convention
 below, and the trade was settled deliberately: **`services.py` raises, everything else still logs

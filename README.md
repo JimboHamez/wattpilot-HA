@@ -1,6 +1,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge)](https://github.com/hacs/integration)
 ![GitHub Release](https://img.shields.io/github/v/release/JimboHamez/wattpilot-HA?style=for-the-badge)
 [![hacs_downloads](https://img.shields.io/github/downloads/JimboHamez/wattpilot-HA/latest/total?style=for-the-badge)](https://github.com/JimboHamez/wattpilot-HA/releases/latest)
+[![Quality Scale](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FJimboHamez%2Fwattpilot-HA%2Fmain%2Fcustom_components%2Fwattpilot%2Fmanifest.json&query=%24.quality_scale&label=Quality%20Scale&style=for-the-badge&color=E5E4E2)](https://developers.home-assistant.io/docs/core/integration-quality-scale/)
 ![GitHub License](https://img.shields.io/github/license/JimboHamez/wattpilot-HA?style=for-the-badge)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/y/JimboHamez/wattpilot-HA?style=for-the-badge)
 ![Maintenance](https://img.shields.io/maintenance/yes/2026?style=for-the-badge)
@@ -17,9 +18,10 @@
 > **The two have since diverged substantially.** As of 0.5.0 this fork replaced the vendored,
 > synchronous `wattpilot` library with the maintained async
 > [`wattpilot-api`](https://pypi.org/project/wattpilot-api/), rewrote the entities around it,
-> added translated names and states, mDNS discovery and a reauthentication flow, and works
-> through the Home Assistant Integration Quality Scale. Behaviour, entity names and entity units
-> differ from upstream in ways upstream cannot support.
+> added translated names and states, mDNS discovery, reauthentication and reconfiguration flows,
+> and now meets every rule of the Home Assistant Integration Quality Scale (self-declared
+> **platinum**). Behaviour, entity names and entity units differ from upstream in ways upstream
+> cannot support.
 >
 > **Please report issues with *this* integration
 > [here](https://github.com/JimboHamez/wattpilot-HA/issues), not upstream.** Bug reports about
@@ -59,6 +61,85 @@ Allows for control of [Fronius Wattpilot](https://www.fronius.com/en/solar-energ
 * next trip timing configuration via service call (& event when next trip timing value is changed) -> you can create an [input_datetime (example)](packages/wattpilot/wattpilot_input_datetime.yaml) entity & corresponding [automation (example)](packages/wattpilot/wattpilot_automation.yaml) which ensures the input_datetime is in sync with the setting wihtin your wattpilot charger
 * log value changes for properties of the wallbox as warnings (enable/disable via service call)
 * can enable/disable e-go cloud charging API (enable/disable via service call) -> this is at your own responsibility - is not clear if fronius/you "pay" in some way for the e-go cloud API and thus are legally allowed to use -> as it is not required at the moment for the functionality of this component, I do not recommend to enable
+
+## Use cases
+
+What people actually use this for:
+
+* **Charge the car on solar surplus only.** Turn on *PV Surplus* and set *Start Charging at*
+  to the surplus power that should trigger charging; the charger then follows your PV
+  production instead of the grid. Home Assistant gives you the missing half — pause it when the
+  house battery drops below a threshold, or force a full-power session when you need the car
+  sooner.
+* **Be ready for a trip without leaving the car on the grid all night.** Set the departure time
+  and the energy you need, and the charger works backwards from it. The `set_next_trip` action
+  writes that departure time, so it can follow a calendar or an `input_datetime` helper rather
+  than being typed into the app (see the example below).
+* **Charge when electricity is cheap.** Point the *Charging Mode* select at Eco and let the
+  charger use the aWattar/Lumina price feed, or drive *Max Charging Current* yourself from any
+  price sensor you already have in Home Assistant.
+* **See what the wallbox is doing, and record it.** *Charging Power*, *Totally Charged* and
+  *Connection Charged* are proper energy/power entities, so they slot straight into the Energy
+  dashboard and long-term statistics; *ChargingReason* tells you why charging is (not) running
+  right now.
+* **Keep a Wattpilot GO usable.** The `disconnect_charger` / `reconnect_charger` actions free
+  the charger's single WebSocket session so the phone app can take over, then take it back.
+
+## Example automations
+
+The [`packages/wattpilot/`](packages/wattpilot) folder holds ready-to-use configuration:
+[`wattpilot_input_datetime.yaml`](packages/wattpilot/wattpilot_input_datetime.yaml) and
+[`wattpilot_automation.yaml`](packages/wattpilot/wattpilot_automation.yaml) keep an
+`input_datetime` helper and the charger's next-trip time in sync in both directions, and
+[`wattpilot_logger.yaml`](packages/wattpilot/wattpilot_logger.yaml) turns on debug logging.
+Copy them into your `packages/` directory and replace the `device_id` with your charger's.
+
+Two smaller examples to start from — both use the entity names this integration ships, so
+adjust the entity ids to match your charger's device name:
+
+```yaml
+# Pause surplus charging while the house battery is low, resume when it recovers.
+automation:
+  - alias: Wattpilot - protect the house battery
+    triggers:
+      - trigger: numeric_state
+        entity_id: sensor.house_battery_level
+        below: 30
+        id: low
+      - trigger: numeric_state
+        entity_id: sensor.house_battery_level
+        above: 50
+        id: recovered
+    actions:
+      - choose:
+          - conditions: "{{ trigger.id == 'low' }}"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.wattpilot_pv_surplus
+          - conditions: "{{ trigger.id == 'recovered' }}"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.wattpilot_pv_surplus
+```
+
+```yaml
+# Set the next-trip departure time from a calendar event.
+automation:
+  - alias: Wattpilot - next trip from calendar
+    triggers:
+      - trigger: calendar
+        entity_id: calendar.commute
+        event: start
+        offset: "-12:00:00"
+    actions:
+      - action: wattpilot.set_next_trip
+        data:
+          device_id: !secret wattpilot_device_id
+          # trigger_time is a time of day (HH:MM:SS), not a full timestamp.
+          trigger_time: "{{ trigger.calendar_event.start | as_datetime | as_local | strftime('%H:%M:%S') }}"
+```
 
 ## Open Topics:
 
@@ -149,6 +230,23 @@ charger moved cannot silently rebind the entry to a different one; the connectio
 
 If the charger password changes, Home Assistant raises a **reauthentication** prompt asking
 you to enter the new one.
+
+## Actions
+
+Everything you can set day to day is an entity — these actions cover the rest. All of them
+take a **Charger** (`device_id`) and are available under **Developer Tools → Actions** and in
+automations.
+
+| Action | Parameters | What it does |
+|--------|-----------|--------------|
+| `wattpilot.set_next_trip` | `trigger_time` (time of day, e.g. `06:30:00`) | Sets the departure time used by the Next Trip charging mode. The charger's daylight-saving setting is applied for you. Also fires a `wattpilot_property_message` event whenever the charger's own next-trip time changes, so a helper can be kept in sync. |
+| `wattpilot.set_goe_cloud` | `cloud_api` (boolean) | Enables or disables go-e cloud API access and caches the returned key/URL. Enabling is at your own responsibility — see the note under [What It Does](#what-it-does). |
+| `wattpilot.set_debug_properties` | `debug_properties` (`true`, `false`, or a list of property codes) | Logs charger property changes as warnings. `true` logs everything (noisy), a list logs only those codes — e.g. `[wda, cci, err]`. |
+| `wattpilot.disconnect_charger` | – | Closes the charger's WebSocket session; its entities go unavailable. Useful on a Wattpilot GO, which allows only one connection at a time, when you want the phone app to take over. |
+| `wattpilot.reconnect_charger` | – | Reopens the session after `disconnect_charger`, or forces a reconnect. |
+
+Failures surface as errors on the calling script rather than being silently logged, so an
+automation stops when a charger cannot carry out what it was asked.
 
 ## Supported devices
 
