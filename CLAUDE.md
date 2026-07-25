@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 2. Architectural Guardrails
 - **The Async Iron Law:** Never allow blocking code (e.g., `requests`, `time.sleep`, or synchronous file reads) in the main thread. Always wrap synchronous device calls in `await hass.async_add_executor_job()` or rewrite them natively using `aiohttp` or `asyncio`.
 - **Data Coordination:** Always scaffold the integration using a central `DataUpdateCoordinator`. Individual entities must inherit from `CoordinatorEntity` and pull states from the coordinator's cached data, rather than querying the API directly to prevent rate-limiting.
-- **UI-Driven Configuration:** Do not write YAML parsing routines. Generate UI-driven `ConfigFlow` components (`config_flow.py`) for initial setup and an `OptionsFlow` for changing parameters later without restarting Home Assistant.
+- **UI-Driven Configuration:** Do not write YAML parsing routines. Generate UI-driven `ConfigFlow` components (`config_flow.py`) for initial setup, and change connection settings later through `async_step_reconfigure` rather than an `OptionsFlow` (this integration has no options flow — see the config-flow section below).
 - **Client Library Separation:** All raw API-specific network code, parsing, and authentication handling must live in a separate third-party Python client library (declared in the `manifest.json` `requirements` array). The custom component code should only orchestrate state translation.
 - **HACS Layout Compliance:** Ensure the repository follows HACS layout standards. The `manifest.json` must explicitly contain a valid `"version"` key and a `"codeowners"` list. Generate a `hacs.json` file automatically in the project root.
 
@@ -199,13 +199,17 @@ Always go through the `utils.py` helpers rather than touching the charger object
 
 ### Config, per-entry state, and services
 - `config_flow.py` is a multi-step flow: connection type → local (IP + password) or cloud
-  (serial + password), plus mDNS/zeroconf discovery, a reauth flow, a reconfigure flow, and a
-  matching options flow. Schemas live in `configuration_schema.py`. Options edits go through
-  `__init__.py::options_update_listener`, which reloads the config entry.
-- `async_step_reconfigure` and the options flow currently edit the **same** connection fields —
-  the reconfigure step is what the quality scale expects for connection settings, the options
-  flow predates it. Both are kept for now; retiring the options flow would remove the
-  "Configure" button existing users know, so it is a deliberate separate decision.
+  (serial + password), plus mDNS/zeroconf discovery, a reauth flow and a reconfigure flow.
+  Schemas live in `configuration_schema.py`; `async_get_RECONFIGURE_*_SCHEMA` build the
+  prefilled forms the reconfigure step shows.
+- **There is no options flow**, and `entry.data` is the only store — nothing reads
+  `entry.options`. The options flow was removed once `async_step_reconfigure` existed (they
+  edited the same connection fields, and the quality scale expects connection settings to live
+  in reconfigure). Do not reintroduce an `add_update_listener` that copies `entry.options` onto
+  `entry.data`: the old `options_update_listener` did exactly that, and because update listeners
+  fire on **any** entry change, it emptied `entry.data` every time reauth or reconfigure
+  finished. `tests/test_config_flow.py` runs both flows against a fully set-up entry to keep
+  that from coming back.
 - Reconfiguration keeps the entry's connection type (local stays local) and guards its identity:
   a cloud entry is its serial, so a changed serial aborts (`wrong_charger`); a local entry that
   stores a serial (zeroconf-discovered) is verified against the `sse` the reconnected charger
@@ -216,8 +220,9 @@ Always go through the `utils.py` helpers rather than touching the charger object
   wraps it for the steps that only need the error).
 - Per-entry runtime state lives on **`entry.runtime_data`** (a dict), *not* `hass.data[DOMAIN]`
   — keys from `const.py`: `CONF_CHARGER` (the connected charger object), `CONF_PARAMS`,
-  `CONF_DBG_PROPS`, plus the option-update listener, the `on_property_change` unsubscribe
-  handle, and the connection-monitor cancel callable (`FUNC_CONNECTION_MONITOR`). `utils.py` has `async_GetChargerFromDeviceID` / `async_GetDataStoreFromDeviceID` to
+  `CONF_DBG_PROPS`, plus the `on_property_change` unsubscribe handle
+  (`FUNC_PROPERTY_UPDATES_CALLBACK`) and the connection-monitor cancel callable
+  (`FUNC_CONNECTION_MONITOR`). `utils.py` has `async_GetChargerFromDeviceID` / `async_GetDataStoreFromDeviceID` to
   resolve these from a HA `device_id` (used by services).
 - Services are defined in `services.py`, described for the UI in `services.yaml`, and registered
   once in `__init__.py::async_setup` (not per entry): `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`

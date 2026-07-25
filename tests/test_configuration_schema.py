@@ -1,4 +1,4 @@
-"""Tests for the config/options flow schemas."""
+"""Tests for the config and reconfigure flow schemas."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PASSWO
 from custom_components.wattpilot.configuration_schema import (
     CLOUD_SCHEMA,
     LOCAL_SCHEMA,
-    async_get_OPTIONS_CLOUD_SCHEMA,
-    async_get_OPTIONS_LOCAL_SCHEMA,
+    async_get_RECONFIGURE_CLOUD_SCHEMA,
+    async_get_RECONFIGURE_LOCAL_SCHEMA,
 )
 from custom_components.wattpilot.const import CONF_SERIAL, DEFAULT_TIMEOUT
 
@@ -26,7 +26,7 @@ def _defaults(schema: vol.Schema) -> dict:
 
 async def test_local_options_schema_prefills_the_current_settings():
     """The local options form opens on the values already configured."""
-    schema = await async_get_OPTIONS_LOCAL_SCHEMA(
+    schema = await async_get_RECONFIGURE_LOCAL_SCHEMA(
         {CONF_FRIENDLY_NAME: "WB", CONF_IP_ADDRESS: "1.2.3.4", CONF_PASSWORD: "p", CONF_TIMEOUT: 30}
     )
 
@@ -38,7 +38,7 @@ async def test_local_options_schema_prefills_the_current_settings():
 
 async def test_cloud_options_schema_prefills_the_current_settings():
     """The cloud options form opens on the values already configured."""
-    schema = await async_get_OPTIONS_CLOUD_SCHEMA({CONF_FRIENDLY_NAME: "WB", CONF_SERIAL: "SN", CONF_PASSWORD: "p"})
+    schema = await async_get_RECONFIGURE_CLOUD_SCHEMA({CONF_FRIENDLY_NAME: "WB", CONF_SERIAL: "SN", CONF_PASSWORD: "p"})
 
     defaults = _defaults(schema)
     assert defaults[CONF_SERIAL] == "SN"
@@ -47,7 +47,7 @@ async def test_cloud_options_schema_prefills_the_current_settings():
 
 @pytest.mark.parametrize(
     ("builder", "fallback"),
-    [(async_get_OPTIONS_LOCAL_SCHEMA, LOCAL_SCHEMA), (async_get_OPTIONS_CLOUD_SCHEMA, CLOUD_SCHEMA)],
+    [(async_get_RECONFIGURE_LOCAL_SCHEMA, LOCAL_SCHEMA), (async_get_RECONFIGURE_CLOUD_SCHEMA, CLOUD_SCHEMA)],
 )
 async def test_options_schema_falls_back_to_the_blank_form(caplog, builder, fallback):
     """Unreadable current settings still produce a usable (blank) form."""

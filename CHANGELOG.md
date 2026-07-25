@@ -10,7 +10,19 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **Reauthenticating or reconfiguring a charger wiped its configuration.** An internal
+  update listener copied the entry's *options* over its *data* — and because Home Assistant
+  fires update listeners on **any** entry change, not just an options edit, finishing a
+  reauthentication (shipped since 0.6.0) or a reconfiguration replaced the stored connection
+  details with an empty set. The charger then failed to load until it was deleted and added
+  again. The listener is gone, and both flows are now tested against a fully loaded entry.
+
+### Removed
+- **The Configure (options) dialog.** Everything it did — address or serial, password, name
+  and timeout — is in **Reconfigure** in the entry's ⋮ menu, which also validates that the
+  details still point at the same charger. Existing settings are unaffected; the integration
+  reads `entry.data`, which is what both dialogs have always written.
 
 ## [0.7.0] - 2026-07-25
 

@@ -99,56 +99,6 @@
             "wrong_charger": "Those details belong to a different charger. Reconfiguration can only update how this charger is reached."
         }
     },
-    "options": {
-        "step": {
-            "config_connection": {
-                "title": "Wattpilot charger",
-                "description": "Choose how Home Assistant should connect to your Wattpilot charger.",
-                "data": {
-                    "connection": "Connection type"
-                },
-                "data_description": {
-                    "connection": "Local connects directly over your LAN. Cloud connects through the go-e cloud using the charger serial number."
-                }
-            },
-            "config_local": {
-                "title": "Local connection",
-                "description": "Update the local network details of your Wattpilot charger.",
-                "data": {
-                    "friendly_name": "Name",
-                    "ip_address": "IP address",
-                    "password": "Password",
-                    "timeout": "Timeout"
-                },
-                "data_description": {
-                    "friendly_name": "Display name for the charger in Home Assistant.",
-                    "ip_address": "Local IP address of the charger on your network.",
-                    "password": "The local charger password configured in the Wattpilot app.",
-                    "timeout": "Seconds to wait for the connection to be established and initialised."
-                }
-            },
-            "config_cloud": {
-                "title": "Cloud connection",
-                "description": "Update the go-e cloud details of your Wattpilot charger.",
-                "data": {
-                    "friendly_name": "Name",
-                    "serial": "Serial number",
-                    "password": "Password",
-                    "timeout": "Timeout"
-                },
-                "data_description": {
-                    "friendly_name": "Display name for the charger in Home Assistant.",
-                    "serial": "Serial number of the charger, used to reach it through the go-e cloud.",
-                    "password": "The cloud password configured for your charger.",
-                    "timeout": "Seconds to wait for the connection to be established and initialised."
-                }
-            }
-        },
-        "abort": {
-            "exception": "An unexpected error occurred. Please check the logs for details.",
-            "not_supported": "This configuration source is not supported yet. Please wait for a future version update."
-        }
-    },
     "selector": {
         "connection": {
             "options": {

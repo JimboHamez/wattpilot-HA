@@ -8,7 +8,9 @@ WebSocket to a charger — we only assert on the flow's behaviour.
 
 from __future__ import annotations
 
+import logging
 from ipaddress import ip_address
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -25,6 +27,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.wattpilot.config_flow import ConfigFlowHandler
 from custom_components.wattpilot.const import (
     CONF_CLOUD,
     CONF_CONNECTION,
@@ -466,3 +469,164 @@ async def test_reconfigure_unexpected_failure_aborts(hass):
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "exception"
+
+
+# --- flows against a fully set-up entry ---------------------------------------
+#
+# The tests above drive the flows against an entry that was never set up, which is
+# enough for the flow's own logic but misses anything that reacts to the entry being
+# updated. An `add_update_listener` that rewrote entry.data from entry.options used to
+# live here, and it emptied the entry whenever reauth or reconfigure finished. These
+# two run the flows against an entry that really went through async_setup_entry.
+
+
+async def _setup_live_entry(hass, charger):
+    """Add an entry and run the real async_setup_entry against a mock charger."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="192.168.1.50",
+        data={
+            CONF_CONNECTION: CONF_LOCAL,
+            CONF_IP_ADDRESS: "192.168.1.50",
+            CONF_PASSWORD: "old",
+            CONF_FRIENDLY_NAME: "WB",
+        },
+    )
+    entry.add_to_hass(hass)
+    with patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+    return entry
+
+
+async def test_reconfigure_of_a_loaded_entry_keeps_its_data(hass):
+    """Reconfiguring a set-up entry stores the new details and loses nothing else."""
+    charger = MockCharger({"sse": "91111999", "amp": 6, "car": 1, "typ": "model", "var": 11})
+    entry = await _setup_live_entry(hass, charger)
+
+    result = await entry.start_reconfigure_flow(hass)
+    with (
+        patch("custom_components.wattpilot.config_flow.async_ConnectCharger", new=AsyncMock(return_value=charger)),
+        patch("custom_components.wattpilot.config_flow.async_DisconnectCharger", new=AsyncMock()),
+        patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "WB", CONF_IP_ADDRESS: "192.168.1.99", CONF_PASSWORD: "new"},
+        )
+        await hass.async_block_till_done()
+
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.1.99"
+    assert entry.data[CONF_PASSWORD] == "new"
+    assert entry.data[CONF_CONNECTION] == CONF_LOCAL, "the rest of the entry must survive"
+
+
+async def test_reauth_of_a_loaded_entry_keeps_its_data(hass):
+    """Reauthenticating a set-up entry updates the password and loses nothing else."""
+    charger = MockCharger({"sse": "91111999", "amp": 6, "car": 1, "typ": "model", "var": 11})
+    entry = await _setup_live_entry(hass, charger)
+
+    result = await entry.start_reauth_flow(hass)
+    with (
+        patch("custom_components.wattpilot.config_flow.async_ConnectCharger", new=AsyncMock(return_value=charger)),
+        patch("custom_components.wattpilot.config_flow.async_DisconnectCharger", new=AsyncMock()),
+        patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)),
+    ):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_PASSWORD: "newpass"})
+        await hass.async_block_till_done()
+
+    assert result["reason"] == "reauth_successful"
+    assert entry.data[CONF_PASSWORD] == "newpass"
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.1.50", "the rest of the entry must survive"
+
+
+# --- config flow failure branches ---------------------------------------------
+
+
+async def test_user_step_reports_a_failure(hass, caplog):
+    """A failure in the first user step aborts the flow."""
+    flow = ConfigFlowHandler()
+    flow.hass = hass
+
+    with (
+        caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.config_flow"),
+        patch.object(flow, "async_step_connection", side_effect=RuntimeError("boom")),
+    ):
+        result = await flow.async_step_user()
+
+    assert result["reason"] == "exception"
+
+
+async def test_connection_step_reports_a_failure(hass, caplog):
+    """A failure while branching on the connection type aborts the flow."""
+    flow = ConfigFlowHandler()
+    flow.hass = hass
+
+    with (
+        caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.config_flow"),
+        patch.object(flow, "async_step_local", side_effect=RuntimeError("boom")),
+    ):
+        result = await flow.async_step_connection({CONF_CONNECTION: CONF_LOCAL})
+
+    assert result["reason"] == "exception"
+
+
+@pytest.mark.parametrize(
+    ("step", "user_input"),
+    [
+        ("async_step_local", {CONF_IP_ADDRESS: "1.2.3.4", CONF_PASSWORD: "p"}),
+        ("async_step_cloud", {CONF_SERIAL: "SN", CONF_PASSWORD: "p"}),
+    ],
+)
+async def test_connection_steps_report_a_failure(hass, caplog, step, user_input):
+    """A failure while validating a connection aborts the flow."""
+    flow = ConfigFlowHandler()
+    flow.hass = hass
+
+    with (
+        caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.config_flow"),
+        patch.object(flow, "_async_test_connection", side_effect=RuntimeError("boom")),
+    ):
+        result = await getattr(flow, step)(dict(user_input))
+
+    assert result["reason"] == "exception"
+
+
+async def test_zeroconf_step_reports_a_failure(hass, caplog):
+    """A malformed discovery payload aborts rather than raising."""
+    flow = ConfigFlowHandler()
+    flow.hass = hass
+
+    # Reaches the step (it logs the host) but has no discovery properties.
+    with caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.config_flow"):
+        result = await flow.async_step_zeroconf(SimpleNamespace(host="1.2.3.4"))
+
+    assert result["reason"] == "exception"
+
+
+async def test_zeroconf_confirm_reports_a_failure(hass, caplog):
+    """A failure while confirming a discovery aborts the flow."""
+    flow = ConfigFlowHandler()
+    flow.hass = hass
+    flow.data = None  # breaks the name lookup
+
+    with caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.config_flow"):
+        result = await flow.async_step_zeroconf_confirm()
+
+    assert result["reason"] == "exception"
+
+
+async def test_reauth_reports_a_charger_it_cannot_reach(hass):
+    """A charger that does not answer during reauth shows a connect error."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    entry.async_start_reauth(hass)
+    await hass.async_block_till_done()
+    flow = next(f for f in hass.config_entries.flow.async_progress() if f["handler"] == DOMAIN)
+
+    with patch("custom_components.wattpilot.config_flow.async_ConnectCharger", new=AsyncMock(return_value=False)):
+        result = await hass.config_entries.flow.async_configure(flow["flow_id"], {CONF_PASSWORD: "new"})
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}

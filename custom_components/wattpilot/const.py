@@ -7,7 +7,6 @@ from typing import Final
 
 DOMAIN: Final = "wattpilot"
 FUNC_CONNECTION_MONITOR: Final = "connection_monitor"
-FUNC_OPTION_UPDATES: Final = "options_update_listener"
 FUNC_PROPERTY_UPDATES_CALLBACK: Final = "property_updates_callback"
 SUPPORTED_PLATFORMS: Final = ["button", "number", "select", "sensor", "switch", "update"]
 

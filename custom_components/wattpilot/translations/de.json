@@ -99,56 +99,6 @@
             "wrong_charger": "Diese Daten gehören zu einer anderen Ladestation. Über die Neukonfiguration kann nur geändert werden, wie diese Ladestation erreicht wird."
         }
     },
-    "options": {
-        "step": {
-            "config_connection": {
-                "title": "Wattpilot Ladestation",
-                "description": "Wähle aus, wie Home Assistant sich mit deiner Wattpilot Ladestation verbinden soll.",
-                "data": {
-                    "connection": "Verbindungsart"
-                },
-                "data_description": {
-                    "connection": "Lokal verbindet direkt über dein LAN. Cloud verbindet über die go-e Cloud anhand der Seriennummer der Ladestation."
-                }
-            },
-            "config_local": {
-                "title": "Lokale Verbindung",
-                "description": "Aktualisiere die lokalen Netzwerkdaten deiner Wattpilot Ladestation.",
-                "data": {
-                    "friendly_name": "Name",
-                    "ip_address": "IP-Adresse",
-                    "password": "Passwort",
-                    "timeout": "Zeitüberschreitung"
-                },
-                "data_description": {
-                    "friendly_name": "Anzeigename der Ladestation in Home Assistant.",
-                    "ip_address": "Lokale IP-Adresse der Ladestation in deinem Netzwerk.",
-                    "password": "Das in der Wattpilot-App festgelegte lokale Passwort der Ladestation.",
-                    "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
-                }
-            },
-            "config_cloud": {
-                "title": "Cloud-Verbindung",
-                "description": "Aktualisiere die go-e Cloud-Daten deiner Wattpilot Ladestation.",
-                "data": {
-                    "friendly_name": "Name",
-                    "serial": "Seriennummer",
-                    "password": "Passwort",
-                    "timeout": "Zeitüberschreitung"
-                },
-                "data_description": {
-                    "friendly_name": "Anzeigename der Ladestation in Home Assistant.",
-                    "serial": "Seriennummer der Ladestation, über die sie in der go-e Cloud erreicht wird.",
-                    "password": "Das für deine Ladestation festgelegte Cloud-Passwort.",
-                    "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
-                }
-            }
-        },
-        "abort": {
-            "exception": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Logdateien für Details.",
-            "not_supported": "Diese Konfigurationsquelle wird noch nicht unterstützt. Bitte warte auf ein zukünftiges Versionsupdate."
-        }
-    },
     "selector": {
         "connection": {
             "options": {

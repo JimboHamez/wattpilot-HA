@@ -19,7 +19,6 @@ from .const import (
     CONF_DBG_PROPS,
     DOMAIN,
     FUNC_CONNECTION_MONITOR,
-    FUNC_OPTION_UPDATES,
     FUNC_PROPERTY_UPDATES_CALLBACK,
     SUPPORTED_PLATFORMS,
 )
@@ -153,22 +152,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         return False
 
     try:
-        _LOGGER.debug(
-            "%s - async_setup_entry: Register option updates listener: %s ", entry.entry_id, FUNC_OPTION_UPDATES
-        )
-        entry_data[FUNC_OPTION_UPDATES] = entry.add_update_listener(options_update_listener)
-    except Exception as e:
-        _LOGGER.error(
-            "%s - async_setup_entry: Register option updates listener failed: %s (%s.%s)",
-            entry.entry_id,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        await async_unload_entry(hass, entry)
-        return False
-
-    try:
         _LOGGER.debug("%s - async_setup_entry: Trigger setup for platforms", entry.entry_id)
         await hass.config_entries.async_forward_entry_setups(entry, SUPPORTED_PLATFORMS)
     except Exception as e:
@@ -221,23 +204,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def options_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle options update."""
-    try:
-        _LOGGER.debug("%s - options_update_listener: update options and reload config entry", entry.entry_id)
-        hass.config_entries.async_update_entry(entry, data=entry.options)
-        _LOGGER.debug("%s - options_update_listener: async_reload entry", entry.entry_id)
-        await hass.config_entries.async_reload(entry.entry_id)
-    except Exception as e:
-        _LOGGER.error(
-            "%s - options_update_listener: update options failed: %s (%s.%s)",
-            entry.entry_id,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-
-
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     try:
@@ -255,11 +221,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 all_ok = False
 
         if all_ok:
-            _LOGGER.debug(
-                "%s - async_unload_entry: Unload option updates listener: %s ", entry.entry_id, FUNC_OPTION_UPDATES
-            )
             entry_data = entry.runtime_data
-            entry_data[FUNC_OPTION_UPDATES]()
             charger = entry_data[CONF_CHARGER]
 
             try:

@@ -24,7 +24,6 @@ from custom_components.wattpilot import (
     async_setup,
     async_setup_entry,
     async_unload_entry,
-    options_update_listener,
 )
 from custom_components.wattpilot.const import (
     AUTH_FAILURE_REAUTH_THRESHOLD,
@@ -33,7 +32,6 @@ from custom_components.wattpilot.const import (
     CONF_LOCAL,
     DOMAIN,
     FUNC_CONNECTION_MONITOR,
-    FUNC_OPTION_UPDATES,
     FUNC_PROPERTY_UPDATES_CALLBACK,
 )
 
@@ -111,7 +109,6 @@ async def test_setup_entry_stores_runtime_data_and_starts_the_monitor(hass, make
         assert await async_setup_entry(hass, entry) is True
 
     assert entry.runtime_data[CONF_CHARGER] is charger
-    assert callable(entry.runtime_data[FUNC_OPTION_UPDATES])
     assert callable(entry.runtime_data[FUNC_PROPERTY_UPDATES_CALLBACK])
     assert callable(entry.runtime_data[FUNC_CONNECTION_MONITOR])
 
@@ -259,34 +256,6 @@ async def test_setup_entry_aborts_when_a_step_fails(hass, make_charger, caplog, 
     assert any(message in r.getMessage() for r in caplog.records)
 
 
-# --- options -------------------------------------------------------------------
-
-
-async def test_options_update_listener_reloads_the_entry(hass):
-    """Changing options copies them onto the entry and reloads it."""
-    entry = _entry(hass)
-    hass.config_entries.async_update_entry(entry, options={**ENTRY_DATA, CONF_IP_ADDRESS: "5.6.7.8"})
-
-    with patch.object(hass.config_entries, "async_reload", AsyncMock()) as reload:
-        await options_update_listener(hass, entry)
-
-    assert entry.data[CONF_IP_ADDRESS] == "5.6.7.8"
-    reload.assert_awaited_once_with(entry.entry_id)
-
-
-async def test_options_update_listener_reports_a_failure(hass, caplog):
-    """A failing reload is logged rather than raised at Home Assistant."""
-    entry = _entry(hass)
-
-    with (
-        caplog.at_level(logging.ERROR, logger="custom_components.wattpilot"),
-        patch.object(hass.config_entries, "async_reload", AsyncMock(side_effect=RuntimeError("boom"))),
-    ):
-        await options_update_listener(hass, entry)
-
-    assert any("update options failed" in r.getMessage() for r in caplog.records)
-
-
 # --- entry unload -------------------------------------------------------------
 
 
@@ -366,22 +335,6 @@ async def test_setup_entry_reports_a_failing_runtime_data_store(hass, make_charg
         assert await async_setup_entry(hass, _BrokenEntry()) is False
 
     assert any("Creating data store failed" in r.getMessage() for r in caplog.records)
-
-
-async def test_setup_entry_reports_a_failing_option_listener(hass, make_charger, caplog):
-    """A listener that cannot be registered aborts setup."""
-    charger = make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB")
-    entry = _entry(hass)
-
-    with (
-        caplog.at_level(logging.ERROR, logger="custom_components.wattpilot"),
-        _no_platforms(hass),
-        patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)),
-        patch.object(entry, "add_update_listener", side_effect=RuntimeError("boom")),
-    ):
-        assert await async_setup_entry(hass, entry) is False
-
-    assert any("Register option updates listener failed" in r.getMessage() for r in caplog.records)
 
 
 @pytest.mark.parametrize(

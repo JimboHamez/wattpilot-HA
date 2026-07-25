@@ -48,11 +48,11 @@ CLOUD_SCHEMA: Final = vol.Schema(
 )
 
 
-async def async_get_OPTIONS_LOCAL_SCHEMA(current_data: Mapping[str, Any]) -> vol.Schema:
+async def async_get_RECONFIGURE_LOCAL_SCHEMA(current_data: Mapping[str, Any]) -> vol.Schema:
     """Async: return an schema object with current values as default."""
     try:
-        _LOGGER.debug("%s - async_get_OPTIONS_LOCAL_SCHEMA", DOMAIN)
-        OPTIONS_LOCAL_SCHEMA: Final = vol.Schema(
+        _LOGGER.debug("%s - async_get_RECONFIGURE_LOCAL_SCHEMA", DOMAIN)
+        RECONFIGURE_LOCAL_SCHEMA: Final = vol.Schema(
             {
                 vol.Required(CONF_FRIENDLY_NAME, default=current_data.get(CONF_FRIENDLY_NAME, DEFAULT_NAME)): cv.string,
                 vol.Required(CONF_IP_ADDRESS, default=current_data.get(CONF_IP_ADDRESS, None)): cv.string,
@@ -61,10 +61,10 @@ async def async_get_OPTIONS_LOCAL_SCHEMA(current_data: Mapping[str, Any]) -> vol
             }
         )
         await asyncio.sleep(0)
-        return OPTIONS_LOCAL_SCHEMA
+        return RECONFIGURE_LOCAL_SCHEMA
     except Exception as e:
         _LOGGER.error(
-            "%s - async_get_OPTIONS_LOCAL_SCHEMA: failed: %s (%s.%s)",
+            "%s - async_get_RECONFIGURE_LOCAL_SCHEMA: failed: %s (%s.%s)",
             DOMAIN,
             str(e),
             e.__class__.__module__,
@@ -73,11 +73,11 @@ async def async_get_OPTIONS_LOCAL_SCHEMA(current_data: Mapping[str, Any]) -> vol
         return LOCAL_SCHEMA
 
 
-async def async_get_OPTIONS_CLOUD_SCHEMA(current_data: Mapping[str, Any]) -> vol.Schema:
+async def async_get_RECONFIGURE_CLOUD_SCHEMA(current_data: Mapping[str, Any]) -> vol.Schema:
     """Async: return an schema object with current values as default."""
     try:
-        _LOGGER.debug("%s - async_get_OPTIONS_CLOUD_SCHEMA", DOMAIN)
-        OPTIONS_CLOUD_SCHEMA: Final = vol.Schema(
+        _LOGGER.debug("%s - async_get_RECONFIGURE_CLOUD_SCHEMA", DOMAIN)
+        RECONFIGURE_CLOUD_SCHEMA: Final = vol.Schema(
             {
                 vol.Required(CONF_FRIENDLY_NAME, default=current_data.get(CONF_FRIENDLY_NAME, DEFAULT_NAME)): cv.string,
                 vol.Required(CONF_SERIAL, default=current_data.get(CONF_SERIAL, None)): cv.string,
@@ -86,10 +86,10 @@ async def async_get_OPTIONS_CLOUD_SCHEMA(current_data: Mapping[str, Any]) -> vol
             }
         )
         await asyncio.sleep(0)
-        return OPTIONS_CLOUD_SCHEMA
+        return RECONFIGURE_CLOUD_SCHEMA
     except Exception as e:
         _LOGGER.error(
-            "%s - async_get_OPTIONS_CLOUD_SCHEMA: failed: %s (%s.%s)",
+            "%s - async_get_RECONFIGURE_CLOUD_SCHEMA: failed: %s (%s.%s)",
             DOMAIN,
             str(e),
             e.__class__.__module__,
