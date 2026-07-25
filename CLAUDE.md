@@ -76,9 +76,14 @@ There is no build step (it is an HA custom component, copied into `config/custom
 - **Manual/live check** — copy `custom_components/wattpilot/` into a running HA, restart, and read
   the debug logs. The codebase logs verbosely under the `custom_components.wattpilot` logger
   namespace — enable `logger` debug there to trace behaviour.
-- **Live device scripts** — `tests/live_probe.py` (read-only property dump) and `tests/live_e2e.py`
-  run against a physical charger using `wattpilot-api`, reading its address/password from a
-  gitignored `.wp_test.json` (see `.wp_test.example.json`). Never log or commit those credentials.
+- **Live device scripts** — `tests/live_probe.py` (read-only property dump), `tests/live_e2e.py`
+  (integration helpers, one idempotent no-op write) and `tests/live_reconfigure.py` (read-only;
+  the config flow's charger-facing reconfiguration logic) run against a physical charger using
+  `wattpilot-api`, reading its address/password from a gitignored `.wp_test.json` (see
+  `.wp_test.example.json`). Never log or commit those credentials. `live_reconfigure.py` exists
+  because the identity guard only works if a real charger reports `sse` — it does (verified on a
+  Flex, `sse=91111999`), but no mock can establish that. Note it deliberately sends **one wrong
+  password** to check the `invalid_auth` path.
 - `set_values_test.py` (repo root) is a standalone manual script, ported to `wattpilot-api` and
   `.wp_test.json` alongside the `tests/live_*.py` scripts. It remains the reference for raw
   property values and the type-coercion order, but unlike those two it **writes real settings**
