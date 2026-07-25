@@ -276,14 +276,17 @@ if you installed manually, also remove the `custom_components/wattpilot` folder.
 
 # Credits:
 
-Big thank you go to [@joscha82](https://github.com/joscha82).
-Without his greate prework in the [wattpilot python module](https://github.com/joscha82/wattpilot) it would be not possible to create this.
+Big thank you to the maintainers of [`wattpilot-api`](https://pypi.org/project/wattpilot-api/),
+the async library this integration has talked to the charger through since 0.5.0 — without it
+none of this would work.
 
 Thanks also to [@mk-maddin](https://github.com/mk-maddin), whose
 [wattpilot-HA](https://github.com/mk-maddin/wattpilot-HA) integration this is forked from and
-whose data-driven entity design it still uses, and to the maintainers of
-[`wattpilot-api`](https://pypi.org/project/wattpilot-api/), the async library this integration
-has been built on since 0.5.0.
+whose data-driven entity design it still uses, and to
+[@joscha82](https://github.com/joscha82), whose original reverse-engineering work in the
+synchronous [`wattpilot`](https://github.com/joscha82/wattpilot) module got this whole thing
+off the ground — it powered this integration up to 0.4.x and is still the reference for the
+charger's WebSocket protocol.
 
 # License
 
