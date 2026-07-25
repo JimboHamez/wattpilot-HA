@@ -18,7 +18,16 @@ for attribution.
   automation traces follows the Home Assistant language. English and German messages ship in
   `strings.json` and `translations/`.
 
-`reconfiguration-flow` is now the only Gold rule outstanding.
+### Added
+- **Reconfigure an existing charger without removing it** (quality-scale Gold rule
+  `reconfiguration-flow`). The entry's menu now offers *Reconfigure*, where the charger's
+  address or serial, password, name and timeout can be corrected — useful when the charger
+  moves to a new IP address. The details are tested before they are stored, the entry keeps
+  its connection type, and pointing an entry at a *different* charger is refused rather than
+  silently rebinding it. The existing Configure (options) dialog still works as before.
+
+With this, every rule in `quality_scale.yaml` is `done` or `exempt`. The declared tier in
+`manifest.json` stays at silver for now.
 
 ## [0.6.4] - 2026-07-25
 

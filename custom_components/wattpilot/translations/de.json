@@ -65,17 +65,38 @@
                 "data_description": {
                     "password": "Das in der Wattpilot-App festgelegte lokale Passwort der Ladestation."
                 }
+            },
+            "reconfigure": {
+                "title": "Wattpilot Ladestation",
+                "description": "Aktualisiere die Verbindungsdaten für \"{name}\". Die Verbindungsart kann hier nicht geändert werden; füge die Ladestation erneut hinzu, um zwischen lokaler und Cloud-Verbindung zu wechseln.",
+                "data": {
+                    "friendly_name": "Name",
+                    "ip_address": "IP-Adresse",
+                    "password": "Passwort",
+                    "serial": "Seriennummer",
+                    "timeout": "Zeitüberschreitung"
+                },
+                "data_description": {
+                    "friendly_name": "Anzeigename der Ladestation in Home Assistant.",
+                    "ip_address": "Lokale IP-Adresse der Ladestation in deinem Netzwerk.",
+                    "password": "Das in der Wattpilot-App festgelegte lokale Passwort der Ladestation.",
+                    "serial": "Seriennummer der Ladestation, wie in der Wattpilot-App angezeigt.",
+                    "timeout": "Sekunden, die auf den Verbindungsaufbau und die Initialisierung gewartet wird."
+                }
             }
         },
         "abort": {
             "already_configured": "Diese Ladestation ist bereits konfiguriert.",
             "exception": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Logdateien für Details.",
             "no_serial": "Das gefundene Gerät hat keine Seriennummer bereitgestellt.",
-            "reauth_successful": "Die erneute Authentifizierung war erfolgreich."
+            "reauth_successful": "Die erneute Authentifizierung war erfolgreich.",
+            "reconfigure_successful": "Die Verbindungsdaten der Ladestation wurden aktualisiert.",
+            "wrong_charger": "Diese Daten gehören zu einer anderen Ladestation. Über die Neukonfiguration kann nur geändert werden, wie diese Ladestation erreicht wird."
         },
         "error": {
+            "cannot_connect": "Verbindung zur Ladestation fehlgeschlagen. Bitte prüfe, ob sie online ist, und versuche es erneut.",
             "invalid_auth": "Ungültiges Passwort. Bitte prüfe das Passwort der Ladestation und versuche es erneut.",
-            "cannot_connect": "Verbindung zur Ladestation fehlgeschlagen. Bitte prüfe, ob sie online ist, und versuche es erneut."
+            "wrong_charger": "Diese Daten gehören zu einer anderen Ladestation. Über die Neukonfiguration kann nur geändert werden, wie diese Ladestation erreicht wird."
         }
     },
     "options": {

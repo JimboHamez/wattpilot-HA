@@ -33,6 +33,8 @@ from custom_components.wattpilot.const import (
     DOMAIN,
 )
 
+from .conftest import MockCharger
+
 
 @pytest.fixture(autouse=True)
 def _enable_custom_integrations(enable_custom_integrations):
@@ -267,3 +269,200 @@ async def test_reauth_invalid_password_shows_error(hass):
     assert result["step_id"] == "reauth_confirm"
     assert result["errors"] == {"base": "invalid_auth"}
     assert entry.data[CONF_PASSWORD] == "old"
+
+
+def _reachable(serial: str = "91111999"):
+    """Patch the flow so connecting succeeds and reports the given charger serial."""
+    return (
+        patch(
+            "custom_components.wattpilot.config_flow.async_ConnectCharger",
+            new=AsyncMock(return_value=MockCharger({"sse": serial})),
+        ),
+        patch("custom_components.wattpilot.config_flow.async_DisconnectCharger", new=AsyncMock()),
+        patch("custom_components.wattpilot.async_setup_entry", return_value=True),
+    )
+
+
+async def test_reconfigure_updates_the_local_connection(hass):
+    """A moved charger is repointed at its new address (reconfiguration-flow)."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    connect, disconnect, setup = _reachable()
+    with connect, disconnect, setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                CONF_FRIENDLY_NAME: "Garage",
+                CONF_IP_ADDRESS: "192.168.1.99",
+                CONF_PASSWORD: "secret",
+            },
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.1.99"
+    assert entry.data[CONF_PASSWORD] == "secret"
+    # The entry was keyed by its IP address, so its identity moves with it.
+    assert entry.unique_id == "192.168.1.99"
+    assert entry.title == "Garage"
+
+
+async def test_reconfigure_keeps_a_serial_keyed_identity(hass):
+    """A discovered entry keeps its serial unique id when its address changes."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="91111999",
+        data={
+            CONF_CONNECTION: CONF_LOCAL,
+            CONF_IP_ADDRESS: "192.168.0.32",
+            CONF_SERIAL: "91111999",
+            CONF_PASSWORD: "old",
+        },
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+
+    connect, disconnect, setup = _reachable()
+    with connect, disconnect, setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.0.44", CONF_PASSWORD: "old"},
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.0.44"
+    assert entry.unique_id == "91111999"
+
+
+async def test_reconfigure_rejects_a_different_charger(hass):
+    """An address that answers with another charger's serial is refused."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="91111999",
+        data={
+            CONF_CONNECTION: CONF_LOCAL,
+            CONF_IP_ADDRESS: "192.168.0.32",
+            CONF_SERIAL: "91111999",
+            CONF_PASSWORD: "old",
+        },
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+
+    connect, disconnect, setup = _reachable(serial="22222222")
+    with connect, disconnect, setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.0.77", CONF_PASSWORD: "old"},
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+    assert result["errors"] == {"base": "wrong_charger"}
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.0.32", "the entry must not be repointed"
+
+
+async def test_reconfigure_cloud_entry_rejects_a_changed_serial(hass):
+    """A cloud entry is its serial, so changing it aborts rather than repointing."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="123456",
+        data={CONF_CONNECTION: CONF_CLOUD, CONF_SERIAL: "123456", CONF_PASSWORD: "old"},
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_FRIENDLY_NAME: "Cloud WP", CONF_SERIAL: "999999", CONF_PASSWORD: "old"},
+    )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "wrong_charger"
+    assert entry.data[CONF_SERIAL] == "123456"
+
+
+async def test_reconfigure_cloud_entry_updates_the_password(hass):
+    """A cloud entry keeping its serial is reconfigured normally."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="123456",
+        data={CONF_CONNECTION: CONF_CLOUD, CONF_SERIAL: "123456", CONF_PASSWORD: "old"},
+    )
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+
+    connect, disconnect, setup = _reachable(serial="123456")
+    with connect, disconnect, setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Cloud WP", CONF_SERIAL: "123456", CONF_PASSWORD: "new"},
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_PASSWORD] == "new"
+
+
+async def test_reconfigure_onto_an_already_configured_address_aborts(hass):
+    """Moving an entry onto another configured charger's address is refused."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="192.168.1.99",
+        data={CONF_CONNECTION: CONF_LOCAL, CONF_IP_ADDRESS: "192.168.1.99"},
+    ).add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+    connect, disconnect, setup = _reachable()
+    with connect, disconnect, setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.1.99", CONF_PASSWORD: "secret"},
+        )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.1.50"
+
+
+async def test_reconfigure_unreachable_charger_shows_error(hass):
+    """A charger that cannot be reached re-shows the form and changes nothing."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+
+    with patch("custom_components.wattpilot.config_flow.async_ConnectCharger", new=AsyncMock(return_value=False)):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.1.99", CONF_PASSWORD: "secret"},
+        )
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.1.50"
+
+
+async def test_reconfigure_unexpected_failure_aborts(hass):
+    """An unexpected error inside the step is logged and aborts the flow."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+
+    with patch("custom_components.wattpilot.config_flow.async_ConnectCharger", side_effect=RuntimeError("boom")):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.1.99", CONF_PASSWORD: "secret"},
+        )
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "exception"

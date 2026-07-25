@@ -70,9 +70,7 @@ rules:
   entity-translations: done
   exception-translations: done
   icon-translations: done
-  reconfiguration-flow:
-    status: todo
-    comment: Settings are changed via the options flow; a dedicated async_step_reconfigure is not implemented.
+  reconfiguration-flow: done
   repair-issues:
     status: exempt
     comment: >-

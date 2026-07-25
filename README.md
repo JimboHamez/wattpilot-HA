@@ -140,9 +140,15 @@ The setup wizard first asks how to connect, then for the matching details:
 | Password | both | The charger password configured in the Wattpilot app. |
 | Timeout | both | Seconds to wait for the connection to be established and initialised (default 15). |
 
-You can change these later via the integration's **Configure** (options) dialog
-without removing the charger. If the charger password changes, Home Assistant
-raises a **reauthentication** prompt asking you to enter the new one.
+You can change these later without removing the charger, either via the integration's
+**Configure** (options) dialog or via **Reconfigure** in the entry's ⋮ menu. Both test the
+new details before saving them and then reload the entry. Reconfigure additionally checks
+that the details still point at *this* charger, so correcting an IP address after the
+charger moved cannot silently rebind the entry to a different one; the connection type
+(local or cloud) cannot be switched there — add the charger again for that.
+
+If the charger password changes, Home Assistant raises a **reauthentication** prompt asking
+you to enter the new one.
 
 ## Supported devices
 

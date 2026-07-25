@@ -65,17 +65,38 @@
                 "data_description": {
                     "password": "The local charger password configured in the Wattpilot app."
                 }
+            },
+            "reconfigure": {
+                "title": "Wattpilot charger",
+                "description": "Update the connection details for \"{name}\". The connection type cannot be changed here; add the charger again to switch between a local and a cloud connection.",
+                "data": {
+                    "friendly_name": "Name",
+                    "ip_address": "IP address",
+                    "password": "Password",
+                    "serial": "Serial number",
+                    "timeout": "Timeout"
+                },
+                "data_description": {
+                    "friendly_name": "Display name for the charger in Home Assistant.",
+                    "ip_address": "Local IP address of the charger on your network.",
+                    "password": "The local charger password configured in the Wattpilot app.",
+                    "serial": "Serial number of the charger, as shown in the Wattpilot app.",
+                    "timeout": "Seconds to wait for the connection to be established and initialised."
+                }
             }
         },
         "abort": {
             "already_configured": "This charger is already configured.",
             "exception": "An unexpected error occurred. Please check the logs for details.",
             "no_serial": "The discovered device did not advertise a serial number.",
-            "reauth_successful": "Reauthentication was successful."
+            "reauth_successful": "Reauthentication was successful.",
+            "reconfigure_successful": "The charger connection details were updated.",
+            "wrong_charger": "Those details belong to a different charger. Reconfiguration can only update how this charger is reached."
         },
         "error": {
+            "cannot_connect": "Failed to connect to the charger. Please check it is online and try again.",
             "invalid_auth": "Invalid password. Please check the charger password and try again.",
-            "cannot_connect": "Failed to connect to the charger. Please check it is online and try again."
+            "wrong_charger": "Those details belong to a different charger. Reconfiguration can only update how this charger is reached."
         }
     },
     "options": {

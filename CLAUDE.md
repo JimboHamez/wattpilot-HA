@@ -194,9 +194,21 @@ Always go through the `utils.py` helpers rather than touching the charger object
 
 ### Config, per-entry state, and services
 - `config_flow.py` is a multi-step flow: connection type → local (IP + password) or cloud
-  (serial + password), plus mDNS/zeroconf discovery, a reauth flow, and a matching options flow.
-  Schemas live in `configuration_schema.py`. Options edits go through
+  (serial + password), plus mDNS/zeroconf discovery, a reauth flow, a reconfigure flow, and a
+  matching options flow. Schemas live in `configuration_schema.py`. Options edits go through
   `__init__.py::options_update_listener`, which reloads the config entry.
+- `async_step_reconfigure` and the options flow currently edit the **same** connection fields —
+  the reconfigure step is what the quality scale expects for connection settings, the options
+  flow predates it. Both are kept for now; retiring the options flow would remove the
+  "Configure" button existing users know, so it is a deliberate separate decision.
+- Reconfiguration keeps the entry's connection type (local stays local) and guards its identity:
+  a cloud entry is its serial, so a changed serial aborts (`wrong_charger`); a local entry that
+  stores a serial (zeroconf-discovered) is verified against the `sse` the reconnected charger
+  reports; a manually added local entry is keyed by its IP, so the unique id moves with the
+  address — after checking the new address is not another configured charger. The identity
+  helpers are `_is_same_charger` / `_reconfigured_unique_id`, and `_async_validate_charger` is
+  the shared "connect, and tell me which charger answered" primitive (`_async_test_connection`
+  wraps it for the steps that only need the error).
 - Per-entry runtime state lives on **`entry.runtime_data`** (a dict), *not* `hass.data[DOMAIN]`
   — keys from `const.py`: `CONF_CHARGER` (the connected charger object), `CONF_PARAMS`,
   `CONF_DBG_PROPS`, plus the option-update listener, the `on_property_change` unsubscribe
@@ -226,14 +238,17 @@ of it:
 - Only raise the `manifest.json` tier when *every* rule of that tier is `done` or `exempt`.
 - `exempt` always carries a `comment` explaining why the rule cannot apply.
 
-Outstanding work, by tier (as of 0.6.4):
-- **Gold** (blocks the next tier bump): `reconfiguration-flow` — settings change through the
-  options flow, with no `async_step_reconfigure`. `exception-translations` is now **done**: every
-  raise in `services.py` carries a `translation_key`, backed by the `exceptions` section of
-  `strings.json` and `translations/*.json` and guarded by `tests/test_exception_translations.py`.
-- **Platinum:** `async-dependency` and `strict-typing` are **done** (the move to `wattpilot-api`
-  and the strict-mypy pass); `inject-websession` is exempt because the library speaks
-  `websockets`, not an aiohttp/httpx session.
+State of the file (as of 0.6.4): **every rule is `done` or `exempt`** — the last two, Gold's
+`exception-translations` (every raise in `services.py` carries a `translation_key`, backed by the
+`exceptions` section of `strings.json` / `translations/*.json` and guarded by
+`tests/test_exception_translations.py`) and `reconfiguration-flow` (`async_step_reconfigure`),
+landed after 0.6.4. Platinum's `async-dependency` and `strict-typing` were already done via the
+`wattpilot-api` move and the strict-mypy pass; `inject-websession` is exempt because the library
+speaks `websockets`, not an aiohttp/httpx session.
+
+`manifest.json` still declares **silver**. Raising it to gold or platinum is now unblocked by the
+rule list, but the declaration is a public claim — re-read the `docs-*` rules against the actual
+README before making it.
 
 The Silver `action-exceptions` rule was in direct tension with the log-and-degrade convention
 below, and the trade was settled deliberately: **`services.py` raises, everything else still logs

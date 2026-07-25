@@ -24,7 +24,7 @@ from .configuration_schema import (
     async_get_OPTIONS_LOCAL_SCHEMA,
 )
 from .const import CONF_CLOUD, CONF_CONNECTION, CONF_LOCAL, CONF_SERIAL, DEFAULT_NAME, DEFAULT_TIMEOUT, DOMAIN
-from .utils import async_ConnectCharger, async_DisconnectCharger
+from .utils import GetChargerProp, async_ConnectCharger, async_DisconnectCharger
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -162,17 +162,133 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             )
             return self.async_abort(reason="exception")
 
-    async def _async_test_connection(self, data: dict[str, Any]) -> str | None:
-        """Try to connect with the given data; return an error key or None on success."""
+    async def _async_validate_charger(self, data: dict[str, Any]) -> tuple[str | None, str | None]:
+        """Try to connect with the given data and identify the charger behind it.
+
+        Args:
+            data: The connection details to validate.
+
+        Returns:
+            A tuple of an error key (or ``None`` on success) and the charger's own
+            serial number (``sse``), which is ``None`` when the connection failed or
+            the charger does not report one.
+        """
         try:
             charger = await async_ConnectCharger("config", data)
         except AuthenticationError:
-            return "invalid_auth"
+            return "invalid_auth", None
         if charger is False:
-            return "cannot_connect"
+            return "cannot_connect", None
+        serial = GetChargerProp(charger, "sse", None)
         # Only validating the credentials here; setup opens its own connection.
         await async_DisconnectCharger("config", charger)
-        return None
+        return None, str(serial) if serial else None
+
+    async def _async_test_connection(self, data: dict[str, Any]) -> str | None:
+        """Try to connect with the given data; return an error key or None on success."""
+        error, _serial = await self._async_validate_charger(data)
+        return error
+
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Change the connection details of an existing charger entry.
+
+        The entry keeps its connection type: a local entry stays local and a cloud
+        entry stays cloud, because switching between the two is a different charger
+        identity. Everything else — address or serial, password, name, timeout — can
+        be corrected here without removing and re-adding the integration.
+        """
+        _LOGGER.debug(
+            "%s - ConfigFlowHandler: async_step_reconfigure: %s", DOMAIN, async_redact_data(user_input, REDACT_CONFIG)
+        )
+        try:
+            entry = self._get_reconfigure_entry()
+            connection = entry.data.get(CONF_CONNECTION, CONF_LOCAL)
+            errors: dict[str, str] = {}
+            if user_input is not None:
+                data = {**entry.data, **user_input, CONF_CONNECTION: connection}
+                if connection == CONF_CLOUD:
+                    # A cloud entry is identified by the serial the user typed, so a
+                    # changed serial means a different charger, not a reconfiguration.
+                    await self.async_set_unique_id(str(data[CONF_SERIAL]))
+                    self._abort_if_unique_id_mismatch(reason="wrong_charger")
+                error, serial = await self._async_validate_charger(data)
+                if error is not None:
+                    errors["base"] = error
+                elif not self._is_same_charger(entry, serial):
+                    errors["base"] = "wrong_charger"
+                else:
+                    unique_id = self._reconfigured_unique_id(entry, data, serial)
+                    if unique_id != entry.unique_id:
+                        # The entry's identity moved with its address; make sure it
+                        # does not land on a charger that is already configured.
+                        await self.async_set_unique_id(unique_id)
+                        self._abort_if_unique_id_configured()
+                    return self.async_update_reload_and_abort(
+                        entry,
+                        unique_id=unique_id,
+                        title=str(data.get(CONF_FRIENDLY_NAME, entry.title)),
+                        data_updates=data,
+                    )
+            if connection == CONF_CLOUD:
+                schema = await async_get_OPTIONS_CLOUD_SCHEMA(entry.data)
+            else:
+                schema = await async_get_OPTIONS_LOCAL_SCHEMA(entry.data)
+            return self.async_show_form(
+                step_id="reconfigure",
+                data_schema=schema,
+                description_placeholders={"name": entry.title},
+                errors=errors,
+            )
+        except AbortFlow:
+            # Control-flow signal from _abort_if_unique_id_mismatch(); must propagate
+            # so the flow aborts with its real reason, not "exception".
+            raise
+        except Exception as e:
+            _LOGGER.error(
+                "%s - ConfigFlowHandler: async_step_reconfigure failed: %s (%s.%s)",
+                DOMAIN,
+                str(e),
+                e.__class__.__module__,
+                type(e).__name__,
+            )
+            return self.async_abort(reason="exception")
+
+    @staticmethod
+    def _is_same_charger(entry: config_entries.ConfigEntry, serial: str | None) -> bool:
+        """Whether a reconnected charger is the one the entry was created for.
+
+        Args:
+            entry: The entry being reconfigured.
+            serial: The serial reported by the charger that was just reached.
+
+        Returns:
+            ``True`` when the identities match, or when there is nothing to compare —
+            a manually added local entry stores no serial, and a charger that reports
+            none cannot be identified.
+        """
+        known = entry.data.get(CONF_SERIAL)
+        return not known or not serial or str(known) == serial
+
+    @staticmethod
+    def _reconfigured_unique_id(
+        entry: config_entries.ConfigEntry, data: dict[str, Any], serial: str | None
+    ) -> str | None:
+        """Return the unique id the entry should carry after a reconfiguration.
+
+        Args:
+            entry: The entry being reconfigured.
+            serial: The serial reported by the charger that was just reached.
+            data: The merged connection details being stored.
+
+        Returns:
+            The new unique id, which only differs from the current one for a locally
+            added entry keyed by its IP address — the field a reconfiguration most
+            often changes. Serial-keyed entries (cloud and discovered chargers) keep
+            the identity they were created with.
+        """
+        if entry.unique_id and entry.unique_id == entry.data.get(CONF_IP_ADDRESS):
+            return str(data.get(CONF_IP_ADDRESS, entry.unique_id))
+        return entry.unique_id
 
     async def async_step_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Config flow to define a charger connection via user interface."""
