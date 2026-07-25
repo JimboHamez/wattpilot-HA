@@ -10,6 +10,13 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.8.0] - 2026-07-25
+
+A data-loss fix on a path that has been live since 0.6.0 — **updating is recommended for
+anyone whose charger password may change.**
+
 ### Fixed
 - **Reauthenticating or reconfiguring a charger wiped its configuration.** An internal
   update listener copied the entry's *options* over its *data* — and because Home Assistant
@@ -401,7 +408,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.2...v0.6.3
