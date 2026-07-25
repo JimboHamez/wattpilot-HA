@@ -79,9 +79,11 @@ There is no build step (it is an HA custom component, copied into `config/custom
 - **Live device scripts** — `tests/live_probe.py` (read-only property dump) and `tests/live_e2e.py`
   run against a physical charger using `wattpilot-api`, reading its address/password from a
   gitignored `.wp_test.json` (see `.wp_test.example.json`). Never log or commit those credentials.
-- `set_values_test.py` (repo root) is **legacy**: a standalone manual script that still imports the
-  removed synchronous `wattpilot` module. It no longer runs against this codebase — keep it only as
-  the reference for raw property values and the type-coercion order.
+- `set_values_test.py` (repo root) is a standalone manual script, ported to `wattpilot-api` and
+  `.wp_test.json` alongside the `tests/live_*.py` scripts. It remains the reference for raw
+  property values and the type-coercion order, but unlike those two it **writes real settings**
+  (toggles battery boost, overwrites `acs`/`ocppcs`/`npd`/`ebv`/`cll`) — run it only against a
+  charger you are happy to reconfigure.
 - The integration `version` is set in `custom_components/wattpilot/manifest.json` and must be
   bumped there for HACS releases.
 
@@ -104,10 +106,10 @@ Consequences to keep in mind when editing:
 - Errors come from `wattpilot_api.exceptions` (`WattpilotError`, `AuthenticationError`);
   `utils.py::async_ConnectCharger` maps them onto HA's `ConfigEntryNotReady` / reauth.
 
-`set_values_test.py` (repo root) still imports the *old* synchronous `wattpilot` module and is
-therefore legacy: keep it only as a record of raw property/coercion behaviour. For live work use
-`tests/live_probe.py` (read-only) and `tests/live_e2e.py`, which use `wattpilot-api` and read
-charger details from a gitignored `.wp_test.json`.
+All three manual scripts now use `wattpilot-api` and read charger details from a gitignored
+`.wp_test.json`: `tests/live_probe.py` (read-only), `tests/live_e2e.py` (integration helpers, one
+no-op write) and `set_values_test.py` (repo root), which stays the record of raw
+property/coercion behaviour but genuinely writes settings — see the Build/Test/Lint note above.
 
 ### Data-driven entities (the core pattern)
 Entities are **not hard-coded**. Each platform has a matching YAML catalog next to its Python
@@ -187,7 +189,7 @@ Always go through the `utils.py` helpers rather than touching the charger object
 - Read: `GetChargerProp` / `async_GetChargerProp` (safe access into `charger.all_properties`).
 - Write: `async_SetChargerProp` — it type-coerces the value (bool/int/float/str, honoring an
   optional `force_type` / the entity's `set_type`) before awaiting `charger.set_property`. The
-  coercion order (explicit `force_type` → bool → int → float → str) mirrors the legacy
+  coercion order (explicit `force_type` → bool → int → float → str) mirrors
   `set_values_test.py`.
 
 ### Config, per-entry state, and services
