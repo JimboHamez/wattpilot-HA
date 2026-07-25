@@ -12,6 +12,22 @@ for attribution.
 
 _Nothing yet._
 
+## [0.8.1] - 2026-07-25
+
+Test scaffolding only — **the installed integration is byte-for-byte identical to 0.8.0**,
+so there is nothing to gain by updating from it.
+
+### Added
+- `tests/live_reauth.py`, which drives the reauthentication and reconfiguration flows through
+  a real Home Assistant instance against a physical charger, with nothing mocked. It confirmed
+  the 0.8.0 entry-wiping fix on real hardware. Only its reconfigure test can detect that bug:
+  Home Assistant fires config-entry update listeners solely when an entry actually changed, so
+  a reauthentication that re-submits the same password never triggered the faulty listener.
+
+### Changed
+- `.wp_test.example.json` shows a placeholder serial instead of an empty one. Left empty, a
+  local-charger setup silently skipped the serial check in `tests/live_reconfigure.py`.
+
 ## [0.8.0] - 2026-07-25
 
 A data-loss fix on a path that has been live since 0.6.0 — **updating is recommended for
@@ -408,7 +424,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.3...v0.6.4
