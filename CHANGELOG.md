@@ -10,6 +10,13 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.7.0] - 2026-07-25
+
+**This release requires Home Assistant 2024.11 or newer** (`hacs.json` previously understated
+the minimum as 2024.6 — the reauthentication flow added in 0.6.x already needed 2024.11).
+
 The integration now declares the **platinum** quality scale (it was silver). Every rule in
 `quality_scale.yaml` is `done` or `exempt` — checked against the rule list in Home Assistant
 core rather than against the file alone — after the two changes below closed the last gaps.
@@ -36,6 +43,13 @@ core rather than against the file alone — after the two changes below closed t
 - The example package in `packages/wattpilot/` was updated to current Home Assistant
   automation syntax, and its debug-logging example now names the `wattpilot_api` logger
   instead of the `wattpilot` module that was dropped in 0.5.0.
+
+### Fixed
+- **The declared minimum Home Assistant version was too low.** `hacs.json` said 2024.6, but the
+  reauthentication flow has used `_get_reauth_entry` since 0.6.x and the new reconfigure flow uses
+  `_get_reconfigure_entry` / `_abort_if_unique_id_mismatch` — all three arrived in **2024.11**. On
+  an older core the flows would have failed with an `AttributeError`. HACS now enforces the real
+  minimum.
 
 ### Removed
 - The example "reload the integration when the connection drops" automation, which keyed off
@@ -375,7 +389,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.4...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.4...v0.7.0
 [0.6.4]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.1...v0.6.2

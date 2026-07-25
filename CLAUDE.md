@@ -263,10 +263,12 @@ agreeing that separately.
 
 ## HACS packaging
 `hacs.json` (repo root) declares the HACS metadata; `"homeassistant"` is the **minimum HA version**
-and must not drift below what the code actually needs — `entry.runtime_data` requires **2024.6**,
-which is what it declares. Bump it whenever a newer core API is adopted. HACS installs from GitHub
-**releases**, so a version bump in `manifest.json` only reaches users once a matching tag/release
-is cut.
+and must not drift below what the code actually needs. It declares **2024.11**, set by the config
+flow: `_get_reauth_entry`, `_get_reconfigure_entry` and `_abort_if_unique_id_mismatch` all arrived
+in that release (`entry.runtime_data`, the previous floor, only needed 2024.6). Bump it whenever a
+newer core API is adopted — and check the floor when adopting one, since nothing in the test suite
+catches a too-low declaration. HACS installs from GitHub **releases**, so a version bump in
+`manifest.json` only reaches users once a matching tag/release is cut.
 
 ## Common Charger Property Codes
 
