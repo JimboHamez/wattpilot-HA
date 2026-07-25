@@ -12,6 +12,19 @@ for attribution.
 
 _Nothing yet._
 
+## [0.6.4] - 2026-07-25
+
+A maintenance release for the repository's manual test scaffolding; the installed
+integration is unchanged from 0.6.3.
+
+### Changed
+- **`set_values_test.py` ported to `wattpilot-api`.** The repo-root manual write script
+  still imported the synchronous `wattpilot` module dropped in 0.5.0, so it no longer ran.
+  It now uses the async client (`connect()`/`disconnect()`, `all_properties`,
+  `set_property`) and reads charger details from the gitignored `.wp_test.json` like the
+  `tests/live_*.py` scripts, instead of placeholders edited into the file. The
+  type-coercion order it documents is unchanged.
+
 ## [0.6.3] - 2026-07-25
 
 A documentation-only release; the integration itself is unchanged from 0.6.2.
@@ -333,7 +346,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.3...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.4...HEAD
+[0.6.4]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.3...v0.6.4
 [0.6.3]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.0...v0.6.1
