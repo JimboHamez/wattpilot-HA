@@ -84,6 +84,14 @@ There is no build step (it is an HA custom component, copied into `config/custom
   because the identity guard only works if a real charger reports `sse` — it does (verified on a
   Flex, `sse=91111999`), but no mock can establish that. Note it deliberately sends **one wrong
   password** to check the `invalid_auth` path.
+- `tests/live_reauth.py` is the exception to the "live scripts are standalone" rule: it is a
+  pytest module (run it explicitly — `pytest.ini`'s `python_files` does not match `live_*.py`,
+  so a normal run skips it) that drives the real flows through a real `hass` against the
+  physical charger. It needs the `socket_enabled` fixture **and** `pytest_socket.socket_allow_hosts`,
+  because pytest-socket otherwise pins the allowlist to localhost. Caveat worth remembering: only
+  its *reconfigure* test can detect the 0.8.0 entry-wiping bug — Home Assistant fires update
+  listeners only when an entry actually changed, so a reauth that re-submits the same password
+  changes nothing and triggers no listener.
 - `set_values_test.py` (repo root) is a standalone manual script, ported to `wattpilot-api` and
   `.wp_test.json` alongside the `tests/live_*.py` scripts. It remains the reference for raw
   property values and the type-coercion order, but unlike those two it **writes real settings**
