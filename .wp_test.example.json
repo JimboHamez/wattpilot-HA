@@ -1,7 +1,8 @@
 {
   "_comment": "Copy this file to .wp_test.json (gitignored) and fill in your charger. Never commit the real file.",
+  "_serial_comment": "Required for connection=cloud. Worth filling in for connection=local too: tests/live_reconfigure.py then checks the serial the charger reports matches this one, instead of skipping that check.",
   "connection": "local",
   "ip": "192.168.1.50",
-  "serial": "",
+  "serial": "12345678",
   "password": "your-charger-password"
 }
