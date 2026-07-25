@@ -12,6 +12,19 @@ for attribution.
 
 _Nothing yet._
 
+## [0.6.3] - 2026-07-25
+
+A documentation-only release; the integration itself is unchanged from 0.6.2.
+
+### Changed
+- **Credits now name the library the integration actually uses.** The README and the HACS
+  front page (`info.md`) still credited the synchronous `wattpilot` module, which was
+  replaced by the async [`wattpilot-api`](https://pypi.org/project/wattpilot-api/) in 0.5.0.
+  `wattpilot-api` is credited first, `info.md` gained the missing fork attribution to
+  [@mk-maddin](https://github.com/mk-maddin), and [@joscha82](https://github.com/joscha82)
+  is credited for the original reverse-engineering work that powered releases up to 0.4.x
+  and still documents the charger's WebSocket protocol.
+
 ## [0.6.2] - 2026-07-24
 
 A reconnection fix so a charger power-cycle no longer forces a reauthentication.
@@ -320,7 +333,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.2...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.3...HEAD
+[0.6.3]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.2...v0.6.3
 [0.6.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.5.5...v0.6.0
