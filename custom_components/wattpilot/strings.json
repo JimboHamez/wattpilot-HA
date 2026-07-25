@@ -670,5 +670,40 @@
                 "name": "Firmware Update"
             }
         }
+    },
+    "exceptions": {
+        "charger_not_found": {
+            "message": "Unable to identify a Wattpilot charger for device {device_id}."
+        },
+        "cloud_api_disable_failed": {
+            "message": "Unable to disable the go-e cloud API on charger {charger}."
+        },
+        "cloud_api_enable_failed": {
+            "message": "Unable to enable the go-e cloud API on charger {charger}."
+        },
+        "cloud_api_key_timeout": {
+            "message": "The charger returned no go-e cloud API key within {timeout} seconds."
+        },
+        "entry_not_found": {
+            "message": "Unable to identify the Wattpilot configuration entry for device {device_id}."
+        },
+        "invalid_debug_properties": {
+            "message": "{parameter} must be true, false or a list of property names, got: {value}"
+        },
+        "invalid_trigger_time": {
+            "message": "{parameter} is not a valid time: {trigger_time}"
+        },
+        "missing_parameter": {
+            "message": "{parameter} is a required parameter."
+        },
+        "reconnect_failed": {
+            "message": "Unable to reconnect the Wattpilot charger for device {device_id}."
+        },
+        "service_failed": {
+            "message": "The Wattpilot action {service} failed: {error}"
+        },
+        "set_next_trip_failed": {
+            "message": "Unable to set the next trip timestamp on charger {charger}."
+        }
     }
 }

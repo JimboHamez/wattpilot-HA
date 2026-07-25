@@ -226,10 +226,11 @@ of it:
 - Only raise the `manifest.json` tier when *every* rule of that tier is `done` or `exempt`.
 - `exempt` always carries a `comment` explaining why the rule cannot apply.
 
-Outstanding work, by tier (as of 0.6.0):
-- **Gold** (blocks the next tier bump): `exception-translations` — the errors `services.py` raises
-  carry plain English messages rather than `translation_key`s; `reconfiguration-flow` — settings
-  change through the options flow, with no `async_step_reconfigure`.
+Outstanding work, by tier (as of 0.6.4):
+- **Gold** (blocks the next tier bump): `reconfiguration-flow` — settings change through the
+  options flow, with no `async_step_reconfigure`. `exception-translations` is now **done**: every
+  raise in `services.py` carries a `translation_key`, backed by the `exceptions` section of
+  `strings.json` and `translations/*.json` and guarded by `tests/test_exception_translations.py`.
 - **Platinum:** `async-dependency` and `strict-typing` are **done** (the move to `wattpilot-api`
   and the strict-mypy pass); `inject-websession` is exempt because the library speaks
   `websockets`, not an aiohttp/httpx session.
@@ -350,8 +351,12 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
   call the charger could not carry out. Each handler re-raises `HomeAssistantError` untouched and
   funnels anything unexpected through `_raise_service_failure`, which logs it and returns the
   wrapping error. Resolve targets via `_required` / `_async_get_charger` / `_async_get_entry_data`
-  so those validation errors stay uniform. Messages are plain English for now; giving them
-  translation keys is the separate Gold `exception-translations` rule.
+  so those validation errors stay uniform. Every raise passes `translation_domain=DOMAIN` and a
+  `translation_key` (plus `translation_placeholders`, values stringified) instead of a literal
+  message — quality-scale `exception-translations`. A new key means adding an `exceptions` entry
+  to `strings.json`, `translations/en.json` **and** `translations/de.json`;
+  `tests/test_exception_translations.py` fails on a missing key, an orphaned one, or a message
+  interpolating a placeholder the raise does not pass.
 - Charger property short-codes (e.g. `nrg`, `acs`, `amp`, `frc`) largely come from the go-e API;
   the field reference is
   https://github.com/goecharger/go-eCharger-API-v2/blob/main/API_KEYS_FIRMWARE/apikeys-de.md

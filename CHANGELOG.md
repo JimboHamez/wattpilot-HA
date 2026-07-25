@@ -10,7 +10,15 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **Service action errors are now translatable** (quality-scale Gold rule
+  `exception-translations`). Every error raised by an action — a missing parameter, an
+  unknown device, an unparseable next-trip time, a charger that refused a write — carries a
+  translation key instead of a hardcoded English message, so the text shown in the UI and in
+  automation traces follows the Home Assistant language. English and German messages ship in
+  `strings.json` and `translations/`.
+
+`reconfiguration-flow` is now the only Gold rule outstanding.
 
 ## [0.6.4] - 2026-07-25
 

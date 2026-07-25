@@ -670,5 +670,40 @@
                 "name": "Firmware-Update"
             }
         }
+    },
+    "exceptions": {
+        "charger_not_found": {
+            "message": "Für das Gerät {device_id} konnte keine Wattpilot Ladestation ermittelt werden."
+        },
+        "cloud_api_disable_failed": {
+            "message": "Die go-e Cloud-API konnte auf der Ladestation {charger} nicht deaktiviert werden."
+        },
+        "cloud_api_enable_failed": {
+            "message": "Die go-e Cloud-API konnte auf der Ladestation {charger} nicht aktiviert werden."
+        },
+        "cloud_api_key_timeout": {
+            "message": "Die Ladestation hat innerhalb von {timeout} Sekunden keinen go-e Cloud-API-Schlüssel zurückgegeben."
+        },
+        "entry_not_found": {
+            "message": "Für das Gerät {device_id} konnte kein Wattpilot Konfigurationseintrag ermittelt werden."
+        },
+        "invalid_debug_properties": {
+            "message": "{parameter} muss true, false oder eine Liste von Eigenschaftsnamen sein, erhalten: {value}"
+        },
+        "invalid_trigger_time": {
+            "message": "{parameter} ist keine gültige Uhrzeit: {trigger_time}"
+        },
+        "missing_parameter": {
+            "message": "{parameter} ist ein erforderlicher Parameter."
+        },
+        "reconnect_failed": {
+            "message": "Die Wattpilot Ladestation für das Gerät {device_id} konnte nicht neu verbunden werden."
+        },
+        "service_failed": {
+            "message": "Die Wattpilot Aktion {service} ist fehlgeschlagen: {error}"
+        },
+        "set_next_trip_failed": {
+            "message": "Der Zeitpunkt der nächsten Fahrt konnte auf der Ladestation {charger} nicht gesetzt werden."
+        }
     }
 }

@@ -8,6 +8,12 @@ rather than disappear into the log (quality-scale rule ``action-exceptions``).
 ``ServiceValidationError`` reports a bad call — a missing parameter, an unknown
 device, an unusable value. ``HomeAssistantError`` reports that the call was
 valid but the charger could not carry it out.
+
+Every raise carries a ``translation_key`` instead of a literal message, so the
+text the user sees is localised (quality-scale rule ``exception-translations``).
+The keys live under ``exceptions`` in ``strings.json`` and the files in
+``translations/``; ``tests/test_exception_translations.py`` fails if the two
+drift apart.
 """
 
 from __future__ import annotations
@@ -71,7 +77,11 @@ def _required(call: ServiceCall, key: str) -> Any:
     """
     value = call.data.get(key, None)
     if value is None:
-        raise ServiceValidationError(f"{key} is a required parameter")
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="missing_parameter",
+            translation_placeholders={"parameter": key},
+        )
     return value
 
 
@@ -90,7 +100,11 @@ async def _async_get_charger(hass: HomeAssistant, device_id: str) -> Wattpilot:
     """
     charger = await async_GetChargerFromDeviceID(hass, device_id)
     if not charger:
-        raise ServiceValidationError(f"Unable to identify a Wattpilot charger for device: {device_id}")
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="charger_not_found",
+            translation_placeholders={"device_id": str(device_id)},
+        )
     return cast("Wattpilot", charger)
 
 
@@ -109,7 +123,11 @@ async def _async_get_entry_data(hass: HomeAssistant, device_id: str) -> dict[str
     """
     entry_data = await async_GetDataStoreFromDeviceID(hass, device_id)
     if not entry_data:
-        raise ServiceValidationError(f"Unable to identify the Wattpilot config entry for device: {device_id}")
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="entry_not_found",
+            translation_placeholders={"device_id": str(device_id)},
+        )
     return cast("dict[str, Any]", entry_data)
 
 
@@ -127,7 +145,11 @@ def _raise_service_failure(name: str, call: ServiceCall, e: Exception) -> HomeAs
     _LOGGER.error(
         "%s - %s: %s failed: %s (%s.%s)", DOMAIN, name, call, str(e), e.__class__.__module__, type(e).__name__
     )
-    return HomeAssistantError(f"Wattpilot service {call.service} failed: {e}")
+    return HomeAssistantError(
+        translation_domain=DOMAIN,
+        translation_key="service_failed",
+        translation_placeholders={"service": call.service, "error": str(e)},
+    )
 
 
 async def async_service_SetNextTrip(hass: HomeAssistant, call: ServiceCall) -> None:
@@ -155,7 +177,11 @@ async def async_service_SetNextTrip(hass: HomeAssistant, call: ServiceCall) -> N
                 time.mktime(datetime.datetime.strptime("1970-01-01 " + trigger_time, "%Y-%m-%d %H:%M:%S").timetuple())
             )
         except (TypeError, ValueError) as e:
-            raise ServiceValidationError(f"{CONF_TRIGGER_TIME} is not a valid time: {trigger_time}") from e
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_trigger_time",
+                translation_placeholders={"parameter": CONF_TRIGGER_TIME, "trigger_time": str(trigger_time)},
+            ) from e
 
         _LOGGER.debug("%s - async_service_SetNextTrip: validate daylight saving", DOMAIN)
         tds = await async_GetChargerProp(charger, "tds")
@@ -167,7 +193,11 @@ async def async_service_SetNextTrip(hass: HomeAssistant, call: ServiceCall) -> N
             "%s - async_service_SetNextTrip: set nexttrip timestamp %s for charger: %s", DOMAIN, timestamp, charger.name
         )
         if not await async_SetChargerProp(charger, "ftt", timestamp):
-            raise HomeAssistantError(f"Unable to set the next trip timestamp on charger: {charger.name}")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="set_next_trip_failed",
+                translation_placeholders={"charger": str(charger.name)},
+            )
     except HomeAssistantError:
         raise
     except Exception as e:
@@ -200,7 +230,11 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
         if api_state is True:
             _LOGGER.debug("%s - async_service_SetGoECloud: Enabling cloud api", DOMAIN)
             if not await async_SetChargerProp(charger, "cae", True):
-                raise HomeAssistantError(f"Unable to enable the go-e cloud API on charger: {charger.name}")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_enable_failed",
+                    translation_placeholders={"charger": str(charger.name)},
+                )
             timer = 0
             timeout = 10
             while timeout > timer and (charger.cak == "" or charger.cak is None):
@@ -209,7 +243,11 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
             if not timeout > timer:
                 entry_data[CONF_API_KEY] = False
                 # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure -- reports only the timeout duration, never the key  # noqa: E501
-                raise HomeAssistantError(f"The charger returned no go-e cloud API key within {timeout} seconds")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_key_timeout",
+                    translation_placeholders={"timeout": str(timeout)},
+                )
 
             _LOGGER.debug("%s - async_service_SetGoECloud: Saving api key to data store", DOMAIN)
             entry_data[CONF_API_KEY] = charger.cak
@@ -237,7 +275,11 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
             _LOGGER.debug("%s - async_service_SetGoECloud: %s disabling cloud api", DOMAIN, charger.name)
             entry_data[CONF_API_KEY] = False
             if not await async_SetChargerProp(charger, "cae", False):
-                raise HomeAssistantError(f"Unable to disable the go-e cloud API on charger: {charger.name}")
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="cloud_api_disable_failed",
+                    translation_placeholders={"charger": str(charger.name)},
+                )
             _LOGGER.info("%s - async_service_SetGoECloud: %s DISABLED cloud API", DOMAIN, charger.name)
     except HomeAssistantError:
         raise
@@ -274,7 +316,9 @@ async def async_service_SetDebugProperties(hass: HomeAssistant, call: ServiceCal
             entry_data[CONF_DBG_PROPS] = dbg_state
         else:
             raise ServiceValidationError(
-                f"{CONF_DBG_PROPS} must be true, false or a list of property names, got: {dbg_state}"
+                translation_domain=DOMAIN,
+                translation_key="invalid_debug_properties",
+                translation_placeholders={"parameter": CONF_DBG_PROPS, "value": str(dbg_state)},
             )
     except HomeAssistantError:
         raise
@@ -313,7 +357,11 @@ async def async_service_ReConnectCharger(hass: HomeAssistant, call: ServiceCall)
         # monitor keep pointing at the reconnected session.
         reconnected = await async_ConnectCharger(device_id, entry_data[CONF_PARAMS], charger)
         if reconnected is False:
-            raise HomeAssistantError(f"Unable to reconnect the Wattpilot charger for device: {device_id}")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="reconnect_failed",
+                translation_placeholders={"device_id": str(device_id)},
+            )
         _LOGGER.info("%s - async_service_ReConnectCharger: Charger reconnected: %s", DOMAIN, reconnected.name)
     except HomeAssistantError:
         raise

@@ -5,6 +5,11 @@ Covers the quality-scale ``action-exceptions`` rule: a bad call raises
 ``HomeAssistantError``, instead of the log-and-degrade behaviour used elsewhere
 in the integration. Services are driven through ``hass.services.async_call`` so
 registration and device-id resolution are exercised too.
+
+Errors are asserted by ``translation_key`` rather than by message text
+(quality-scale rule ``exception-translations``); that the keys resolve to real
+messages is checked here too, and their catalog coverage in
+``test_exception_translations.py``.
 """
 
 from __future__ import annotations
@@ -98,26 +103,29 @@ async def test_set_next_trip_missing_parameter_raises(hass, charger_device):
     """A missing required parameter is reported as a validation error."""
     _charger, device_id, _entry = charger_device
 
-    with pytest.raises(ServiceValidationError, match="trigger_time"):
+    with pytest.raises(ServiceValidationError) as err:
         await hass.services.async_call(DOMAIN, "set_next_trip", {"device_id": device_id}, blocking=True)
+    assert err.value.translation_key == "missing_parameter"
 
 
 async def test_set_next_trip_unknown_device_raises(hass, charger_device):
     """An unresolvable device id is reported as a validation error."""
-    with pytest.raises(ServiceValidationError, match="Unable to identify a Wattpilot charger"):
+    with pytest.raises(ServiceValidationError) as err:
         await hass.services.async_call(
             DOMAIN, "set_next_trip", {"device_id": "does-not-exist", "trigger_time": "07:30:00"}, blocking=True
         )
+    assert err.value.translation_key == "charger_not_found"
 
 
 async def test_set_next_trip_invalid_time_raises(hass, charger_device):
     """An unparseable trigger time is reported as a validation error."""
     _charger, device_id, _entry = charger_device
 
-    with pytest.raises(ServiceValidationError, match="not a valid time"):
+    with pytest.raises(ServiceValidationError) as err:
         await hass.services.async_call(
             DOMAIN, "set_next_trip", {"device_id": device_id, "trigger_time": "half past seven"}, blocking=True
         )
+    assert err.value.translation_key == "invalid_trigger_time"
 
 
 async def test_set_next_trip_write_failure_raises(hass, charger_device):
@@ -126,11 +134,12 @@ async def test_set_next_trip_write_failure_raises(hass, charger_device):
 
     with (
         patch("custom_components.wattpilot.services.async_SetChargerProp", new=AsyncMock(return_value=False)),
-        pytest.raises(HomeAssistantError, match="Unable to set the next trip timestamp"),
+        pytest.raises(HomeAssistantError) as err,
     ):
         await hass.services.async_call(
             DOMAIN, "set_next_trip", {"device_id": device_id, "trigger_time": "07:30:00"}, blocking=True
         )
+    assert err.value.translation_key == "set_next_trip_failed"
 
 
 async def test_set_debug_properties_updates_the_data_store(hass, charger_device):
@@ -152,10 +161,27 @@ async def test_set_debug_properties_invalid_state_raises(hass, charger_device):
     """A debug state that is neither bool, bool-like string nor list is rejected."""
     _charger, device_id, _entry = charger_device
 
-    with pytest.raises(ServiceValidationError, match="must be true, false or a list"):
+    with pytest.raises(ServiceValidationError) as err:
         await hass.services.async_call(
             DOMAIN, "set_debug_properties", {"device_id": device_id, CONF_DBG_PROPS: 42}, blocking=True
         )
+    assert err.value.translation_key == "invalid_debug_properties"
+
+
+async def test_raised_keys_resolve_to_translated_messages(hass, charger_device):
+    """Home Assistant serves the exception catalog, so a raise carries a real message."""
+    from homeassistant.helpers.translation import async_get_translations
+
+    _charger, device_id, _entry = charger_device
+
+    served = await async_get_translations(hass, "en", "exceptions", [DOMAIN])
+    assert served[f"component.{DOMAIN}.exceptions.missing_parameter.message"] == "{parameter} is a required parameter."
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(DOMAIN, "set_next_trip", {"device_id": device_id}, blocking=True)
+
+    # The placeholder is filled in and the bare key never reaches the user.
+    assert str(err.value) == "trigger_time is a required parameter"
 
 
 async def test_disconnect_charger_closes_the_session(hass, charger_device):
@@ -171,8 +197,9 @@ async def test_disconnect_charger_failure_raises(hass, charger_device):
     charger, device_id, _entry = charger_device
     charger.disconnect = AsyncMock(side_effect=OSError("boom"))
 
-    with pytest.raises(HomeAssistantError, match="failed"):
+    with pytest.raises(HomeAssistantError) as err:
         await hass.services.async_call(DOMAIN, "disconnect_charger", {"device_id": device_id}, blocking=True)
+    assert err.value.translation_key == "service_failed"
 
 
 async def test_reconnect_charger_reuses_the_charger_object(hass, charger_device):
@@ -194,9 +221,10 @@ async def test_reconnect_charger_failure_raises(hass, charger_device):
 
     with (
         patch("custom_components.wattpilot.services.async_ConnectCharger", new=AsyncMock(return_value=False)),
-        pytest.raises(HomeAssistantError, match="Unable to reconnect"),
+        pytest.raises(HomeAssistantError) as err,
     ):
         await hass.services.async_call(DOMAIN, "reconnect_charger", {"device_id": device_id}, blocking=True)
+    assert err.value.translation_key == "reconnect_failed"
 
 
 async def test_set_goe_cloud_enable_stores_key_and_url(hass, charger_device):
@@ -217,11 +245,12 @@ async def test_set_goe_cloud_key_timeout_raises(hass, charger_device):
     # The handler polls with one-second sleeps; skip the real waiting.
     with (
         patch("custom_components.wattpilot.services.asyncio.sleep", new=AsyncMock()),
-        pytest.raises(HomeAssistantError, match="no go-e cloud API key"),
+        pytest.raises(HomeAssistantError) as err,
     ):
         await hass.services.async_call(
             DOMAIN, "set_goe_cloud", {"device_id": device_id, "cloud_api": True}, blocking=True
         )
+    assert err.value.translation_key == "cloud_api_key_timeout"
 
     assert entry.runtime_data["api_key"] is False
 
@@ -232,11 +261,12 @@ async def test_set_goe_cloud_write_failure_raises(hass, charger_device):
 
     with (
         patch("custom_components.wattpilot.services.async_SetChargerProp", new=AsyncMock(return_value=False)),
-        pytest.raises(HomeAssistantError, match="Unable to disable the go-e cloud API"),
+        pytest.raises(HomeAssistantError) as err,
     ):
         await hass.services.async_call(
             DOMAIN, "set_goe_cloud", {"device_id": device_id, "cloud_api": False}, blocking=True
         )
+    assert err.value.translation_key == "cloud_api_disable_failed"
 
 
 async def test_service_registration_failure_is_logged(caplog):
@@ -276,8 +306,9 @@ async def test_registering_an_existing_service_is_skipped():
 )
 async def test_every_service_requires_a_device(hass, charger_device, service, data):
     """Each service rejects a call that names no device."""
-    with pytest.raises(ServiceValidationError, match="device_id"):
+    with pytest.raises(ServiceValidationError) as err:
         await hass.services.async_call(DOMAIN, service, dict(data), blocking=True)
+    assert err.value.translation_key == "missing_parameter"
 
 
 @pytest.mark.parametrize(
@@ -294,9 +325,10 @@ async def test_unexpected_failures_become_home_assistant_errors(hass, charger_de
 
     with (
         patch(f"custom_components.wattpilot.services.{target}", side_effect=RuntimeError("boom")),
-        pytest.raises(HomeAssistantError, match="failed"),
+        pytest.raises(HomeAssistantError) as err,
     ):
         await hass.services.async_call(DOMAIN, service, {"device_id": device_id, **data}, blocking=True)
+    assert err.value.translation_key == "service_failed"
 
 
 async def test_set_debug_properties_accepts_bool_like_strings(hass, charger_device):
@@ -320,11 +352,12 @@ async def test_set_goe_cloud_enable_failure_raises(hass, charger_device):
 
     with (
         patch("custom_components.wattpilot.services.async_SetChargerProp", new=AsyncMock(return_value=False)),
-        pytest.raises(HomeAssistantError, match="Unable to enable the go-e cloud API"),
+        pytest.raises(HomeAssistantError) as err,
     ):
         await hass.services.async_call(
             DOMAIN, "set_goe_cloud", {"device_id": device_id, "cloud_api": True}, blocking=True
         )
+    assert err.value.translation_key == "cloud_api_enable_failed"
 
 
 async def test_reconnect_charger_skips_disconnect_when_already_offline(hass, charger_device):
