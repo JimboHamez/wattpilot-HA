@@ -18,3 +18,10 @@ pytest-homeassistant-custom-component
 wattpilot-api>=1.4.0
 aiofiles>=23.2.1
 packaging>=24.0
+
+# Type stubs for the untyped runtime deps. mypy --strict (a Platinum
+# quality-scale rule) fails with import-untyped without them, so they are
+# declared here rather than left to whatever a developer happens to have
+# installed -- which is exactly how CI and local runs drifted apart.
+types-aiofiles>=23.2
+types-PyYAML>=6.0
