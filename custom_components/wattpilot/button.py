@@ -53,7 +53,7 @@ class ChargerButton(ChargerPlatformEntity, ButtonEntity):
                 self._charger, self._identifier, self._set_value, force=True, force_type=self._set_type
             )
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: update failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,

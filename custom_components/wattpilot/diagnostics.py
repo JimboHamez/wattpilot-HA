@@ -35,7 +35,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         )
         charger = entry.runtime_data[CONF_CHARGER]
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_get_config_entry_diagnostics %s: Getting charger instance from data store failed: %s (%s.%s)",
             entry.entry_id,
             platform,
@@ -53,7 +53,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         )
         diag: dict[str, Any] = {"config": async_redact_data(entry.as_dict(), REDACT_CONFIG)}
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_get_config_entry_diagnostics %s: Adding config entry configuration failed: %s (%s.%s)",
             entry.entry_id,
             platform,
@@ -69,7 +69,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         )
         diag["charger_properties"] = async_redact_data(charger.all_properties, REDACT_ALLPROPS)
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_get_config_entry_diagnostics %s: Adding charger properties to output failed: %s (%s.%s)",
             entry.entry_id,
             platform,
@@ -89,7 +89,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         diag["aiofiles_module"] = version("aiofiles")
         diag["packaging"] = version("packaging")
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_get_config_entry_diagnostics %s: Add python modules version failed: %s (%s.%s)",
             entry.entry_id,
             platform,

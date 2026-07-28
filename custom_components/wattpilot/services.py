@@ -56,7 +56,7 @@ async def async_registerService(hass: HomeAssistant, name: str, service: Callabl
         else:
             _LOGGER.debug("%s - async_registerService: service already exists: %s", DOMAIN, name)
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_registerService: failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__
         )
 
@@ -141,8 +141,18 @@ def _raise_service_failure(name: str, call: ServiceCall, e: Exception) -> HomeAs
     Returns:
         The ``HomeAssistantError`` the caller should raise from ``e``.
     """
+    # This helper is called from the handlers rather than being one, so the
+    # traceback is attached from the exception we were handed instead of via
+    # .exception(), which would depend on an ambient sys.exc_info().
     _LOGGER.error(
-        "%s - %s: %s failed: %s (%s.%s)", DOMAIN, name, call, str(e), e.__class__.__module__, type(e).__name__
+        "%s - %s: %s failed: %s (%s.%s)",
+        DOMAIN,
+        name,
+        call,
+        str(e),
+        e.__class__.__module__,
+        type(e).__name__,
+        exc_info=e,
     )
     return HomeAssistantError(
         translation_domain=DOMAIN,

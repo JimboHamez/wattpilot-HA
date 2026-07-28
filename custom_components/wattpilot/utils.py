@@ -52,7 +52,7 @@ async def async_ProgrammingDebug(obj: object, show_all: bool = False) -> None:
             if hasattr(obj, attr):
                 _LOGGER.debug("%s - async_ProgrammingDebug: %s = %s", DOMAIN, attr, getattr(obj, attr))
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_ProgrammingDebug: failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__
         )
         pass
@@ -68,7 +68,7 @@ def ProgrammingDebug(obj: object, show_all: bool = False) -> None:
             if hasattr(obj, attr):
                 _LOGGER.debug("%s - ProgrammingDebug: %s = %s", DOMAIN, attr, getattr(obj, attr))
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - ProgrammingDebug: failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__
         )
         pass
@@ -130,7 +130,7 @@ async def async_PropertyUpdateHandler(hass: HomeAssistant, entry: ConfigEntry, i
         if entry_data.get(CONF_DBG_PROPS, False):
             hass.async_create_task(async_PropertyDebug(identifier, value, entry_data.get(CONF_DBG_PROPS)))
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_PropertyUpdateHandler: Could not 'self' execute async: %s (%s.%s)",
             entry.entry_id,
             str(e),
@@ -158,7 +158,7 @@ async def async_GetChargerProp(charger: Wattpilot, identifier: str, default: Any
             return default
         return charger.all_properties[identifier]
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_GetChargerProp: Could not get property %s: %s (%s.%s)",
             DOMAIN,
             identifier,
@@ -185,7 +185,7 @@ def GetChargerProp(charger: Wattpilot, identifier: str | None = None, default: A
             return default
         return charger.all_properties[identifier]
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - GetChargerProp: Could not get property %s: %s (%s.%s)",
             DOMAIN,
             identifier,
@@ -253,7 +253,7 @@ async def async_SetChargerProp(
         await charger.set_property(identifier, v)
         return True
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_SetChargerProp: Could not set property %s: %s (%s.%s)",
             DOMAIN,
             identifier,
@@ -290,7 +290,7 @@ async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str) ->
         _LOGGER.debug("%s - async_GetDataStoreFromDeviceID: return data_entry", DOMAIN)
         return entry_data
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_GetDataStoreFromDeviceID: Could not get data store %s: %s (%s.%s)",
             DOMAIN,
             device_id,
@@ -328,7 +328,7 @@ async def async_GetChargerFromDeviceID(hass: HomeAssistant, device_id: str) -> A
         _LOGGER.debug("%s - async_GetChargerFromDeviceID: return charger object", DOMAIN)
         return charger
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_GetChargerFromDeviceID: Could not get charger %s: %s (%s.%s)",
             DOMAIN,
             device_id,
@@ -399,7 +399,7 @@ async def async_ConnectCharger(
         )
         return False
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_ConnectCharger: Connecting charger failed: %s (%s.%s)",
             entry_or_device_id,
             str(e),
@@ -421,7 +421,7 @@ async def async_DisconnectCharger(entry_or_device_id: str, charger: Wattpilot | 
         await charger.disconnect()
         return None
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_DisconnectCharger: Disconnect charger failed: %s (%s.%s)",
             entry_or_device_id,
             str(e),

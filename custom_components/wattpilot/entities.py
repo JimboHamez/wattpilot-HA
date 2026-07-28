@@ -146,7 +146,7 @@ class ChargerPlatformEntity(Entity):
             if self._init_failed is True:
                 return None
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: __init__ failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,
@@ -391,7 +391,7 @@ class ChargerPlatformEntity(Entity):
             enabled = self._entity_cfg.get("enabled", True)
             return not (enabled is False or str(enabled).lower() == "false")
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: entity_registry_enabled_default failed - default enable: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,
@@ -434,7 +434,7 @@ class ChargerPlatformEntity(Entity):
                     self._identifier,
                 )
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: async_update failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,
@@ -480,7 +480,7 @@ class ChargerPlatformEntity(Entity):
                         self._attributes[attr_id] = state_list[int(attr_index)]
             return state
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: _async_update_validate_property failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,
@@ -530,7 +530,7 @@ class ChargerPlatformEntity(Entity):
                 self.async_write_ha_state()
             # _LOGGER.debug("%s - %s: async_local_poll complete: %s", self._charger_id, self._identifier, state)
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: async_local_poll failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,
@@ -571,7 +571,7 @@ class ChargerPlatformEntity(Entity):
                 await asyncio.sleep(5)
                 await self.async_local_push(state, True)
             else:
-                _LOGGER.error(
+                _LOGGER.exception(
                     "%s - %s: async_local_push failed: %s (%s.%s)",
                     self._charger_id,
                     self._identifier,

@@ -81,7 +81,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
             latest.sort(key=Version)
             return latest[-1]
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: _get_versions_dict failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,
@@ -113,7 +113,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 versions[c] = v
             return versions
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: _get_versions_dict failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,
@@ -193,7 +193,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 )
                 return None
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: async_install failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,

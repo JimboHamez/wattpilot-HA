@@ -57,7 +57,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 self.data = {}
             return await self.async_step_connection()
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - ConfigFlowHandler: async_step_user failed: %s (%s.%s)",
                 DOMAIN,
                 str(e),
@@ -123,7 +123,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         except AbortFlow:
             raise
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - ConfigFlowHandler: async_step_zeroconf failed: %s (%s.%s)",
                 DOMAIN,
                 str(e),
@@ -151,7 +151,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id="zeroconf_confirm", data_schema=schema, description_placeholders={"name": name}
             )
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - ConfigFlowHandler: async_step_zeroconf_confirm failed: %s (%s.%s)",
                 DOMAIN,
                 str(e),
@@ -242,7 +242,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # so the flow aborts with its real reason, not "exception".
             raise
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - ConfigFlowHandler: async_step_reconfigure failed: %s (%s.%s)",
                 DOMAIN,
                 str(e),
@@ -309,7 +309,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 step_id=CONF_CONNECTION, data_schema=CONNECTION_SCHEMA, errors=errors
             )  # via the "step_id" the function calls itself after GUI completion
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - ConfigFlowHandler: async_step_connection failed: %s (%s.%s)",
                 DOMAIN,
                 str(e),
@@ -349,7 +349,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # propagate so the flow aborts with its real reason, not "exception".
             raise
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - ConfigFlowHandler: async_step_local failed: %s (%s.%s)",
                 DOMAIN,
                 str(e),
@@ -389,7 +389,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             # propagate so the flow aborts with its real reason, not "exception".
             raise
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - ConfigFlowHandler: async_step_cloud failed: %s (%s.%s)",
                 DOMAIN,
                 str(e),

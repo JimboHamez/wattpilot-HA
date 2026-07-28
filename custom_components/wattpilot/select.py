@@ -74,7 +74,7 @@ class ChargerSelect(ChargerPlatformEntity, SelectEntity):
                 return None
             return state
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: _async_update_validate_platform_state failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,
@@ -101,7 +101,7 @@ class ChargerSelect(ChargerPlatformEntity, SelectEntity):
             _LOGGER.debug("%s - %s: async_select_option: save option key %s", self._charger_id, self._identifier, key)
             await async_SetChargerProp(self._charger, self._identifier, key, force_type=self._set_type)
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: async_select_option failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,

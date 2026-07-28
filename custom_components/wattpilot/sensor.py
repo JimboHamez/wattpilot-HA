@@ -138,7 +138,7 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
                 self._attr_native_value = state
             return state
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: _async_update_validate_platform_state failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,

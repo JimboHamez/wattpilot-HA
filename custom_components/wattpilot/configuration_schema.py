@@ -61,7 +61,7 @@ async def async_get_RECONFIGURE_LOCAL_SCHEMA(current_data: Mapping[str, Any]) ->
         )
         return RECONFIGURE_LOCAL_SCHEMA
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_get_RECONFIGURE_LOCAL_SCHEMA: failed: %s (%s.%s)",
             DOMAIN,
             str(e),
@@ -85,7 +85,7 @@ async def async_get_RECONFIGURE_CLOUD_SCHEMA(current_data: Mapping[str, Any]) ->
         )
         return RECONFIGURE_CLOUD_SCHEMA
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_get_RECONFIGURE_CLOUD_SCHEMA: failed: %s (%s.%s)",
             DOMAIN,
             str(e),

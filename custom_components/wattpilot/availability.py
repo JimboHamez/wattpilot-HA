@@ -87,7 +87,7 @@ class ChargerConnectionMonitor:
                 )
             return None
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - _async_check: checking charger connection state failed: %s (%s.%s)",
                 self._entry_id,
                 str(e),

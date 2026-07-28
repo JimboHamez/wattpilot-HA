@@ -86,7 +86,7 @@ class ChargerNumber(ChargerPlatformEntity, NumberEntity):
                 await async_SetChargerProp(self._charger, "esk", True)
             await async_SetChargerProp(self._charger, self._identifier, value * self._factor, force_type=self._set_type)
         except Exception as e:
-            _LOGGER.error(
+            _LOGGER.exception(
                 "%s - %s: update failed: %s (%s.%s)",
                 self._charger_id,
                 self._identifier,

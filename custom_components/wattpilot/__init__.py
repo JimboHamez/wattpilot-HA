@@ -62,7 +62,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         await async_registerService(hass, "set_debug_properties", async_service_SetDebugProperties)
         await async_registerService(hass, "set_next_trip", async_service_SetNextTrip)
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_setup: register services failed: %s (%s.%s)",
             DOMAIN,
             str(e),
@@ -121,7 +121,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _AUTH_FAILURE_COUNTS.pop(entry.entry_id, None)
         raise ConfigEntryAuthFailed(f"Authentication failed for Wattpilot charger for entry {entry.entry_id}") from e
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_setup_entry: Connecting charger failed: %s (%s.%s)",
             entry.entry_id,
             str(e),
@@ -140,7 +140,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         }
         entry_data = entry.runtime_data
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_setup_entry: Creating data store failed: %s (%s.%s)",
             entry.entry_id,
             str(e),
@@ -155,7 +155,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.debug("%s - async_setup_entry: Trigger setup for platforms", entry.entry_id)
         await hass.config_entries.async_forward_entry_setups(entry, SUPPORTED_PLATFORMS)
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_setup_entry: Setup trigger failed: %s (%s.%s)",
             entry.entry_id,
             str(e),
@@ -176,7 +176,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         entry_data[FUNC_PROPERTY_UPDATES_CALLBACK] = charger.on_property_change(_property_update_callback)
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_setup_entry: Could not register properties updater handler: %s (%s.%s)",
             entry.entry_id,
             str(e),
@@ -190,7 +190,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.debug("%s - async_setup_entry: start charger connection monitor", entry.entry_id)
         entry_data[FUNC_CONNECTION_MONITOR] = ChargerConnectionMonitor(hass, entry.entry_id, charger).async_start()
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_setup_entry: Could not start charger connection monitor: %s (%s.%s)",
             entry.entry_id,
             str(e),
@@ -231,7 +231,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if callable(stop_monitor):
                     stop_monitor()
             except Exception as e:
-                _LOGGER.error(
+                _LOGGER.exception(
                     "%s - async_unload_entry: failed to stop charger connection monitor: %s (%s.%s)",
                     entry.entry_id,
                     str(e),
@@ -247,7 +247,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if callable(unsubscribe):
                     unsubscribe()
             except Exception as e:
-                _LOGGER.error(
+                _LOGGER.exception(
                     "%s - async_unload_entry: failed to remove registered event handlers: %s (%s.%s)",
                     entry.entry_id,
                     str(e),
@@ -260,14 +260,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await async_DisconnectCharger(entry.entry_id, charger)
                 charger = None
             except Exception as e:
-                _LOGGER.error(
+                _LOGGER.exception(
                     "%s - async_unload_entry: could not disconnect charger: %s (%s.%s)",
                     entry.entry_id,
                     str(e),
                     e.__class__.__module__,
                     type(e).__name__,
                 )
-                _LOGGER.error(
+                _LOGGER.exception(
                     "%s - async_unload_entry: session at charger %s (%s) stays open -> restart charger",
                     entry.entry_id,
                     charger.name,
@@ -276,7 +276,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 pass
         return all_ok
     except Exception as e:
-        _LOGGER.error(
+        _LOGGER.exception(
             "%s - async_unload_entry: Unload device failed: %s (%s.%s)",
             entry.entry_id,
             str(e),
