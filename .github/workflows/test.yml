@@ -8,6 +8,7 @@ on:
 
 jobs:
   pytest:
+    name: pytest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,5 +22,65 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements_test.txt
 
+      # Coverage is a quality-scale rule (Silver, >=95%), so it gates the job
+      # rather than merely being reported.
       - name: Run pytest
-        run: pytest
+        run: |
+          pytest -q \
+            --cov=custom_components.wattpilot \
+            --cov-report=term-missing \
+            --cov-report=markdown:coverage.md \
+            --cov-fail-under=95
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          {
+            echo "## Coverage"
+            cat coverage.md 2>/dev/null || echo "_no coverage report produced_"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ruff:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      # Pinned so a new ruff release adding a rule cannot break main without a
+      # deliberate bump. Settings come from pyproject.toml.
+      - name: Install ruff
+        run: pip install ruff==0.16.0
+
+      - name: Check formatting
+        run: ruff format --check --diff custom_components/wattpilot tests
+
+      - name: Lint
+        run: ruff check --output-format=github custom_components/wattpilot
+
+  mypy:
+    name: mypy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      # Home Assistant and the client library have to be importable for strict
+      # mode to resolve their types, so the full test requirements are needed.
+      - name: Install dependencies
+        run: pip install -r requirements_test.txt mypy==2.3.0
+
+      # Strict typing is a quality-scale rule (Platinum); pyproject.toml scopes
+      # it to the integration package.
+      - name: Type check
+        run: mypy custom_components/wattpilot

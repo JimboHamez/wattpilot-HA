@@ -139,6 +139,18 @@ async def test_setup_reports_a_failing_entity_definition(hass, make_charger, mod
     assert any(r.levelno == logging.ERROR for r in caplog.records)
 
 
+async def test_setup_tolerates_a_catalog_that_is_not_a_mapping(hass, make_charger):
+    """An empty or malformed catalog file adds no entities instead of raising."""
+    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS))})
+    added = MagicMock()
+
+    # An empty YAML file parses to None, not to a dict.
+    with patch.object(catalog.yaml, "safe_load", return_value=None):
+        await sensor.async_setup_entry(hass, entry, added)
+
+    added.assert_not_called()
+
+
 @pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
 async def test_setup_skips_entities_that_fail_their_gate(hass, make_charger, module):
     """A definition whose entity fails its variant gate is not registered.

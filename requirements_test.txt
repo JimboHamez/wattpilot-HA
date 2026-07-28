@@ -8,6 +8,7 @@
 # Assistant and the wattpilot-api client library; without those they skip.
 
 pytest>=7.0
+pytest-cov>=5.0
 pyyaml>=5.3.0
 
 # Runtime deps required to import the integration package (see manifest.json).
