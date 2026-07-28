@@ -10,8 +10,13 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.8.2] - 2026-07-28
+
 Follow-up to the v0.8.1 static code audit (`doc/Wattpilot_HA_v0.8.1_Code_Audit.md`).
-No user-visible behaviour changes.
+Internal cleanup and one latent fix — **nothing an existing install does today changes**,
+so there is no urgency in updating from 0.8.1.
 
 ### Fixed
 - Button entities now honour their `firmware:` / `variant:` / `connection:` gates. `button.py`
@@ -453,7 +458,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.2...HEAD
+[0.8.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.6.4...v0.7.0
