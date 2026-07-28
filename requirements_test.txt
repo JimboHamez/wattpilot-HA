@@ -17,4 +17,3 @@ pytest-homeassistant-custom-component
 wattpilot-api>=1.4.0
 aiofiles>=23.2.1
 packaging>=24.0
-importlib-metadata>=4.0.0

@@ -49,7 +49,7 @@ async def test_diagnostics_reports_dependency_versions(hass, make_charger):
 
     diag = await async_get_config_entry_diagnostics(hass, entry)
 
-    for key in ("wattpilot_module", "pyyaml_module", "importlib_metadata_module", "aiofiles_module", "packaging"):
+    for key in ("wattpilot_module", "pyyaml_module", "aiofiles_module", "packaging"):
         assert diag[key], f"{key} is missing from the diagnostics"
     assert diag["wattpilot_file"].endswith(".py")
 

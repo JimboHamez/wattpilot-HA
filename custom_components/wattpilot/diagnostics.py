@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import logging
+from importlib.metadata import version
 from typing import TYPE_CHECKING, Any, Final
 
 import wattpilot_api
-from importlib_metadata import version
 
 from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_IP_ADDRESS, CONF_PASSWORD
@@ -86,7 +86,6 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
         diag["wattpilot_module"] = version("wattpilot-api")
         diag["wattpilot_file"] = wattpilot_api.__file__
         diag["pyyaml_module"] = version("pyyaml")
-        diag["importlib_metadata_module"] = version("importlib_metadata")
         diag["aiofiles_module"] = version("aiofiles")
         diag["packaging"] = version("packaging")
     except Exception as e:
