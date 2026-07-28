@@ -43,7 +43,7 @@ def property_update_signal(entry_id: str, identifier: str) -> str:
 
 
 async def async_ProgrammingDebug(obj: object, show_all: bool = False) -> None:
-    """Async: return all attributes of a specific objec."""
+    """Async: return all attributes of a specific object."""
     try:
         _LOGGER.debug("%s - async_ProgrammingDebug: %s", DOMAIN, obj)
         for attr in dir(obj):
@@ -59,7 +59,7 @@ async def async_ProgrammingDebug(obj: object, show_all: bool = False) -> None:
 
 
 def ProgrammingDebug(obj: object, show_all: bool = False) -> None:
-    """Return all attributes of a specific objec."""
+    """Return all attributes of a specific object."""
     try:
         _LOGGER.debug("%s - ProgrammingDebug: %s", DOMAIN, obj)
         for attr in dir(obj):
@@ -240,7 +240,7 @@ async def async_SetChargerProp(
             v = float(value)
         elif type(value) is types.SimpleNamespace:
             _LOGGER.warning(
-                "%s - async_SetChargerProp: Set for namespace detected - this is untest: %s=%s",
+                "%s - async_SetChargerProp: Set for namespace detected - this is untested: %s=%s",
                 DOMAIN,
                 identifier,
                 value,
