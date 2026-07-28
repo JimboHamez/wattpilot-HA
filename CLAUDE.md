@@ -72,7 +72,10 @@ There is no build step (it is an HA custom component, copied into `config/custom
 - **Static analysis** — `./scan.sh` runs bandit, semgrep, mypy and pip-audit in a `.venv`, scoped
   to `custom_components/wattpilot`. (Its exclusion logic for the old vendored `wattpilot/` subtree
   is now a no-op — the subtree is gone.) The code is ruff-formatted and strict-mypy clean; keep it
-  that way (`ruff format`, `ruff check`).
+  that way (`ruff format`, `ruff check`). `.github/workflows/test.yml` **gates** on this:
+  `pytest --cov-fail-under=95`, `ruff format --check` + `ruff check`, and `mypy` run as three
+  separate jobs, with ruff and mypy pinned so a new release cannot break `main` without a
+  deliberate bump.
 - **Manual/live check** — copy `custom_components/wattpilot/` into a running HA, restart, and read
   the debug logs. The codebase logs verbosely under the `custom_components.wattpilot` logger
   namespace — enable `logger` debug there to trace behaviour.
@@ -127,9 +130,8 @@ property/coercion behaviour but genuinely writes settings — see the Build/Test
 ### Data-driven entities (the core pattern)
 Entities are **not hard-coded**. Each platform has a matching YAML catalog next to its Python
 file (`sensor.yaml`, `switch.yaml`, `select.yaml`, `number.yaml`, `button.yaml`, `update.yaml`).
-Each platform's `async_setup_entry` reads its YAML, iterates the entity definitions, and
-instantiates one entity per definition. **To add or change an entity, edit the YAML** — you
-usually do not touch Python. `sensor.yaml`'s header comment documents every supported field
+**To add or change an entity, edit the YAML** — you usually do not touch Python.
+`sensor.yaml`'s header comment documents every supported field
 (`source`, `id`, `uid`, `enum`, `firmware`, `variant`, `connection`, `value_id`, `namespace_id`,
 `attribute_ids`, `default_state`, etc.).
 
@@ -141,6 +143,15 @@ and then by the entity's translation key — `slugify(uid or id)`, the same key
 attribute (quality-scale rule `icon-translations`). Adding an entity with an icon therefore means
 touching both files — `tests/test_icons.py` fails on an orphaned key, a re-added YAML `icon:`, or
 a non-`mdi:` value, and `tests/test_setup.py` asserts HA actually loads the file.
+
+The setup skeleton itself is shared: **`catalog.py::async_setup_catalog_entities`** reads the
+catalog, pulls the charger out of `entry.runtime_data`, builds one entity per definition and
+calls `async_add_entities`. Each platform's `async_setup_entry` is a single call to it, passing
+its entity class plus two knobs — `source` (a value source forced onto every definition;
+`sensor` passes none, because its source varies per definition) and `required` (the keys a
+definition must carry; only `update` extends the `("id", "source")` default). A definition whose
+entity fails a gate sets `_init_failed` and is skipped there. Adding a platform means adding a
+YAML catalog and an entity class, not another copy of the loop.
 
 An entity's value `source` is one of:
 - `property` — a key in `charger.all_properties` (the charger's live property dict). Push-capable.
@@ -238,9 +249,11 @@ Always go through the `utils.py` helpers rather than touching the charger object
   `set_next_trip` (writes the `ftt` next-trip timestamp, with daylight-saving handling).
 
 ### Platforms
-Registered in `const.py::SUPPORTED_PLATFORMS`: `button`, `number`, `select`, `sensor`, `switch`,
-`update`. (`manifest.json` `dependencies` also lists `diagnostics`.) `diagnostics.py` provides
-the redacted diagnostics download.
+Registered in `const.py::SUPPORTED_PLATFORMS` (a tuple): `button`, `number`, `select`, `sensor`,
+`switch`, `update`. `diagnostics.py` provides the redacted diagnostics download. `manifest.json`
+declares **no** `dependencies` — `async_forward_entry_setups` loads the platforms itself, and
+that key is for integrations that must be set up before this one; do not re-add the platform
+names to it.
 
 ## Quality scale
 
@@ -384,6 +397,13 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
   `"%s - <func>: <msg>: %s (%s.%s)"` with the entry/charger id, the exception string, and the
   exception's module/type, then returns a falsy sentinel (`False`/`None`) rather than raising.
   Match this style; failures are logged-and-degraded, not propagated.
+- **Log level within that style:** a broad `except Exception` is a catch-all for something
+  unexpected, so it logs with `_LOGGER.exception()` and carries a traceback. Reports of an
+  expected condition — a validated-input failure outside any handler ("no id in yaml", "unknown
+  device"), or a narrow handler catching a specific error — stay on `_LOGGER.error()`, since
+  there is nothing to trace. `services.py::_raise_service_failure` is called *from* its handlers
+  rather than being one, so it passes `exc_info=e` explicitly (ruff `LOG004` rejects a bare
+  `.exception()` outside a handler).
 - **`services.py` is the one exception** (quality-scale `action-exceptions`): its handlers keep the
   same `try/except` shape and the same log line, but end in a raise — `ServiceValidationError` for
   a bad call (missing parameter, unknown device, unusable value), `HomeAssistantError` for a valid

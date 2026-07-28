@@ -10,7 +10,36 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+Follow-up to the v0.8.1 static code audit (`doc/Wattpilot_HA_v0.8.1_Code_Audit.md`).
+No user-visible behaviour changes.
+
+### Fixed
+- Button entities now honour their `firmware:` / `variant:` / `connection:` gates. `button.py`
+  tested `if entity is None`, which a constructor never returns, so a gated button definition
+  would have been registered regardless. No button in `button.yaml` is gated today, so no
+  existing install is affected.
+
+### Changed
+- The six platforms' near-identical `async_setup_entry` (read the YAML catalog, get the charger,
+  build one entity per definition) now lives in a shared `catalog.py`, removing ~446 duplicated
+  lines. Adding a platform no longer means copying the skeleton.
+- The catch-all `except Exception` handlers log with `_LOGGER.exception()`, so an unexpected
+  failure carries a traceback. Reports of expected conditions ("no id in yaml", "unknown device")
+  and narrow handlers stay on `_LOGGER.error()`. Message strings are unchanged.
+- `SUPPORTED_PLATFORMS` and `EVENT_PROPS` are tuples rather than lists.
+
+### Removed
+- The `importlib_metadata` backport, replaced by stdlib `importlib.metadata`. This drops a
+  `manifest.json` requirement and the `importlib_metadata_module` key from the diagnostics
+  download.
+- `manifest.json`'s `dependencies`, which listed the platforms this integration forwards to.
+  `async_forward_entry_setups` loads those itself; the key is for integrations that must be set
+  up first.
+- Seven `await asyncio.sleep(0)` calls that existed only to make a helper look async.
+
+### Internal
+- CI gates on coverage (`--cov-fail-under=95`, the Silver quality-scale bar; currently 98%),
+  `ruff format --check`, `ruff check` and `mypy`, instead of running a bare `pytest`.
 
 ## [0.8.1] - 2026-07-25
 
