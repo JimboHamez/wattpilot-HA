@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Final
 
@@ -60,7 +59,6 @@ async def async_get_RECONFIGURE_LOCAL_SCHEMA(current_data: Mapping[str, Any]) ->
                 vol.Optional(CONF_TIMEOUT, default=current_data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)): cv.positive_int,
             }
         )
-        await asyncio.sleep(0)
         return RECONFIGURE_LOCAL_SCHEMA
     except Exception as e:
         _LOGGER.error(
@@ -85,7 +83,6 @@ async def async_get_RECONFIGURE_CLOUD_SCHEMA(current_data: Mapping[str, Any]) ->
                 vol.Optional(CONF_TIMEOUT, default=current_data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)): cv.positive_int,
             }
         )
-        await asyncio.sleep(0)
         return RECONFIGURE_CLOUD_SCHEMA
     except Exception as e:
         _LOGGER.error(

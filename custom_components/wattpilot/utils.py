@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import types
@@ -52,7 +51,6 @@ async def async_ProgrammingDebug(obj: object, show_all: bool = False) -> None:
                 continue
             if hasattr(obj, attr):
                 _LOGGER.debug("%s - async_ProgrammingDebug: %s = %s", DOMAIN, attr, getattr(obj, attr))
-            await asyncio.sleep(0)
     except Exception as e:
         _LOGGER.error(
             "%s - async_ProgrammingDebug: failed: %s (%s.%s)", DOMAIN, str(e), e.__class__.__module__, type(e).__name__
@@ -156,7 +154,6 @@ async def async_GetChargerProp(charger: Wattpilot, identifier: str, default: Any
             # at error level here spams once per poll for every absent property.
             _LOGGER.debug("%s - async_GetChargerProp: Charger does not have property: %s", DOMAIN, identifier)
             return default
-        await asyncio.sleep(0)
         if charger.all_properties[identifier] is None and default is not None:
             return default
         return charger.all_properties[identifier]
@@ -284,7 +281,6 @@ async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str) ->
                 continue
             entry = hass.config_entries.async_get_entry(entry_id)
             entry_data = getattr(entry, "runtime_data", None) if entry else None
-            await asyncio.sleep(0)
         if entry_data is None:
             _LOGGER.error(
                 "%s - async_GetDataStoreFromDeviceID: Unable to receive data store for device: %s", DOMAIN, device_id
@@ -323,7 +319,6 @@ async def async_GetChargerFromDeviceID(hass: HomeAssistant, device_id: str) -> A
             entry = hass.config_entries.async_get_entry(entry_id)
             entry_data = getattr(entry, "runtime_data", None) if entry else None
             charger = entry_data.get(CONF_CHARGER, None) if entry_data else None
-            await asyncio.sleep(0)
         if charger is None:
             _LOGGER.error(
                 "%s - async_GetChargerFromDeviceID: Unable to identify charger object for device: %s", DOMAIN, device_id
