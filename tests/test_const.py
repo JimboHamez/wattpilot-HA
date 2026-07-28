@@ -47,6 +47,6 @@ def test_manifest_domain_matches_const():
 
 def test_event_props_are_strings():
     const = _const()
-    assert isinstance(const.EVENT_PROPS, list)
+    assert isinstance(const.EVENT_PROPS, tuple)
     assert all(isinstance(p, str) for p in const.EVENT_PROPS)
     assert const.EVENT_PROPS_ID.startswith(const.DOMAIN)

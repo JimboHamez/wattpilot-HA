@@ -8,7 +8,10 @@ from typing import Final
 DOMAIN: Final = "wattpilot"
 FUNC_CONNECTION_MONITOR: Final = "connection_monitor"
 FUNC_PROPERTY_UPDATES_CALLBACK: Final = "property_updates_callback"
-SUPPORTED_PLATFORMS: Final = ["button", "number", "select", "sensor", "switch", "update"]
+# Plain strings rather than homeassistant.const.Platform members: const.py is
+# deliberately free of Home Assistant imports so tests/test_const.py can load it
+# in isolation, without pulling in the whole HA stack.
+SUPPORTED_PLATFORMS: Final = ("button", "number", "select", "sensor", "switch", "update")
 
 DEFAULT_NAME: Final = "Wattpilot"
 CONF_DBG_PROPS: Final = "debug_properties"
@@ -34,7 +37,7 @@ AVAILABILITY_SCAN_INTERVAL: Final = timedelta(seconds=30)
 AUTH_FAILURE_REAUTH_THRESHOLD: Final = 3
 
 EVENT_PROPS_ID: Final = DOMAIN + "_property_message"
-EVENT_PROPS: Final = ["ftt", "cak"]
+EVENT_PROPS: Final = ("ftt", "cak")
 
 CLOUD_API_URL_PREFIX: Final = "https://"
 CLOUD_API_URL_POSTFIX: Final = ".api.v3.go-e.io/api/"
