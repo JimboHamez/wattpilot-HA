@@ -4,18 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
 import re
 from typing import TYPE_CHECKING, Any, Final
 
-import aiofiles
-import yaml
 from packaging.version import Version
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.const import CONF_PARAMS, CONF_TIMEOUT
 
-from .const import CONF_CHARGER, DEFAULT_TIMEOUT
+from .catalog import async_setup_catalog_entities
+from .const import DEFAULT_TIMEOUT
 from .entities import ChargerPlatformEntity
 from .utils import GetChargerProp, async_SetChargerProp
 
@@ -31,92 +29,15 @@ PARALLEL_UPDATES = 0  # local push over a single WebSocket; no rate limit needed
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the update platform."""
-    _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
-    entites = []
-    try:
-        _LOGGER.debug("%s - async_setup_entry %s: Reading static yaml configuration", entry.entry_id, platform)
-        async with aiofiles.open(os.path.dirname(os.path.realpath(__file__)) + "/" + platform + ".yaml") as y:
-            yaml_cfg = yaml.safe_load(await y.read())
-    except Exception as e:
-        _LOGGER.error(
-            "%s - async_setup_entry %s: Reading static yaml configuration failed: %s (%s.%s)",
-            entry.entry_id,
-            platform,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        return
-
-    try:
-        _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
-        charger = entry.runtime_data[CONF_CHARGER]
-    except Exception as e:
-        _LOGGER.error(
-            "%s - async_setup_entry %s: Getting charger instance from data store failed: %s (%s.%s)",
-            entry.entry_id,
-            platform,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        return
-
-    for entity_cfg in yaml_cfg[platform]:
-        try:
-            entity_cfg["source"] = "property"
-            if "id" not in entity_cfg or entity_cfg["id"] is None:
-                _LOGGER.error(
-                    "%s - async_setup_entry %s: Invalid yaml configuration - no id: %s",
-                    entry.entry_id,
-                    platform,
-                    entity_cfg,
-                )
-                continue
-            elif "id_installed" not in entity_cfg or entity_cfg["id_installed"] is None:
-                _LOGGER.error(
-                    "%s - async_setup_entry %s: Invalid yaml configuration - no id_installed: %s",
-                    entry.entry_id,
-                    platform,
-                    entity_cfg,
-                )
-                continue
-            elif "id_trigger" not in entity_cfg or entity_cfg["id_trigger"] is None:
-                _LOGGER.error(
-                    "%s - async_setup_entry %s: Invalid yaml configuration - no id_trigger: %s",
-                    entry.entry_id,
-                    platform,
-                    entity_cfg,
-                )
-                continue
-            elif "source" not in entity_cfg or entity_cfg["source"] is None:
-                _LOGGER.error(
-                    "%s - async_setup_entry %s: Invalid yaml configuration - no source: %s",
-                    entry.entry_id,
-                    platform,
-                    entity_cfg,
-                )
-                continue
-            entity = ChargerUpdate(hass, entry, entity_cfg, charger)
-            if getattr(entity, "_init_failed", True):
-                continue
-            entites.append(entity)
-            await asyncio.sleep(0)
-        except Exception as e:
-            _LOGGER.error(
-                "%s - async_setup_entry %s: Reading static yaml configuration failed: %s (%s.%s)",
-                entry.entry_id,
-                platform,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
-            return
-
-    _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entites), platform)
-    if not entites:
-        return
-    async_add_entities(entites)
+    await async_setup_catalog_entities(
+        hass,
+        entry,
+        async_add_entities,
+        platform,
+        ChargerUpdate,
+        source="property",
+        required=("id", "id_installed", "id_trigger", "source"),
+    )
 
 
 class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):

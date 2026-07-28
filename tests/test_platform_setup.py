@@ -16,11 +16,15 @@ import pytest
 pytest.importorskip("pytest_homeassistant_custom_component")
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.wattpilot import button, number, select, sensor, switch, update
+from custom_components.wattpilot import button, catalog, number, select, sensor, switch, update
 from custom_components.wattpilot.const import CONF_CHARGER, DOMAIN
 
 PLATFORMS = [button, number, select, sensor, switch, update]
 PLATFORM_IDS = [module.platform for module in PLATFORMS]
+
+# The setup skeleton itself now lives in catalog.py, so that is where its
+# collaborators are patched and where its log records are emitted.
+CATALOG_LOGGER = "custom_components.wattpilot.catalog"
 
 CHARGER_PROPS = {
     "amp": 6,
@@ -68,8 +72,8 @@ async def test_setup_without_a_catalog_is_logged(hass, make_charger, module, cap
     added = MagicMock()
 
     with (
-        caplog.at_level(logging.ERROR, logger=f"custom_components.wattpilot.{module.platform}"),
-        patch.object(module.aiofiles, "open", side_effect=OSError("no such file")),
+        caplog.at_level(logging.ERROR, logger=CATALOG_LOGGER),
+        patch.object(catalog.aiofiles, "open", side_effect=OSError("no such file")),
     ):
         await module.async_setup_entry(hass, entry, added)
 
@@ -83,7 +87,7 @@ async def test_setup_without_a_charger_is_logged(hass, module, caplog):
     entry = _entry(hass, {})
     added = MagicMock()
 
-    with caplog.at_level(logging.ERROR, logger=f"custom_components.wattpilot.{module.platform}"):
+    with caplog.at_level(logging.ERROR, logger=CATALOG_LOGGER):
         await module.async_setup_entry(hass, entry, added)
 
     added.assert_not_called()
@@ -97,8 +101,8 @@ async def test_setup_skips_definitions_without_an_id(hass, make_charger, module,
     added = MagicMock()
 
     with (
-        caplog.at_level(logging.ERROR, logger=f"custom_components.wattpilot.{module.platform}"),
-        patch.object(module.yaml, "safe_load", return_value={module.platform: [{"id": None}]}),
+        caplog.at_level(logging.ERROR, logger=CATALOG_LOGGER),
+        patch.object(catalog.yaml, "safe_load", return_value={module.platform: [{"id": None}]}),
     ):
         await module.async_setup_entry(hass, entry, added)
 
@@ -112,7 +116,7 @@ async def test_setup_adds_nothing_when_the_catalog_is_empty(hass, make_charger, 
     entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS))})
     added = MagicMock()
 
-    with patch.object(module.yaml, "safe_load", return_value={module.platform: []}):
+    with patch.object(catalog.yaml, "safe_load", return_value={module.platform: []}):
         await module.async_setup_entry(hass, entry, added)
 
     added.assert_not_called()
@@ -126,13 +130,33 @@ async def test_setup_reports_a_failing_entity_definition(hass, make_charger, mod
 
     # A non-dict definition breaks on the first attribute access inside the loop.
     with (
-        caplog.at_level(logging.ERROR, logger=f"custom_components.wattpilot.{module.platform}"),
-        patch.object(module.yaml, "safe_load", return_value={module.platform: ["not-a-definition"]}),
+        caplog.at_level(logging.ERROR, logger=CATALOG_LOGGER),
+        patch.object(catalog.yaml, "safe_load", return_value={module.platform: ["not-a-definition"]}),
     ):
         await module.async_setup_entry(hass, entry, added)
 
     added.assert_not_called()
     assert any(r.levelno == logging.ERROR for r in caplog.records)
+
+
+@pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
+async def test_setup_skips_entities_that_fail_their_gate(hass, make_charger, module):
+    """A definition whose entity fails its variant gate is not registered.
+
+    Every platform routes this through ``_init_failed``. button.py used to test
+    ``entity is None`` instead, which a constructor never returns, so a gated
+    button entity would have been registered regardless of its gate.
+    """
+    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB")})
+    added = MagicMock()
+
+    # The charger reports var=11, so a 22 kW-only definition must be skipped.
+    definition = {"id": "amp", "id_installed": "fwv", "id_trigger": "oct", "source": "property", "variant": "22"}
+
+    with patch.object(catalog.yaml, "safe_load", return_value={module.platform: [definition]}):
+        await module.async_setup_entry(hass, entry, added)
+
+    added.assert_not_called()
 
 
 @pytest.mark.parametrize("missing", ["id_installed", "id_trigger"])
@@ -144,8 +168,8 @@ async def test_update_setup_requires_its_extra_ids(hass, make_charger, missing, 
     definition[missing] = None
 
     with (
-        caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.update"),
-        patch.object(update.yaml, "safe_load", return_value={"update": [definition]}),
+        caplog.at_level(logging.ERROR, logger=CATALOG_LOGGER),
+        patch.object(catalog.yaml, "safe_load", return_value={"update": [definition]}),
     ):
         await update.async_setup_entry(hass, entry, added)
 

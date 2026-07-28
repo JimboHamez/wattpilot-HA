@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
-import os
 from typing import TYPE_CHECKING, Final
-
-import aiofiles
-import yaml
 
 from homeassistant.components.button import ButtonEntity
 
-from .const import CONF_CHARGER
+from .catalog import async_setup_catalog_entities
 from .entities import ChargerPlatformEntity
 from .utils import async_SetChargerProp
 
@@ -28,76 +23,7 @@ PARALLEL_UPDATES = 0  # local push over a single WebSocket; no rate limit needed
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Set up the button platform."""
-    _LOGGER.debug("Setting up %s platform entry: %s", platform, entry.entry_id)
-    entites = []
-    try:
-        _LOGGER.debug("%s - async_setup_entry %s: Reading static yaml configuration", entry.entry_id, platform)
-        async with aiofiles.open(os.path.dirname(os.path.realpath(__file__)) + "/" + platform + ".yaml") as y:
-            yaml_cfg = yaml.safe_load(await y.read())
-    except Exception as e:
-        _LOGGER.error(
-            "%s - async_setup_entry %s: Reading static yaml configuration failed: %s (%s.%s)",
-            entry.entry_id,
-            platform,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        return
-
-    try:
-        _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
-        charger = entry.runtime_data[CONF_CHARGER]
-    except Exception as e:
-        _LOGGER.error(
-            "%s - async_setup_entry %s: Getting charger instance from data store failed: %s (%s.%s)",
-            entry.entry_id,
-            platform,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        return
-
-    for entity_cfg in yaml_cfg.get(platform, []):
-        try:
-            entity_cfg["source"] = "none"
-            if "id" not in entity_cfg or entity_cfg["id"] is None:
-                _LOGGER.error(
-                    "%s - async_setup_entry %s: Invalid yaml configuration - no id: %s",
-                    entry.entry_id,
-                    platform,
-                    entity_cfg,
-                )
-                continue
-            elif "source" not in entity_cfg or entity_cfg["source"] is None:
-                _LOGGER.error(
-                    "%s - async_setup_entry %s: Invalid yaml configuration - no source: %s",
-                    entry.entry_id,
-                    platform,
-                    entity_cfg,
-                )
-                continue
-            entity = ChargerButton(hass, entry, entity_cfg, charger)
-            if entity is None:
-                continue
-            entites.append(entity)
-            await asyncio.sleep(0)
-        except Exception as e:
-            _LOGGER.error(
-                "%s - async_setup_entry %s: Reading static yaml configuration failed: %s (%s.%s)",
-                entry.entry_id,
-                platform,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
-            return
-
-    _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entites), platform)
-    if not entites:
-        return
-    async_add_entities(entites)
+    await async_setup_catalog_entities(hass, entry, async_add_entities, platform, ChargerButton, source="none")
 
 
 class ChargerButton(ChargerPlatformEntity, ButtonEntity):
