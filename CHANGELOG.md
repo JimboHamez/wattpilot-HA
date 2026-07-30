@@ -10,6 +10,15 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.9.0] - 2026-07-30
+
+Driven by what a live Wattpilot Flex on firmware 43.4 actually reports. The RFID card sensors read
+the flat per-slot properties that replaced the `cards` list, a paired-but-unreachable device no
+longer costs you the entity for the rest of the session, and the charger's flexible-tariff switch is
+reachable in Home Assistant under a name that matches the app.
+
 ### Fixed
 - An entity whose property the charger reported as **null** at setup time is no longer dropped for
   the lifetime of the config entry. `entities.py::__init__` judged a property absent by its value,
@@ -530,7 +539,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.2...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.7.0...v0.8.0
