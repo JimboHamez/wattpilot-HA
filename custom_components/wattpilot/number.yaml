@@ -52,7 +52,7 @@ number:
   - id: awp
     set_type: float
     name: "Max Price"
-    description: "Lumina Strom/aWattar maximum price in euro cent"
+    description: "Lumina Strom/aWATTar maximum price in euro cent"
     native_min_value: -99999
     native_max_value: 999999
     native_step: 1

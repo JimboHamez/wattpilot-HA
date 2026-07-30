@@ -191,6 +191,39 @@
                     "error": "Fehler"
                 }
             },
+            "card_0_energy": {
+                "name": "ID-Chip 0 Energie"
+            },
+            "card_1_energy": {
+                "name": "ID-Chip 1 Energie"
+            },
+            "card_2_energy": {
+                "name": "ID-Chip 2 Energie"
+            },
+            "card_3_energy": {
+                "name": "ID-Chip 3 Energie"
+            },
+            "card_4_energy": {
+                "name": "ID-Chip 4 Energie"
+            },
+            "card_5_energy": {
+                "name": "ID-Chip 5 Energie"
+            },
+            "card_6_energy": {
+                "name": "ID-Chip 6 Energie"
+            },
+            "card_7_energy": {
+                "name": "ID-Chip 7 Energie"
+            },
+            "card_8_energy": {
+                "name": "ID-Chip 8 Energie"
+            },
+            "card_9_energy": {
+                "name": "ID-Chip 9 Energie"
+            },
+            "card_current_name": {
+                "name": "Name des aktuellen ID-Chips"
+            },
             "cards_0": {
                 "name": "ID-Chip 0"
             },
@@ -415,7 +448,7 @@
                 "name": "Im Eco-Modus bleiben"
             },
             "ful": {
-                "name": "Lumina Strom/aWATTar"
+                "name": "Flexibler Tarif (Lumina Strom/aWATTar)"
             },
             "fup": {
                 "name": "PV-Überschuss"

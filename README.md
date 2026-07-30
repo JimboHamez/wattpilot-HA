@@ -362,6 +362,17 @@ work on it directly.
   automatically when the charger comes back.
 - **"Invalid authentication" / reauth prompt:** the charger password changed — enter the
   new password when Home Assistant asks, or via **Reconfigure**.
+- **Eco / PV-surplus charging keeps stopping, and `ChargingReason` reads
+  `NotChargingBecauseFallbackAwattar`:** the charger is refusing to charge because the market
+  price for the current hour is above **Max Price** (`awp`, in EUR cent). Observed on firmware
+  43.4 **with the flexible tariff switch (`ful`) off**, alternating with
+  `ChargingBecausePvSurplus` while solar was exporting — so the price rule is still consulted on
+  the fallback path. It bites hardest outside the countries the feature covers: **Awattar Country**
+  (`awc`) has 51 options with no "none" and no Australia, so the price feed cannot be turned off,
+  and a low `awp` (3 cent, for instance) then blocks charging whenever the fetched price is higher.
+  Raise the **Max Price** number entity to a value the price can never exceed (its maximum is
+  999999) so the rule stops gating charging. Enable the `ChargingReason` sensor to see the
+  charger's own reason at any moment.
 - **Enable debug logging** to trace behaviour, then reproduce the issue:
   ```yaml
   logger:

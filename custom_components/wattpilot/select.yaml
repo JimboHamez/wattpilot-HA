@@ -28,7 +28,7 @@ select:
     entity_category: config
 
   - id: awc
-    name: "Awattar Country"
+    name: "aWATTar Country"
     options:
       0: "Austria"
       10043: "Belgium"
@@ -81,7 +81,7 @@ select:
       10048: "Sweden Tibber Elspot4"
       10035: "Switzerland"
       10002: "Ukraine"
-    description: "Lumina Strom/aWattar country"
+    description: "Lumina Strom/aWATTar country"
     entity_category: config
 
 # IN FIRMWARE < 38.5 this was a switch (ON/OFF) value

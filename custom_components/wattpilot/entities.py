@@ -88,6 +88,10 @@ class ChargerPlatformEntity(Entity):
             # RFID card slots). The catalogs are deliberately a superset, so an
             # absent value means "skip this entity", not "something went wrong":
             # log it at debug, or every setup floods the log with errors.
+            # Absence is judged on whether the charger reports the property at
+            # all, not on its value - see _property_reported. A definition that
+            # carries a default_state is never skipped: it has a value to show
+            # regardless, which is the behaviour those definitions already had.
             if self._fw_supported is not False:
                 if self._source == "attribute" and not hasattr(self._charger, self._identifier):
                     _LOGGER.debug(
@@ -97,10 +101,7 @@ class ChargerPlatformEntity(Entity):
                         self._identifier,
                     )
                     self._init_failed = True
-                elif (
-                    self._source == "property"
-                    and GetChargerProp(self._charger, self._identifier, self._default_state) is None
-                ):
+                elif self._source == "property" and self._default_state is None and not self._property_reported():
                     _LOGGER.debug(
                         "%s - %s: __init__: Charger does not have a property: %s (maybe an attribute?)",
                         self._charger_id,
@@ -306,9 +307,56 @@ class ChargerPlatformEntity(Entity):
             return None
         return value[idx]
 
+    def _property_reported(self) -> bool:
+        """Return whether the charger reports this entity's property at all.
+
+        A property the charger does not have at all means the entity cannot
+        exist. A property it reports as null is a different case: the value is
+        only missing for now - a paired inverter that is briefly unreachable,
+        say - so the entity is created and recovers when the next value arrives
+        instead of disappearing until the config entry is reloaded.
+        """
+        return self._identifier in getattr(self._charger, "all_properties", {})
+
     def _get_namespacelist_item(self) -> Any:
         """Return the configured namespace item from the charger, or None."""
         return self._index_namespace(GetChargerProp(self._charger, self._identifier, self._default_state))
+
+    def _update_attribute_props(self) -> None:
+        """Copy sibling charger properties into the entity's extra attributes.
+
+        Some values that belong next to a state live in a property of their own
+        rather than inside the state's value, so they cannot be reached with
+        ``attribute_ids`` (which only indexes into a namespace or list value).
+        A catalog's ``attribute_props`` maps the attribute name to expose onto
+        the id of the property to read it from - e.g. an RFID card's name in
+        'c0n' alongside its energy in 'c0e'.
+        """
+        for attr_name, prop_id in (self._entity_cfg.get("attribute_props") or {}).items():
+            self._attributes[str(attr_name)] = GetChargerProp(self._charger, str(prop_id), STATE_UNKNOWN)
+
+    def _resolve_value_prop(self, state: Any) -> Any:
+        """Return the state read from the property a raw code points at.
+
+        A catalog's ``value_props`` maps a raw charger code onto the id of the
+        property holding the value to show for it: 'trx' reports which RFID slot
+        authorised the running session (code 1 -> slot 0), while the name to
+        display lives in that slot's own 'c0n' property. A code with no entry
+        (no chip, no transaction) has no property to read, so the state is
+        unknown. Note the entity still updates on its own id's pushes, so a
+        value renamed on the charger shows up at the next code change or poll.
+        """
+        value_props = self._entity_cfg.get("value_props") or {}
+        prop_id = value_props.get(state)
+        if prop_id is None:
+            _LOGGER.debug(
+                "%s - %s: _resolve_value_prop: no property mapped for state: %s",
+                self._charger_id,
+                self._identifier,
+                state,
+            )
+            return STATE_UNKNOWN
+        return GetChargerProp(self._charger, str(prop_id), STATE_UNKNOWN)
 
     @property
     def available(self) -> bool:
@@ -447,6 +495,9 @@ class ChargerPlatformEntity(Entity):
         """Async: Validate the given state object, set attributes if necessary and return new single state."""
         try:
             # _LOGGER.debug("%s - %s: _async_update_validate_property", self._charger_id, self._identifier)
+            self._update_attribute_props()
+            if self._entity_cfg.get("value_props") is not None:
+                return self._resolve_value_prop(state)
             if str(state).startswith("namespace"):
                 _LOGGER.debug(
                     "%s - %s: _async_update_validate_property: process namespace value",

@@ -268,6 +268,54 @@ async def test_sensor_keeps_plain_numeric_values(make_charger):
     assert await entity._async_update_validate_platform_state(21.5) == 21.5
 
 
+def _card_charger(make_charger, **props):
+    """Return a charger reporting the flat per-slot RFID card properties."""
+    return make_charger(props={"typ": "m", "var": 11, **props})
+
+
+async def test_card_energy_sensor_reads_the_flat_slot_properties(make_charger):
+    """A card sensor states its slot's Wh and names the card in its attributes."""
+    charger = _card_charger(make_charger, c0e=420, c0i=True, c0n="Flick")
+    entity = _build(ChargerSensor, "sensor", "card_0_energy", charger)
+
+    assert entity._init_failed is False
+    # The charger counts Wh; Home Assistant converts the display to kWh.
+    assert entity.native_unit_of_measurement == "Wh"
+    assert entity.suggested_unit_of_measurement == "kWh"
+    assert await entity._async_update_validate_property(420) == 420
+    assert entity.extra_state_attributes["card_name"] == "Flick"
+    assert entity.extra_state_attributes["card_id_stored"] is True
+
+
+async def test_card_energy_sensor_is_skipped_without_the_slot_property(make_charger):
+    """Firmware that reports 'cards' instead of 'cNe' gets no flat card sensor."""
+    charger = _card_charger(make_charger, cards=[])
+    entity = _build(ChargerSensor, "sensor", "card_0_energy", charger)
+
+    assert entity._init_failed is True
+
+
+async def test_current_card_name_sensor_resolves_the_active_slot(make_charger):
+    """The 1-based 'trx' code resolves to the name of the slot it authorised."""
+    charger = _card_charger(make_charger, c0n="Flick", c1n="Jim", trx=2)
+    entity = _build(ChargerSensor, "sensor", "card_current_name", charger)
+
+    state = await entity._async_update_validate_property(2)
+
+    assert await entity._async_update_validate_platform_state(state) == "Jim"
+
+
+@pytest.mark.parametrize("code", [0, 999])
+async def test_current_card_name_sensor_without_a_session(make_charger, code):
+    """No chip (0) and no transaction (999) map to no slot, so no name."""
+    charger = _card_charger(make_charger, c0n="Flick", trx=code)
+    entity = _build(ChargerSensor, "sensor", "card_current_name", charger)
+
+    state = await entity._async_update_validate_property(code)
+
+    assert await entity._async_update_validate_platform_state(state) == STATE_UNKNOWN
+
+
 # --- update -------------------------------------------------------------------
 
 

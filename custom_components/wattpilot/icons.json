@@ -91,6 +91,39 @@
       "car_connected": {
         "default": "mdi:ev-plug-type2"
       },
+      "card_0_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_1_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_2_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_3_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_4_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_5_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_6_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_7_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_8_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_9_energy": {
+        "default": "mdi:credit-card-chip"
+      },
+      "card_current_name": {
+        "default": "mdi:card-account-details-outline"
+      },
       "cards_0": {
         "default": "mdi:credit-card-chip"
       },

@@ -19,7 +19,9 @@ sensor:
 #    entity_category: <optional: key within HA>
 #    value_id: <required for charger properties of type namespace: define which namespace attribute should be used as state value>
 #    namespace_id: <required for namespacelist source objects: define which item from the list of namespaces should be used>
-#    attribute_ids: <optional for charger properties of type namespace: define which namespace attributes should be included into HA> 
+#    attribute_ids: <optional for charger properties of type namespace: define which namespace attributes should be included into HA>
+#    attribute_props: <optional dict "<HA attribute name>: <charger property id>" to expose sibling properties as extra state attributes - for values that live in their own property instead of inside the state value>
+#    value_props: <optional dict "<raw charger code>: <charger property id>" to use as state the value of the property a code points at - e.g. the 'trx' code for an RFID slot mapped onto that slot's name property. Codes without an entry become STATE_UNKNOWN>
 #    enum: <optional dict to map states to enum values>
 #    firmware: <optional string ">=1.1" | "<=1.1" | "==1.1" | "<1.1" | ">1.1" to setup entity only if charger firmware matches>
 #    variant: <optional string "11 / 22" to setup entity only if charger variant matches 11kW version or 22kW version>
@@ -200,6 +202,172 @@ sensor:
     attribute_ids:
       - name
       - cardId
+
+# The same ten RFID chip/card slots, read from the flat per-slot properties that
+# replaced the 'cards' list (removed in go-e firmware 60.0; absent on Fronius
+# firmware 43.4, verified on a Flex): 'cNe' is the energy in Wh, 'cNn' the card
+# name, 'cNi' whether an RFID id is stored for the slot. Deliberately a superset
+# with the 'cards_N' definitions above - a charger reports one form or the other,
+# and an entity whose property is missing is skipped at init. No default_state
+# here on purpose: it is what makes that skip work, since GetChargerProp returns
+# the default rather than None for an absent property.
+# What the energy counts is not documented ("RFID card (0..9) Energy (Wh)"), and
+# a live charger cannot tell the two readings apart while its lifetime total
+# still equals the current session. Treat it as a per-card counter that can be
+# reset (the charger's 'del' key erases a slot's name, energy and id) - which is
+# what state_class 'total' expects either way.
+  - source: property
+    id: c0e
+    uid: card_0_energy
+    name: "ID Chip 0 Energy"
+    description: "Energy charged with ID chip/card 0"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c0i
+      card_name: c0n
+  - source: property
+    id: c1e
+    uid: card_1_energy
+    name: "ID Chip 1 Energy"
+    description: "Energy charged with ID chip/card 1"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c1i
+      card_name: c1n
+  - source: property
+    id: c2e
+    uid: card_2_energy
+    name: "ID Chip 2 Energy"
+    description: "Energy charged with ID chip/card 2"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c2i
+      card_name: c2n
+  - source: property
+    id: c3e
+    uid: card_3_energy
+    name: "ID Chip 3 Energy"
+    description: "Energy charged with ID chip/card 3"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c3i
+      card_name: c3n
+  - source: property
+    id: c4e
+    uid: card_4_energy
+    name: "ID Chip 4 Energy"
+    description: "Energy charged with ID chip/card 4"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c4i
+      card_name: c4n
+  - source: property
+    id: c5e
+    uid: card_5_energy
+    name: "ID Chip 5 Energy"
+    description: "Energy charged with ID chip/card 5"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c5i
+      card_name: c5n
+  - source: property
+    id: c6e
+    uid: card_6_energy
+    name: "ID Chip 6 Energy"
+    description: "Energy charged with ID chip/card 6"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c6i
+      card_name: c6n
+  - source: property
+    id: c7e
+    uid: card_7_energy
+    name: "ID Chip 7 Energy"
+    description: "Energy charged with ID chip/card 7"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c7i
+      card_name: c7n
+  - source: property
+    id: c8e
+    uid: card_8_energy
+    name: "ID Chip 8 Energy"
+    description: "Energy charged with ID chip/card 8"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c8i
+      card_name: c8n
+  - source: property
+    id: c9e
+    uid: card_9_energy
+    name: "ID Chip 9 Energy"
+    description: "Energy charged with ID chip/card 9"
+    device_class: energy
+    state_class: total
+    unit_of_measurement: "Wh"
+    suggested_unit_of_measurement: "kWh"
+    enabled: False
+    attribute_props:
+      card_id_stored: c9i
+      card_name: c9n
+
+# The name of the chip/card authorising the running session, rather than the slot
+# number the 'trx' sensor below reports. The 'trx' codes are 1-based over the ten
+# slots (1 -> slot 0), so each maps onto that slot's name property; the codes
+# without a slot (0 'no chip', 999 'no transaction') leave the state unknown.
+  - source: property
+    id: trx
+    uid: card_current_name
+    name: "ID Chip Current Name"
+    description: "Name of the chip/card authorising the current charging session"
+    enabled: False
+    value_props:
+      1: c0n
+      2: c1n
+      3: c2n
+      4: c3n
+      5: c4n
+      6: c5n
+      7: c6n
+      8: c7n
+      9: c8n
+      10: c9n
 
 #  - source: attribute
 #    id: errorState

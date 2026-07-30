@@ -133,7 +133,7 @@ file (`sensor.yaml`, `switch.yaml`, `select.yaml`, `number.yaml`, `button.yaml`,
 **To add or change an entity, edit the YAML** — you usually do not touch Python.
 `sensor.yaml`'s header comment documents every supported field
 (`source`, `id`, `uid`, `enum`, `firmware`, `variant`, `connection`, `value_id`, `namespace_id`,
-`attribute_ids`, `default_state`, etc.).
+`attribute_ids`, `attribute_props`, `value_props`, `default_state`, etc.).
 
 **Icons are the one exception to "edit the YAML".** They live in `icons.json`, keyed by platform
 and then by the entity's translation key — `slugify(uid or id)`, the same key
@@ -172,8 +172,9 @@ different mechanisms — pick the right one:
 - **`sensor.yaml` `suggested_unit_of_measurement:`** — the sensor keeps its native unit and HA's
   own converter handles display, so long-term statistics stay continuous. Prefer this whenever
   the device class has a converter (the *sensor* platform has them for energy, power, and most
-  others). Current users: `nrg` (W, shown kW); `eto`, `wh`, `cards_*` (Wh, shown kWh).
-  Note extra state **attributes** (e.g. `nrg`'s `L1_Power`) are never unit-converted.
+  others). Current users: `nrg` (W, shown kW); `eto`, `wh`, `cards_*`, `c0e`…`c9e`
+  (Wh, shown kWh). Note extra state **attributes** (e.g. `nrg`'s `L1_Power`) are never
+  unit-converted.
 
 ### Base entity: `entities.py::ChargerPlatformEntity`
 All platform entities subclass this. It centralizes:
@@ -319,7 +320,8 @@ are Fronius-specific extensions that do NOT appear anywhere in the go-e referenc
 `cae`, `cak`, `qsw`, `wcch`, `wccw` — essentially the PV-surplus, battery-boost, next-trip, and
 go-e-cloud-key features. Treat the go-e doc as authoritative only for the confirmed codes; for the
 Fronius-specific ones the `*.yaml` descriptions and `set_values_test.py` are the only reference.
-Two further caveats: `cards` is documented by go-e but was **removed in go-e firmware 60.0**, and
+Two further caveats: `cards` is documented by go-e but was **removed in go-e firmware 60.0** (and
+is absent on Fronius firmware 43.4 — the flat `cNe`/`cNn`/`cNi` keys replace it), and
 `lmo` differs — go-e documents `Default=3 / Awattar=4 / AutomaticStop=5`, while Fronius remaps it
 to the Default / Eco / Next Trip modes shown in `select.yaml`.
 
@@ -340,7 +342,8 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
 | `rssi`, `wst`, `ccw` | WiFi signal / WiFi status / WiFi connection info |
 | `rbc`, `rbt` | Reboot counter / ms since last boot |
 | `cci` | Connected solar inverter |
-| `cards_0`…`cards_9` | RFID chip/card slots — `namespacelist` sources, `value_id: energy` |
+| `cards_0`…`cards_9` | RFID chip/card slots on firmware that still has the `cards` list — `namespacelist` sources, `value_id: energy` |
+| `c0e`…`c9e` / `c0n`…`c9n` / `c0i`…`c9i` | The same ten slots on current firmware: energy (Wh) / card name / whether an RFID id is stored. Verified on a Flex (fw 43.4), where `cards` is absent |
 
 ### Charging control (writable)
 | Code | Meaning |
@@ -352,7 +355,7 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
 | `acs` | Access control setting |
 | `ust` / `bac` | Cable unlock behaviour / button lock level |
 | `ct` | Selected car profile |
-| `trx` | Active transaction chip/card (also the "Authenticate" button) |
+| `trx` | Active transaction chip/card — 1-based over the ten slots (1 = slot 0). Read twice: as the slot number ("ID Chip Current") and, through `value_props`, as that slot's name ("ID Chip Current Name"). Also the "Authenticate" button |
 | `rst` | Restart the charger (button) |
 | `onv` | Firmware — drives the `update` platform |
 

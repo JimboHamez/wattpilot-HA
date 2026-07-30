@@ -45,10 +45,12 @@ switch:
     description: "After reaching the defined kilometer range, switch from Next Trip Mode into Eco Mode"
     entity_category: config
 
+  # The app's "use flexible tariffs" switch in Settings -> Tariff. Enabled by
+  # default like the two settings it governs ('awp' Max Price, 'awc' country),
+  # which were reachable while the switch turning the feature on was not.
   - id: ful
-    name: "Lumina Strom/aWattar"
-    description: "Use Lumina Strom/aWattar for charging"
-    enabled: False
+    name: "Flexible Tariff (Lumina Strom/aWATTar)"
+    description: "Charge on a flexible tariff (Lumina Strom/aWATTar market prices)"
     entity_category: config
 
   - id: fup

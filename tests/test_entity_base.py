@@ -305,6 +305,26 @@ def test_attribute_entity_always_polls(make_charger):
     assert entity.should_poll is True
 
 
+def test_property_reported_as_null_still_creates_the_entity(make_charger):
+    """A null value is a value that is missing for now, not an absent property.
+
+    The contrast is with a property the charger does not report at all, which is
+    skipped (see test_absent_values_skip_the_entity). A charger
+    that reports 'cci' as null - a paired inverter it cannot reach just now -
+    used to drop the entity for the lifetime of the config entry, leaving Home
+    Assistant to report it as no longer provided until a reload.
+    """
+    charger = make_charger(props={**BASE_PROPS, "cci": None})
+    entity = _build(charger, id="cci")
+
+    assert entity._init_failed is False
+    # Nothing to show yet, so the entity is unavailable rather than absent ...
+    assert entity.available is False
+    # ... and recovers on its own once the charger reports a value.
+    charger.all_properties["cci"] = SimpleNamespace(label="40Queen")
+    assert entity.available is True
+
+
 # --- value handling -----------------------------------------------------------
 
 
@@ -329,6 +349,45 @@ async def test_namespace_value_without_value_id_is_reported(make_charger, caplog
         assert await entity._async_update_validate_property(SimpleNamespace(energy=5)) is None
 
     assert any("please specify the 'value_id'" in r.getMessage() for r in caplog.records)
+
+
+async def test_attribute_props_expose_sibling_properties(make_charger):
+    """attribute_props copies other charger properties into the attributes."""
+    charger = make_charger(props={**BASE_PROPS, "c0e": 420, "c0i": True, "c0n": "Flick"})
+    entity = _build(charger, id="c0e", attribute_props={"card_id_stored": "c0i", "card_name": "c0n"})
+
+    state = await entity._async_update_validate_property(420)
+
+    assert state == 420
+    assert entity._attributes["card_name"] == "Flick"
+    assert entity._attributes["card_id_stored"] is True
+
+
+async def test_attribute_props_report_unknown_for_absent_properties(make_charger):
+    """A sibling property the charger does not report shows up as unknown."""
+    charger = make_charger(props={**BASE_PROPS, "c0e": 420})
+    entity = _build(charger, id="c0e", attribute_props={"card_name": "c0n"})
+
+    await entity._async_update_validate_property(420)
+
+    assert entity._attributes["card_name"] == STATE_UNKNOWN
+
+
+async def test_value_props_swap_a_code_for_the_mapped_property(make_charger):
+    """A raw code resolves to the value of the property it maps onto."""
+    charger = make_charger(props={**BASE_PROPS, "c0n": "Flick", "c1n": "Jim", "trx": 2})
+    entity = _build(charger, id="trx", value_props={1: "c0n", 2: "c1n"})
+
+    assert await entity._async_update_validate_property(2) == "Jim"
+    assert await entity._async_update_validate_property(1) == "Flick"
+
+
+async def test_value_props_unmapped_code_is_unknown(make_charger):
+    """A code with no mapped property has no value to show."""
+    charger = make_charger(props={**BASE_PROPS, "c0n": "Flick", "trx": 999})
+    entity = _build(charger, id="trx", value_props={1: "c0n"})
+
+    assert await entity._async_update_validate_property(999) == STATE_UNKNOWN
 
 
 async def test_list_value_without_value_id_spreads_into_attributes(make_charger):

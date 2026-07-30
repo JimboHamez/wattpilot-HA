@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 
 import pytest
 import yaml
@@ -62,6 +63,47 @@ def test_namespacelist_entities_specify_indexes():
             if entity.get("source") == "namespacelist":
                 assert "namespace_id" in entity, f"{entity.get('id')} missing namespace_id"
                 assert "value_id" in entity, f"{entity.get('id')} missing value_id"
+
+
+def test_attribute_props_map_attribute_names_to_property_ids():
+    # attribute_props is a flat "<attribute name>: <property id>" mapping that
+    # entities.py reads with GetChargerProp; anything else cannot resolve.
+    for platform in PLATFORMS:
+        for entity in _load(platform):
+            attribute_props = entity.get("attribute_props")
+            if attribute_props is None:
+                continue
+            assert isinstance(attribute_props, dict), f"{entity.get('id')} attribute_props is not a mapping"
+            for name, prop_id in attribute_props.items():
+                assert isinstance(name, str) and name, f"{entity.get('id')} attribute_props has an empty name"
+                assert isinstance(prop_id, str) and prop_id, f"{entity.get('id')} attribute_props.{name} is not an id"
+
+
+def test_value_props_map_raw_codes_to_property_ids():
+    # value_props swaps a raw code for the value of the property it points at, so
+    # its keys must be the codes the charger reports (ints, as for 'enum') and its
+    # values property ids GetChargerProp can resolve.
+    for platform in PLATFORMS:
+        for entity in _load(platform):
+            value_props = entity.get("value_props")
+            if value_props is None:
+                continue
+            assert isinstance(value_props, dict), f"{entity.get('id')} value_props is not a mapping"
+            for code, prop_id in value_props.items():
+                assert isinstance(code, int), f"{entity.get('id')} value_props key is not a raw code: {code!r}"
+                assert isinstance(prop_id, str) and prop_id, f"{entity.get('id')} value_props.{code} is not an id"
+
+
+def test_card_energy_sensors_declare_no_default_state():
+    # The flat 'cNe' card sensors coexist with the legacy 'cards_N' namespacelist
+    # ones, and rely on being skipped at init when the charger does not report
+    # them. A default_state would break that: GetChargerProp returns the default
+    # instead of None for an absent property, so the entity would be created and
+    # sit at that default forever.
+    flat = [e for e in _load("sensor") if re.fullmatch(r"c\de", str(e.get("id")))]
+    assert len(flat) == 10, f"expected ten flat card-energy sensors, found {len(flat)}"
+    for entity in flat:
+        assert "default_state" not in entity, f"{entity.get('id')} must not set default_state"
 
 
 def test_unique_ids_are_unique_per_platform():

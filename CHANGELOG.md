@@ -10,7 +10,79 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- An entity whose property the charger reported as **null** at setup time is no longer dropped for
+  the lifetime of the config entry. `entities.py::__init__` judged a property absent by its value,
+  so a value that was only missing for the moment — a paired inverter the charger could not reach
+  yet, which is plausible right after a restart — was indistinguishable from a property the model
+  or firmware does not have. The entity was skipped, and Home Assistant reported the registry
+  entry it kept as "no longer being provided by the integration" until the entry was reloaded.
+  Absence is now judged on whether the charger reports the property at all (`_property_reported`):
+  a null value creates the entity unavailable, and it recovers on the first pushed value. The
+  `Inverter` (`cci`) sensor is the one this was seen on. Definitions carrying a `default_state`
+  are unaffected — they were never skipped and still are not.
+  - Side effect worth knowing: a property that is *permanently* null on a given charger now gets
+    an entity that stays unavailable rather than no entity at all. On a wired charger that means
+    the `WiFi Connection` (`ccw`) diagnostic sensor, which the charger reports as null when WiFi
+    is unused.
+
+### Changed
+- The `ful` switch — the app's **use flexible tariffs** toggle under Settings → Tariff — is now
+  enabled by default and named `Flexible Tariff (Lumina Strom/aWATTar)` instead of
+  `Lumina Strom/aWattar`. It was disabled by default while the two settings it governs (`awp`
+  Max Price, `awc` country) were both enabled, so the feature's settings were reachable in Home
+  Assistant but the switch that turns it on was not, under a name that does not match the app's
+  wording. Home Assistant re-enables entities it had disabled on the integration's behalf, so the
+  switch appears on its own after this update unless it was disabled by hand.
+- One spelling of the aWATTar brand across the user-facing strings. The English name of the `awc`
+  select was `Awattar Country` and the `ful` switch said `aWattar`, while the German file and the
+  English `ChargingReason` states already used the brand's own `aWATTar`. The raw codes in
+  `sensor.yaml`'s `enum:` are deliberately untouched — the translation slugs are derived from them.
+- `strings.json` now carries the same English text Home Assistant serves. Its `err` and
+  `modelStatus` state names had been left as the raw charger codes (`FiAc`, `Overtemp`,
+  `NotChargingBecauseFallbackAwattar`) while `translations/en.json` was humanised
+  (`Residual current (AC)`, `Over temperature`, `Not charging: fallback (aWATTar)`) — 55 strings in
+  total. No visible change, since the frontend reads `translations/en.json`; the source file was
+  simply stale. `tests/test_translations.py` now fails on any drift between the two, on a language
+  file with a different key set, and on a catalog entity with no translated name.
+
+### Added
+- Ten `ID Chip N Energy` sensors (`sensor.yaml` uids `card_0_energy`…`card_9_energy`) reading the
+  flat per-slot RFID properties `c0e`…`c9e` (energy in Wh, displayed in kWh), with the card's
+  name and whether an RFID id is stored for the slot as extra state attributes. Disabled by
+  default, like the older card sensors. Current firmware (verified on a Flex running 43.4) does
+  not report the `cards` list the existing `cards_0`…`cards_9` sensors read — go-e removed it in
+  its firmware 60.0 — so on such a charger those ten sensors could never produce a value. Both
+  sets now ship: a charger reports one form or the other, and an entity whose property is absent
+  is skipped at setup.
+- Sensor `ID Chip Current Name` (uid `card_current_name`), the name of the chip/card authorising
+  the running session rather than the slot number the existing `ID Chip Current` sensor reports.
+  Also disabled by default. The `trx` codes are 1-based over the ten slots, so each maps onto that
+  slot's name property; the codes without a slot (`0` no chip, `999` no transaction) leave the
+  state unknown.
+- Catalog field `value_props` — a `<raw charger code>: <property id>` mapping that uses the value
+  of the property a code points at as the entity's state.
+- Catalog field `attribute_props` — a `<attribute name>: <property id>` mapping that exposes
+  sibling charger properties as extra state attributes, for values that live in a property of
+  their own rather than inside the state's value (`attribute_ids` only indexes into a namespace
+  or list value).
+
+### Documentation
+- README troubleshooting: Eco / PV-surplus charging that keeps stopping with `ChargingReason`
+  `NotChargingBecauseFallbackAwattar` is the **Max Price** (`awp`) rule denying it, observed on
+  firmware 43.4 even with the flexible tariff switch (`ful`) off. **Awattar Country** (`awc`) has
+  no "none" option and no Australia, so the price feed cannot be switched off in unsupported
+  countries; raising Max Price is the way to stop it gating charging.
+
+### Notes
+- Upgrade note for anyone who had enabled the old `ID Chip 0`…`ID Chip 9` sensors on firmware
+  without the `cards` list: Home Assistant reports an entity it can no longer build as "no longer
+  being provided by the integration" and keeps the registry entry. Delete those entries and enable
+  the new `ID Chip N Energy` sensors instead.
+- What a card's energy counter measures is not documented ("RFID card (0..9) Energy (Wh)") and
+  could not be settled against the live charger, whose lifetime total still equalled the current
+  session. It is treated as a per-card counter that can be reset — the charger's `del` key erases
+  a slot's name, energy and id — which `state_class: total` handles either way.
 
 ## [0.8.2] - 2026-07-28
 

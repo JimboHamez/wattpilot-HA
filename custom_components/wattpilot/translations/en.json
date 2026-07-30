@@ -191,6 +191,39 @@
                     "error": "Error"
                 }
             },
+            "card_0_energy": {
+                "name": "ID Chip 0 Energy"
+            },
+            "card_1_energy": {
+                "name": "ID Chip 1 Energy"
+            },
+            "card_2_energy": {
+                "name": "ID Chip 2 Energy"
+            },
+            "card_3_energy": {
+                "name": "ID Chip 3 Energy"
+            },
+            "card_4_energy": {
+                "name": "ID Chip 4 Energy"
+            },
+            "card_5_energy": {
+                "name": "ID Chip 5 Energy"
+            },
+            "card_6_energy": {
+                "name": "ID Chip 6 Energy"
+            },
+            "card_7_energy": {
+                "name": "ID Chip 7 Energy"
+            },
+            "card_8_energy": {
+                "name": "ID Chip 8 Energy"
+            },
+            "card_9_energy": {
+                "name": "ID Chip 9 Energy"
+            },
+            "card_current_name": {
+                "name": "ID Chip Current Name"
+            },
             "cards_0": {
                 "name": "ID Chip 0"
             },
@@ -415,7 +448,7 @@
                 "name": "Remain in Eco Mode"
             },
             "ful": {
-                "name": "Lumina Strom/aWattar"
+                "name": "Flexible Tariff (Lumina Strom/aWATTar)"
             },
             "fup": {
                 "name": "PV Surplus"
@@ -454,7 +487,7 @@
                 }
             },
             "awc": {
-                "name": "Awattar Country",
+                "name": "aWATTar Country",
                 "state": {
                     "austria": "Austria",
                     "belgium": "Belgium",
