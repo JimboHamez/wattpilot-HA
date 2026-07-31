@@ -88,6 +88,7 @@
         "abort": {
             "already_configured": "Diese Ladestation ist bereits konfiguriert.",
             "exception": "Ein unerwarteter Fehler ist aufgetreten. Bitte prüfe die Logdateien für Details.",
+            "no_ipv4": "Die gefundene Ladestation hat keine IPv4-Adresse bereitgestellt.",
             "no_serial": "Das gefundene Gerät hat keine Seriennummer bereitgestellt.",
             "reauth_successful": "Die erneute Authentifizierung war erfolgreich.",
             "reconfigure_successful": "Die Verbindungsdaten der Ladestation wurden aktualisiert.",
