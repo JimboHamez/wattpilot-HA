@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import types
+from functools import cache
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from wattpilot_api import Wattpilot
+from wattpilot_api.definition import load_api_definition
 from wattpilot_api.exceptions import AuthenticationError, WattpilotError
 
 from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PARAMS, CONF_PASSWORD, CONF_TIMEOUT
@@ -31,10 +33,41 @@ from .const import (
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+    from wattpilot_api.definition import ApiDefinition
+
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
 _LOGGER: Final = logging.getLogger(__name__)
+
+
+@cache
+def _load_api_definition() -> ApiDefinition | None:
+    """Read the client's API definition. Blocking - call it from an executor.
+
+    Every write coerces its value against ``wattpilot.yaml``, which the client
+    otherwise reads from disk on its first write - blocking, on the event loop, which
+    Home Assistant reports. Reading it here instead keeps that work off the loop, and
+    the cache means one parse serves every charger. A failed read is cached too: the
+    file ships with the client, so a second attempt would fail the same way, and the
+    client is left to load its own definition. See ``async_PreloadApiDefinition``.
+
+    Returns:
+        The parsed definition, or ``None`` if it could not be read.
+    """
+    try:
+        # split_properties=False mirrors the client's own call, so what it coerces
+        # against is exactly what it would have loaded.
+        return load_api_definition(split_properties=False)
+    except Exception as e:
+        _LOGGER.exception(
+            "%s - _load_api_definition: Reading the API definition failed: %s (%s.%s)",
+            DOMAIN,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
+        return None
 
 
 def property_update_signal(entry_id: str, identifier: str) -> str:
@@ -410,6 +443,53 @@ async def async_ConnectCharger(
 
     _LOGGER.debug("%s - async_ConnectCharger: Charger connected: %s", entry_or_device_id, charger.name)
     return charger
+
+
+async def async_PreloadApiDefinition(hass: HomeAssistant, entry_or_device_id: str, charger: Wattpilot) -> bool:
+    """Async: read the API definition off the event loop and hand it to a charger.
+
+    The read happens in an executor, at most once per Home Assistant run (see
+    ``_load_api_definition``); filling the client's own cache with the result means
+    its first write no longer reads ``wattpilot.yaml`` from disk on the event loop.
+    Workaround for an upstream lazy load; it can go once the client loads its
+    definition without blocking the caller.
+
+    Args:
+        hass: The Home Assistant instance.
+        entry_or_device_id: The config entry id, for log correlation.
+        charger: The connected charger whose cache is to be filled.
+
+    Returns:
+        ``True`` when the cache was filled, ``False`` when it was left to the client.
+    """
+    try:
+        # Two entries setting up at once may both find the cache empty and parse the
+        # file twice. That is wasted work, not a race: the result is the same either way.
+        definition = await hass.async_add_executor_job(_load_api_definition)
+        if definition is None:
+            _LOGGER.debug("%s - async_PreloadApiDefinition: No API definition to hand over", entry_or_device_id)
+            return False
+        # The cache is private to the client, and deliberately written to anyway:
+        # there is no public way to seed it. The attribute is checked rather than
+        # assumed, so a rename costs only the pre-warm - writes still work, and the
+        # client still loads what it needs, just lazily again.
+        if not hasattr(charger, "_api_def_cache"):
+            _LOGGER.debug(
+                "%s - async_PreloadApiDefinition: Client caches its API definition elsewhere", entry_or_device_id
+            )
+            return False
+        charger._api_def_cache = definition
+        _LOGGER.debug("%s - async_PreloadApiDefinition: API definition handed to the charger", entry_or_device_id)
+        return True
+    except Exception as e:
+        _LOGGER.exception(
+            "%s - async_PreloadApiDefinition: Preloading the API definition failed: %s (%s.%s)",
+            entry_or_device_id,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
+        return False
 
 
 async def async_DisconnectCharger(entry_or_device_id: str, charger: Wattpilot | Literal[False]) -> None:

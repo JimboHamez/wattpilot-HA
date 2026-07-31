@@ -416,6 +416,80 @@ async def test_connect_failures_return_false(error):
         assert await utils.async_ConnectCharger("entry-1", {CONF_IP_ADDRESS: "1.2.3.4"}) is False
 
 
+async def test_preload_api_definition_fills_the_client_cache(hass, make_charger):
+    """A charger is handed the definition, so its first write reads no file."""
+    charger = make_charger(props={})
+    charger._api_def_cache = None
+
+    assert await utils.async_PreloadApiDefinition(hass, "entry-1", charger) is True
+    assert "amp" in charger._api_def_cache.properties
+
+
+async def test_the_api_definition_is_read_only_once(hass, make_charger):
+    """A second entry is handed the parsed definition rather than re-reading it."""
+    first = make_charger(props={})
+    first._api_def_cache = None
+    second = make_charger(props={})
+    second._api_def_cache = None
+
+    assert await utils.async_PreloadApiDefinition(hass, "entry-1", first) is True
+    with patch("custom_components.wattpilot.utils.load_api_definition", side_effect=AssertionError("re-read")):
+        assert await utils.async_PreloadApiDefinition(hass, "entry-2", second) is True
+
+    assert second._api_def_cache is first._api_def_cache
+
+
+async def test_preload_api_definition_tolerates_a_renamed_cache(hass, make_charger):
+    """A client that caches elsewhere costs the pre-warm, nothing else."""
+    charger = make_charger(props={})
+
+    assert await utils.async_PreloadApiDefinition(hass, "entry-1", charger) is False
+
+
+async def test_preload_api_definition_without_a_definition_is_a_no_op(hass, make_charger):
+    """An unreadable definition leaves the loading to the client."""
+    charger = make_charger(props={})
+    charger._api_def_cache = None
+
+    with patch("custom_components.wattpilot.utils._load_api_definition", return_value=None):
+        assert await utils.async_PreloadApiDefinition(hass, "entry-1", charger) is False
+
+    assert charger._api_def_cache is None
+
+
+async def test_preload_api_definition_failure_is_logged(hass, caplog):
+    """A failing preload is logged and degraded, not raised."""
+
+    class _Unwritable:
+        """A charger whose cache attribute exists but refuses to be written."""
+
+        _api_def_cache = None
+
+        def __setattr__(self, name, value):
+            raise RuntimeError("boom")
+
+    with caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.utils"):
+        assert await utils.async_PreloadApiDefinition(hass, "entry-1", _Unwritable()) is False
+
+    assert any("Preloading the API definition failed" in r.getMessage() for r in caplog.records)
+
+
+def test_load_api_definition_failure_is_logged(caplog):
+    """An unreadable wattpilot.yaml is logged and degraded, not raised."""
+    utils._load_api_definition.cache_clear()
+    try:
+        with (
+            caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.utils"),
+            patch("custom_components.wattpilot.utils.load_api_definition", side_effect=RuntimeError("boom")),
+        ):
+            assert utils._load_api_definition() is None
+    finally:
+        # The failure is cached too; drop it so later tests read the real file.
+        utils._load_api_definition.cache_clear()
+
+    assert any("Reading the API definition failed" in r.getMessage() for r in caplog.records)
+
+
 async def test_disconnect_closes_the_session(mock_charger):
     """Disconnecting a live charger closes its session."""
     assert await utils.async_DisconnectCharger("entry-1", mock_charger) is None
