@@ -18,6 +18,7 @@ sensor:
 #    suggested_unit_of_measurement: <optional: unit the sensor is displayed in - HA converts from unit_of_measurement. Only honoured if the device class has a unit converter and both units are valid for it, e.g. "kWh" for a "Wh" energy sensor>
 #    entity_category: <optional: key within HA>
 #    value_id: <required for charger properties of type namespace: define which namespace attribute should be used as state value>
+#    value_reduce: <optional "max" / "min" / "first" for list properties whose value is not at a fixed index (e.g. 'tma'): use the highest/lowest/first of the non-null entries as state instead of a 'value_id'. Entries named in attribute_ids are still exposed, minus the ones the charger does not report>
 #    namespace_id: <required for namespacelist source objects: define which item from the list of namespaces should be used>
 #    attribute_ids: <optional for charger properties of type namespace: define which namespace attributes should be included into HA>
 #    attribute_props: <optional dict "<HA attribute name>: <charger property id>" to expose sibling properties as extra state attributes - for values that live in their own property instead of inside the state value>
@@ -612,11 +613,24 @@ sensor:
   - source: property
     id: tma
     name: "Charger Temp"
-    description: "Temperature of the controller"
+    description: "Temperature of the controller - the hottest of the temperature sensors the charger reports"
     device_class: temperature
-    default_state: 999
+    state_class: measurement
     unit_of_measurement: "°C"
     entity_category: diagnostic
+    # 'tma' is a list of temperature sensors whose populated indexes depend on
+    # the hardware generation: older chargers report 0..1, current ones (a Flex
+    # on firmware 43.4 answers [null, null, 29.75, 33.625, 28.625, 27]) report
+    # 2..5. No fixed 'value_id' addresses both, so reduce over whichever entries
+    # are reported and expose each of them as an attribute.
+    value_reduce: max
+    attribute_ids:
+      - sensor_0:0
+      - sensor_1:1
+      - sensor_2:2
+      - sensor_3:3
+      - sensor_4:4
+      - sensor_5:5
 
   - source: property
     id: trx

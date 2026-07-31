@@ -414,6 +414,26 @@ async def test_list_value_with_value_id_picks_an_index(make_charger):
     assert entity._attributes["L3"] == 3
 
 
+@pytest.mark.parametrize(("reducer", "expected"), [("max", 9), ("min", 3), ("first", 3), ("MAX", 9)])
+async def test_list_value_with_value_reduce_skips_the_unreported_entries(make_charger, reducer, expected):
+    """value_reduce states one of the entries the charger actually reports."""
+    charger = make_charger(props={**BASE_PROPS, "tma": [None, 3, 9]})
+    entity = _build(charger, id="tma", value_reduce=reducer)
+
+    assert await entity._async_update_validate_property([None, 3, 9]) == expected
+
+
+async def test_unknown_value_reduce_is_logged(make_charger, caplog):
+    """An unsupported reducer yields no state rather than a wrong one."""
+    charger = make_charger(props={**BASE_PROPS, "tma": [1, 2]})
+    entity = _build(charger, id="tma", value_reduce="average")
+
+    with caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.entities"):
+        assert await entity._async_update_validate_property([1, 2]) is None
+
+    assert any("unknown value_reduce" in r.getMessage() for r in caplog.records)
+
+
 async def test_value_validation_failure_is_logged(make_charger, caplog):
     """An index outside the list is logged and yields no state."""
     charger = make_charger(props={**BASE_PROPS, "nrg": [1]})

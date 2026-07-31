@@ -10,7 +10,24 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **Charger Temp** reported a constant `999.0 °C` instead of a temperature. `tma` is not a single
+  value but a list of the charger's temperature sensors, and which entries are populated depends on
+  the hardware generation: older chargers report indexes 0–1, current ones report 2–5 and leave 0–1
+  null (a Flex on firmware 43.4 answers `[null, null, 29.75, 33.625, 28.625, 27]`). The catalog
+  named no `value_id`, so the entity took index 0, got null, and kept the `default_state: 999` it
+  was seeded with — for good, since a state equal to the default also keeps `should_poll` true, so
+  it re-polled and re-failed forever. The sensor now states the **hottest** entry the charger
+  actually reports, which needs no index and works on both generations, and exposes each reported
+  sensor as a `sensor_<index>` attribute. The `999` sentinel is gone: an unreadable temperature
+  shows as unknown rather than as a plausible-looking value.
+
+### Added
+- A `value_reduce:` field (`max` / `min` / `first`) for catalog entries whose property is a list
+  with no fixed index for its value — the alternative to `value_id:` that `tma` needs. Entries
+  named in `attribute_ids` are still exposed, minus the ones the charger does not report.
+- **Charger Temp** now carries `state_class: measurement`, so Home Assistant records long-term
+  statistics for it. It previously had none and could not be graphed over time.
 
 ## [0.9.0] - 2026-07-30
 

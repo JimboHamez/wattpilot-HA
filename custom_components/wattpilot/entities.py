@@ -307,6 +307,52 @@ class ChargerPlatformEntity(Entity):
             return None
         return value[idx]
 
+    def _reduce_list(self, values: list[Any]) -> Any:
+        """Return the single state a catalog's ``value_reduce`` asks for, or None.
+
+        Some list properties do not put their value at a fixed index: 'tma'
+        reports the charger's temperature sensors at indexes 0..1 on older
+        hardware and at 2..5 on current hardware (a Flex on firmware 43.4
+        answers ``[null, null, 29.75, 33.625, 28.625, 27]``), so no 'value_id'
+        addresses both. Reducing over the entries the charger actually reports
+        does, and skipping the nulls is what keeps the entity off its default
+        state. Returns None when nothing is reported yet.
+        """
+        reported = [value for value in values if value is not None]
+        if not reported:
+            return None
+        reducer = str(self._entity_cfg.get("value_reduce")).lower()
+        if reducer == "max":
+            return max(reported)
+        if reducer == "min":
+            return min(reported)
+        if reducer == "first":
+            return reported[0]
+        _LOGGER.error(
+            "%s - %s: _reduce_list failed: unknown value_reduce: %s",
+            self._charger_id,
+            self._identifier,
+            reducer,
+        )
+        return None
+
+    def _update_list_attributes(self, values: list[Any]) -> None:
+        """Expose the individual entries of a reduced list as extra attributes.
+
+        Uses the same ``<name>:<index>`` ``attribute_ids`` syntax as a
+        'value_id' list, but an index the charger does not report (out of
+        range, or null on this hardware generation) is dropped rather than
+        shown as an empty attribute.
+        """
+        for attr_entry in self._entity_cfg.get("attribute_ids") or []:
+            attr_id, _, attr_index = str(attr_entry).partition(":")
+            index = int(attr_index)
+            value = values[index] if 0 <= index < len(values) else None
+            if value is None:
+                self._attributes.pop(attr_id, None)
+            else:
+                self._attributes[attr_id] = value
+
     def _property_reported(self) -> bool:
         """Return whether the charger reports this entity's property at all.
 
@@ -517,7 +563,10 @@ class ChargerPlatformEntity(Entity):
                     self._attributes[attr_id] = getattr(namespace, attr_id, STATE_UNKNOWN)
             elif isinstance(state, list):
                 state_list = state
-                if self._entity_cfg.get("value_id", None) is None:
+                if self._entity_cfg.get("value_reduce") is not None:
+                    state = self._reduce_list(state_list)
+                    self._update_list_attributes(state_list)
+                elif self._entity_cfg.get("value_id", None) is None:
                     state = state_list[0]
                     i = 1
                     for attr_state in state_list[1:]:

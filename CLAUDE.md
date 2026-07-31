@@ -336,7 +336,7 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
 | `wh` | Energy charged since the car was connected (Wh) |
 | `eto` | Total lifetime energy charged (Wh) |
 | `err` | Internal error state (None / FiAc / FiDc / Phase / Overtemp / …) |
-| `tma` | Controller temperature (°C) |
+| `tma` | Controller temperature (°C) — a **list** of temperature sensors, not a scalar. Which indexes are populated depends on the hardware generation (older chargers 0–1; current ones 2–5, with 0–1 null — verified on a Flex, fw 43.4), so the sensor uses `value_reduce: max` rather than a fixed `value_id` |
 | `loc` | Charger local time |
 | `cus` / `ffb` / `lck` | Cable-unlock status / lock feedback / effective lock setting |
 | `rssi`, `wst`, `ccw` | WiFi signal / WiFi status / WiFi connection info |
