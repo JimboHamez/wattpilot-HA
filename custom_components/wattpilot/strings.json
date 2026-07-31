@@ -88,6 +88,7 @@
         "abort": {
             "already_configured": "This charger is already configured.",
             "exception": "An unexpected error occurred. Please check the logs for details.",
+            "no_ipv4": "The discovered charger did not advertise an IPv4 address.",
             "no_serial": "The discovered device did not advertise a serial number.",
             "reauth_successful": "Reauthentication was successful.",
             "reconfigure_successful": "The charger connection details were updated.",

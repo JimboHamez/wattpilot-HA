@@ -30,7 +30,12 @@ from .services import (
     async_service_SetGoECloud,
     async_service_SetNextTrip,
 )
-from .utils import async_ConnectCharger, async_DisconnectCharger, async_PropertyUpdateHandler
+from .utils import (
+    async_ConnectCharger,
+    async_DisconnectCharger,
+    async_PreloadApiDefinition,
+    async_PropertyUpdateHandler,
+)
 
 if TYPE_CHECKING:
     from wattpilot_api import Wattpilot
@@ -130,6 +135,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         await async_DisconnectCharger(entry.entry_id, charger)
         raise ConfigEntryNotReady(f"Error connecting to Wattpilot charger for entry {entry.entry_id}: {e}") from e
+
+    # Give the charger its API definition, read in an executor, so that its first
+    # write does not have to read it from disk on the event loop.
+    await async_PreloadApiDefinition(hass, entry.entry_id, charger)
 
     try:
         _LOGGER.debug("%s - async_setup_entry: Creating runtime data store for %s", entry.entry_id, DOMAIN)

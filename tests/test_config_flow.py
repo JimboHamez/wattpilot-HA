@@ -156,8 +156,9 @@ async def test_local_flow_invalid_auth_shows_error(hass):
     assert result["errors"] == {"base": "invalid_auth"}
 
 
-def _discovery(properties: dict | None = None) -> ZeroconfServiceInfo:
+def _discovery(properties: dict | None = None, addresses: list[str] | None = None) -> ZeroconfServiceInfo:
     """Build a ZeroconfServiceInfo matching a real Wattpilot Flex advertisement."""
+    ips = [ip_address(a) for a in addresses] if addresses else [ip_address("192.168.0.32")]
     props = (
         {
             "serial": "91111999",
@@ -170,8 +171,10 @@ def _discovery(properties: dict | None = None) -> ZeroconfServiceInfo:
         else properties
     )
     return ZeroconfServiceInfo(
-        ip_address=ip_address("192.168.0.32"),
-        ip_addresses=[ip_address("192.168.0.32")],
+        # Home Assistant reports the first non-link-local address as the host,
+        # which is an IPv6 one whenever no IPv4 record was announced first.
+        ip_address=ips[0],
+        ip_addresses=ips,
         port=80,
         hostname="Wattpilot-91111999.local.",
         type="_http._tcp.local.",
@@ -213,6 +216,41 @@ async def test_zeroconf_already_configured_updates_ip_and_aborts(hass):
     )
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.0.32"
+
+
+async def test_zeroconf_prefers_the_ipv4_address(hass):
+    """An announcement led by an IPv6 address is still stored as its IPv4 one."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_ZEROCONF},
+        data=_discovery(addresses=["2001:db8::b9ff:7f16:4163:9afc", "192.168.0.32"]),
+    )
+    assert result["type"] == FlowResultType.FORM
+
+    with patch("custom_components.wattpilot.async_setup_entry", return_value=True):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_PASSWORD: "secret"})
+        await hass.async_block_till_done()
+
+    assert result["data"][CONF_IP_ADDRESS] == "192.168.0.32"
+
+
+async def test_zeroconf_without_ipv4_aborts_and_keeps_the_stored_address(hass):
+    """An IPv6-only announcement is ignored instead of overwriting a working IP."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="91111999",
+        data={CONF_CONNECTION: CONF_LOCAL, CONF_IP_ADDRESS: "192.168.0.32"},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_ZEROCONF},
+        data=_discovery(addresses=["2001:db8::b9ff:7f16:4163:9afc"]),
+    )
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "no_ipv4"
     assert entry.data[CONF_IP_ADDRESS] == "192.168.0.32"
 
 

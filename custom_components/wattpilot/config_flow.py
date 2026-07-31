@@ -106,14 +106,28 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             serial = props.get("serial")
             if not serial:
                 return self.async_abort(reason="no_serial")
+            # Only an IPv4 address is usable: the client interpolates the stored
+            # address straight into a ws:// URL, where a bare IPv6 literal is
+            # invalid. discovery_info.host is whichever address mDNS announced
+            # first, so ignoring the IPv6 ones also stops an announcement that
+            # momentarily carries no IPv4 record from overwriting the working
+            # address of an already configured charger.
+            host = next((str(ip) for ip in discovery_info.ip_addresses if ip.version == 4), None)
+            if host is None:
+                _LOGGER.debug(
+                    "%s - ConfigFlowHandler: async_step_zeroconf: no IPv4 address announced: %s",
+                    DOMAIN,
+                    discovery_info.ip_addresses,
+                )
+                return self.async_abort(reason="no_ipv4")
             # The serial uniquely identifies the charger; abort (and refresh the
             # stored IP) if it is already configured.
             await self.async_set_unique_id(str(serial))
-            self._abort_if_unique_id_configured(updates={CONF_IP_ADDRESS: discovery_info.host})
+            self._abort_if_unique_id_configured(updates={CONF_IP_ADDRESS: host})
             name = props.get("friendly_name") or discovery_info.hostname.removesuffix(".local.")
             self.data = {
                 CONF_CONNECTION: CONF_LOCAL,
-                CONF_IP_ADDRESS: discovery_info.host,
+                CONF_IP_ADDRESS: host,
                 CONF_SERIAL: str(serial),
                 CONF_FRIENDLY_NAME: name,
             }

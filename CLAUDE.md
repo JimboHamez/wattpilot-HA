@@ -121,6 +121,13 @@ Consequences to keep in mind when editing:
   function**, stored in the entry's runtime data and called on unload.
 - Errors come from `wattpilot_api.exceptions` (`WattpilotError`, `AuthenticationError`);
   `utils.py::async_ConnectCharger` maps them onto HA's `ConfigEntryNotReady` / reauth.
+- `set_property` coerces values against the client's `wattpilot.yaml`, which it **reads from disk
+  lazily on the first write** — blocking, on the event loop, which HA reports. `async_setup_entry`
+  therefore calls `utils.py::async_PreloadApiDefinition`, which reads the file in an executor
+  (`_load_api_definition`, `@cache`d — the ~200 ms parse is paid by the first entry set up, not at
+  import, and later entries get it for free) and puts the result in the client's private
+  `_api_def_cache`. Both halves degrade to the old lazy load if the library renames anything. It is
+  a workaround for an upstream lazy load; drop it if the client ever loads it without blocking.
 
 All three manual scripts now use `wattpilot-api` and read charger details from a gitignored
 `.wp_test.json`: `tests/live_probe.py` (read-only), `tests/live_e2e.py` (integration helpers, one

@@ -10,7 +10,24 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **Discovery could replace a working IP address with an unusable IPv6 one.** mDNS reports every
+  address a charger announces, and Home Assistant hands over the first non-link-local one — an IPv6
+  address whenever no IPv4 record was announced first. That address was stored as-is, and the client
+  interpolates it straight into a `ws://` URL, where a bare IPv6 literal is invalid: the connection
+  then failed on every retry with `Port could not be cast to integer value`. Because rediscovery
+  also refreshes the stored address of an already configured charger, this could break an
+  installation that had been working for months. Discovery now uses the announced IPv4 address, and
+  ignores an announcement that carries none (new `no_ipv4` abort reason) rather than overwriting a
+  good address with one that cannot be used.
+- **A blocking file read on the event loop before the first write.** The client coerces every value
+  against its `wattpilot.yaml` API definition, which it imports and reads from disk on the first
+  write and caches from then on — so the first press of a button after a restart made Home Assistant
+  report `Detected blocking call to open` (also `import_module` and `read_text`). The definition is
+  now read in an executor thread while a charger is being set up — once per Home Assistant run, no
+  matter how many chargers — and handed to the client, whose first write then reads nothing. A
+  workaround for an upstream lazy load, and removable once the client loads its definition without
+  blocking the caller.
 
 ## [0.9.1] - 2026-07-31
 
