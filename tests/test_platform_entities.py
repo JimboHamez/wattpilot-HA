@@ -262,10 +262,69 @@ async def test_sensor_rejects_a_value_outside_its_enum(make_charger):
 
 async def test_sensor_keeps_plain_numeric_values(make_charger):
     """A plain sensor passes its value through untouched."""
-    charger = make_charger(props={"tma": 5.0, "typ": "m", "var": 11})
-    entity = _build(ChargerSensor, "sensor", "tma", charger)
+    charger = make_charger(props={"rssi": -55, "typ": "m", "var": 11})
+    entity = _build(ChargerSensor, "sensor", "rssi", charger)
 
     assert await entity._async_update_validate_platform_state(21.5) == 21.5
+
+
+# 'tma' is a list of temperature sensors: current hardware populates indexes
+# 2..5 and leaves 0..1 null, older hardware does the opposite, so the catalog
+# reduces over whatever is reported instead of naming a fixed index.
+TMA_CURRENT = [None, None, 29.75, 33.625, 28.625, 27]
+TMA_LEGACY = [11, 16.75]
+
+
+async def test_temperature_sensor_states_the_hottest_reported_sensor(make_charger):
+    """The charger's temperature list reduces to its highest reading."""
+    charger = make_charger(props={"tma": TMA_CURRENT, "typ": "m", "var": 11})
+    entity = _build(ChargerSensor, "sensor", "tma", charger)
+
+    assert await entity._async_update_validate_property(TMA_CURRENT) == 33.625
+
+
+async def test_temperature_sensor_exposes_only_the_reported_sensors(make_charger):
+    """Indexes the hardware leaves null are dropped from the attributes."""
+    charger = make_charger(props={"tma": TMA_CURRENT, "typ": "m", "var": 11})
+    entity = _build(ChargerSensor, "sensor", "tma", charger)
+
+    await entity._async_update_validate_property(TMA_CURRENT)
+
+    assert entity.extra_state_attributes["sensor_3"] == 33.625
+    assert "sensor_0" not in entity.extra_state_attributes
+    assert "sensor_1" not in entity.extra_state_attributes
+
+
+async def test_temperature_sensor_reads_legacy_hardware_indexes(make_charger):
+    """A charger reporting only indexes 0..1 still yields a temperature."""
+    charger = make_charger(props={"tma": TMA_LEGACY, "typ": "m", "var": 11})
+    entity = _build(ChargerSensor, "sensor", "tma", charger)
+
+    assert await entity._async_update_validate_property(TMA_LEGACY) == 16.75
+    # Indexes past the end of the shorter list are dropped, not an error.
+    assert entity.extra_state_attributes["sensor_0"] == 11
+    assert "sensor_2" not in entity.extra_state_attributes
+
+
+async def test_temperature_sensor_drops_an_attribute_that_stops_reporting(make_charger):
+    """A sensor that goes null is removed rather than left at a stale value."""
+    charger = make_charger(props={"tma": TMA_CURRENT, "typ": "m", "var": 11})
+    entity = _build(ChargerSensor, "sensor", "tma", charger)
+
+    await entity._async_update_validate_property(TMA_CURRENT)
+    await entity._async_update_validate_property([None, None, 29.75, None, 28.625, 27])
+
+    assert "sensor_3" not in entity.extra_state_attributes
+
+
+async def test_temperature_sensor_has_no_state_until_a_sensor_reports(make_charger):
+    """An all-null list leaves the state unknown instead of a sentinel value."""
+    charger = make_charger(props={"tma": [None, None], "typ": "m", "var": 11})
+    entity = _build(ChargerSensor, "sensor", "tma", charger)
+
+    # Nothing was seeded at init, and nothing readable arrived.
+    assert entity.native_value is None
+    assert await entity._async_update_validate_property([None, None]) is None
 
 
 def _card_charger(make_charger, **props):
