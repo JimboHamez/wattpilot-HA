@@ -10,6 +10,18 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.9.2] - 2026-07-31
+
+Two fixes for problems a live install reported on the same afternoon. The first is the serious one:
+a charger that had been working for months could suddenly stop connecting, with
+`Port could not be cast to integer value` in the log, because mDNS discovery replaced its stored
+IPv4 address with an IPv6 one the connection cannot use. If that has happened to you, updating fixes
+it — the address is restored the next time the charger announces itself, or you can reconfigure the
+entry and type its IPv4 address in. The second is a blocking-call warning on the first write after a
+restart. No entity, state or setting changes.
+
 ### Fixed
 - **Discovery could replace a working IP address with an unusable IPv6 one.** mDNS reports every
   address a charger announces, and Home Assistant hands over the first non-link-local one — an IPv6
@@ -581,7 +593,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.1...v0.8.2
