@@ -10,6 +10,14 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.9.1] - 2026-07-31
+
+A one-entity fix, found on a live Flex: the **Charger Temp** sensor has been reporting a constant
+`999.0 °C` rather than a temperature. If you have that sensor on your dashboard, updating is worth
+it; nothing else an existing install does changes.
+
 ### Fixed
 - **Charger Temp** reported a constant `999.0 °C` instead of a temperature. `tma` is not a single
   value but a list of the charger's temperature sensors, and which entries are populated depends on
@@ -556,7 +564,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.1...v0.8.2
 [0.8.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.0...v0.8.1
