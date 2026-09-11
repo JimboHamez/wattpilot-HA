@@ -7,7 +7,7 @@
 ![Maintenance](https://img.shields.io/maintenance/yes/2026?style=for-the-badge)
 
 [![Tests](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/test.yml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/test.yml)
-[![Validate](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/validate.yml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/validate.yml)
+[![Validate](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/validate.yaml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/validate.yaml) [![hassfest](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/hassfest.yaml)
 [![Security](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/security.yml/badge.svg)](https://github.com/JimboHamez/wattpilot-HA/actions/workflows/security.yml)
 
 > **Note:** This repository began as a fork of

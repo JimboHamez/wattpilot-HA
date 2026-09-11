@@ -10,6 +10,12 @@ for attribution.
 
 ## [Unreleased]
 
+### Changed
+- **CI: HACS and hassfest validation split into `validate.yaml` and `hassfest.yaml`**, the layout the
+  HACS default-repository inclusion checks look for. Same two checks as before; the HACS job now
+  runs with no permissions (it fetches the repository through the API) and the README carries a
+  badge for each.
+
 ### Added
 - **Charging Current Preset select** (#18). Setting *Max Charging Current* from Home Assistant
   updates the kW figure in the app's charging-speed screen, but the app's slider only has stops at
