@@ -487,6 +487,9 @@
                     "authentication_required": "Authentication Required"
                 }
             },
+            "amp_preset": {
+                "name": "Charging Current Preset"
+            },
             "awc": {
                 "name": "aWATTar Country",
                 "state": {

@@ -10,7 +10,15 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Added
+- **Charging Current Preset select** (#18). Setting *Max Charging Current* from Home Assistant
+  updates the kW figure in the app's charging-speed screen, but the app's slider only has stops at
+  its presets (the charger's `clp` list, e.g. 10/16/20/24/32 A) and does not move for a value
+  between them. The new select offers exactly those presets and writes the same `amp` setting, so a
+  current chosen from it always lands on a stop the app can draw. Its options follow `clp` if the
+  presets are changed, and it shows no selection while the current is between two presets; the
+  1 A number entity is unchanged. The catalog gains an `options_property` field for selects whose
+  options are a list the charger reports.
 
 ## [0.9.2] - 2026-07-31
 

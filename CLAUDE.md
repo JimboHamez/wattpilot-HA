@@ -160,6 +160,13 @@ definition must carry; only `update` extends the `("id", "source")` default). A 
 entity fails a gate sets `_init_failed` and is skipped there. Adding a platform means adding a
 YAML catalog and an entity class, not another copy of the loop.
 
+A `select` takes its options from a static dict (`options:`, slug-translated in `strings.json`),
+or — `options_property:` — from a list property the charger reports (`clp` for the
+`amp_preset` select). In the latter case `select.py` labels each raw value with itself, skips the
+entity when the charger has no such list, resubscribes to that property so the options follow it,
+and clears the selection (state unknown, at debug level) for a value with no option instead of
+logging the error a static enum would.
+
 An entity's value `source` is one of:
 - `property` — a key in `charger.all_properties` (the charger's live property dict). Push-capable.
 - `attribute` — a Python attribute on the `Wattpilot` charger object (e.g. `carConnected`). Poll-only.
@@ -357,6 +364,7 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
 |------|---------|
 | `frc` | Force state — the Start/Stop/Force charging buttons (Neutral / Off / On) |
 | `amp` | Max charging current per phase (A) |
+| `clp` | The app's charging-current presets, a list of A values (e.g. `[10, 16, 20, 24, 32]`) — the app's slider only stops at these. Backs the `amp_preset` select via `select.yaml` `options_property`, which writes `amp` |
 | `lmo` | Charging mode (Default / Eco / Next Trip) |
 | `psm` | Phase switch mode (1-phase / 3-phase / auto) |
 | `acs` | Access control setting |

@@ -56,6 +56,9 @@
       "acs": {
         "default": "mdi:access-point-check"
       },
+      "amp_preset": {
+        "default": "mdi:car-speed-limiter"
+      },
       "awc": {
         "default": "mdi:map-marker"
       },

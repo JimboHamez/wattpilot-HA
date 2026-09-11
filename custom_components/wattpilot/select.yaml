@@ -8,6 +8,10 @@ select:
 #  - id: <name of the charger prop to read - this ALWAYS has to be a property, not attribute>
 #    options: <id of the enum attribute which contains the options as values (not keys!) - this ALWAYS has to be a property, not attribute>
 #                <alternative: dict with enum for options>
+#    options_property: <alternative to options: id of a charger property holding a list of raw values - each becomes an
+#                       option labelled with the value itself (e.g. clp -> "10", "16", ...). The entity is skipped when the
+#                       charger does not report the property, and its options follow the property when it changes.
+#                       A state outside the list shows as unknown rather than as a stale option>
 #    uid: <optional: unique ID postfix - required if mutliple entities wiht same <id> value exist>
 #    name: <optional: name of the switch within HA>
 #    description: <optional: key within HA>
@@ -26,6 +30,16 @@ select:
       1: "Authentication Required"
     description: "Access control user setting"
     entity_category: config
+
+# The app's charging-speed slider only has stops at the presets in 'clp' and does
+# not move for a current set in between them (the kW text still follows 'amp').
+# This select writes the same 'amp' as the number entity, but only to a preset.
+  - id: amp
+    uid: amp_preset
+    set_type: int
+    name: "Charging Current Preset"
+    options_property: clp
+    description: "Maximum charging current per phase in A, limited to the presets the app's charging-speed slider offers"
 
   - id: awc
     name: "aWATTar Country"
