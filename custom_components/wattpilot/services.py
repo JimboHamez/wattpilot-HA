@@ -28,7 +28,30 @@ from typing import TYPE_CHECKING, Any, Final, cast
 from homeassistant.const import CONF_API_KEY, CONF_DEVICE_ID, CONF_EXTERNAL_URL, CONF_PARAMS, CONF_TRIGGER_TIME
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
-from .const import CLOUD_API_URL_POSTFIX, CLOUD_API_URL_PREFIX, CONF_CLOUD_API, CONF_DBG_PROPS, DOMAIN
+from .const import (
+    CLOUD_API_URL_POSTFIX,
+    CLOUD_API_URL_PREFIX,
+    CONF_CLOUD_API,
+    CONF_DAY_TYPE,
+    CONF_DBG_PROPS,
+    CONF_LIMIT_CHARGING_TIMES,
+    CONF_PV_SURPLUS_OUTSIDE_TIMES,
+    CONF_RANGES,
+    DOMAIN,
+)
+from .schedule import (
+    ATTR_BEGIN,
+    ATTR_END,
+    ATTR_LIMIT_CHARGING_TIMES,
+    ATTR_PV_SURPLUS_OUTSIDE_TIMES,
+    ATTR_RANGES,
+    SCHEDULE_PROPS,
+    ScheduleRangeError,
+    build_schedule,
+    decode_schedule,
+    parse_time,
+    validate_ranges,
+)
 from .utils import (
     async_ConnectCharger,
     async_GetChargerFromDeviceID,
@@ -211,6 +234,162 @@ async def async_service_SetNextTrip(hass: HomeAssistant, call: ServiceCall) -> N
         raise
     except Exception as e:
         raise _raise_service_failure("async_service_SetNextTrip", call, e) from e
+
+
+def _optional_bool(call: ServiceCall, key: str) -> bool | None:
+    """Return an optional boolean service call parameter.
+
+    Args:
+        call: The service call to read from.
+        key: The name of the parameter.
+
+    Returns:
+        The parameter as a bool, or None when it was not supplied.
+
+    Raises:
+        ServiceValidationError: If the value is neither a bool nor "true"/"false".
+    """
+    value = call.data.get(key, None)
+    if value is None or isinstance(value, bool):
+        return value
+    if isinstance(value, str) and value.lower() in ("true", "false"):
+        return value.lower() == "true"
+    raise ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="invalid_boolean",
+        translation_placeholders={"parameter": key, "value": str(value)},
+    )
+
+
+def _schedule_ranges(call: ServiceCall) -> list[tuple[datetime.time, datetime.time]] | None:
+    """Return the charging windows of a set_charging_schedule call.
+
+    Args:
+        call: The service call to read from.
+
+    Returns:
+        The windows as (begin, end) times, or None when ``ranges`` was not supplied.
+
+    Raises:
+        ServiceValidationError: If ``ranges`` is not a list of ``{begin, end}``
+            entries with times in ``HH:MM`` or ``HH:MM:SS`` form, a window does
+            not end after it begins on the same day, or two windows overlap.
+    """
+    ranges = call.data.get(CONF_RANGES, None)
+    if ranges is None:
+        return None
+    invalid = ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="invalid_schedule_ranges",
+        translation_placeholders={"parameter": CONF_RANGES, "value": str(ranges)},
+    )
+    if not isinstance(ranges, list):
+        raise invalid
+    parsed: list[tuple[datetime.time, datetime.time]] = []
+    for item in ranges:
+        if not isinstance(item, dict) or ATTR_BEGIN not in item or ATTR_END not in item:
+            raise invalid
+        try:
+            parsed.append((parse_time(item[ATTR_BEGIN]), parse_time(item[ATTR_END])))
+        except ValueError as e:
+            raise invalid from e
+    # Reject a window that would spill into the next day type, or windows that
+    # overlap, before anything reaches the charger.
+    try:
+        validate_ranges(parsed)
+    except ScheduleRangeError as e:
+        # Two literal raises rather than one with a computed key: the
+        # translation guard in tests reads keys and placeholders from the source.
+        if e.reason == "crosses_midnight":
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="schedule_range_crosses_midnight",
+                translation_placeholders={"parameter": CONF_RANGES, "ranges": ", ".join(e.ranges)},
+            ) from e
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="schedule_ranges_overlap",
+            translation_placeholders={"parameter": CONF_RANGES, "ranges": ", ".join(e.ranges)},
+        ) from e
+    return parsed
+
+
+async def async_service_SetChargingSchedule(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Write one day type of the app's charging schedule to the charger.
+
+    The schedule property is a nested object the charger cannot take partial
+    writes for, so the call reads the current schedule and rewrites the whole
+    object with the supplied fields changed. A field that is not supplied keeps
+    its current value.
+
+    Args:
+        hass: The Home Assistant instance.
+        call: The service call, carrying ``device_id``, ``day_type`` and any of
+            ``limit_charging_times``, ``pv_surplus_outside_times`` and ``ranges``.
+
+    Raises:
+        ServiceValidationError: If a parameter is missing or unusable, the device
+            is unknown, the charger has no schedule property, or nothing was
+            supplied to change.
+        HomeAssistantError: If the schedule could not be written to the charger.
+    """
+    try:
+        device_id = _required(call, CONF_DEVICE_ID)
+        day_type = str(_required(call, CONF_DAY_TYPE)).lower()
+        prop = SCHEDULE_PROPS.get(day_type)
+        if prop is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="invalid_day_type",
+                translation_placeholders={
+                    "parameter": CONF_DAY_TYPE,
+                    "value": day_type,
+                    "options": ", ".join(SCHEDULE_PROPS),
+                },
+            )
+        limit_times = _optional_bool(call, CONF_LIMIT_CHARGING_TIMES)
+        pv_surplus = _optional_bool(call, CONF_PV_SURPLUS_OUTSIDE_TIMES)
+        ranges = _schedule_ranges(call)
+        if limit_times is None and pv_surplus is None and ranges is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="schedule_nothing_to_set",
+                translation_placeholders={
+                    "parameters": ", ".join((CONF_LIMIT_CHARGING_TIMES, CONF_PV_SURPLUS_OUTSIDE_TIMES, CONF_RANGES))
+                },
+            )
+
+        _LOGGER.debug("%s - async_service_SetChargingSchedule: get charger for device_id: %s", DOMAIN, device_id)
+        charger = await _async_get_charger(hass, device_id)
+
+        current = decode_schedule(await async_GetChargerProp(charger, prop))
+        if current is None:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN,
+                translation_key="schedule_not_supported",
+                translation_placeholders={"charger": str(charger.name), "property": prop},
+            )
+        if ranges is None:
+            ranges = [(parse_time(item[ATTR_BEGIN]), parse_time(item[ATTR_END])) for item in current[ATTR_RANGES]]
+        schedule = build_schedule(
+            current[ATTR_LIMIT_CHARGING_TIMES] if limit_times is None else limit_times,
+            current[ATTR_PV_SURPLUS_OUTSIDE_TIMES] if pv_surplus is None else pv_surplus,
+            ranges,
+        )
+
+        _LOGGER.debug(
+            "%s - async_service_SetChargingSchedule: set %s for charger %s: %s", DOMAIN, prop, charger.name, schedule
+        )
+        if not await async_SetChargerProp(charger, prop, schedule):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="set_schedule_failed",
+                translation_placeholders={"charger": str(charger.name), "day_type": day_type},
+            )
+    except HomeAssistantError:
+        raise
+    except Exception as e:
+        raise _raise_service_failure("async_service_SetChargingSchedule", call, e) from e
 
 
 async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> None:

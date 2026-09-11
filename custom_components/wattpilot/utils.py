@@ -260,10 +260,13 @@ async def async_SetChargerProp(
         # an explicit force_type wins, then bool (so "true"/"false" never fall
         # through to string), then int, then float, with str as the fallback.
         # SimpleNamespace values (e.g. the 'cll' current-limit object) are sent
-        # as their underlying dict.
+        # as their underlying dict, and a dict or list (a charging schedule
+        # built by the service) is already the JSON value to send.
         _LOGGER.debug("%s - async_SetChargerProp: Prepare new property value: %s=%s", DOMAIN, identifier, value)
         v: Any
-        if force_type == "str":
+        if isinstance(value, (dict, list)):
+            v = value
+        elif force_type == "str":
             v = str(value)
         elif str(value).lower() in ["false", "true"] or force_type == "bool":
             v = json.loads(str(value).lower())

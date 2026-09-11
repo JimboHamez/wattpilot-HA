@@ -106,6 +106,13 @@
                 "local": "Local (LAN)",
                 "cloud": "go-e Cloud"
             }
+        },
+        "day_type": {
+            "options": {
+                "weekdays": "Weekdays",
+                "saturday": "Saturday",
+                "sunday": "Sunday"
+            }
         }
     },
     "services": {
@@ -120,6 +127,32 @@
                 "trigger_time": {
                     "name": "Next trip",
                     "description": "Time of the next trip departure."
+                }
+            }
+        },
+        "set_charging_schedule": {
+            "name": "Set charging schedule",
+            "description": "Writes one day type of the app's charging schedule (charging times) to the charger. Fields left empty keep their current value.",
+            "fields": {
+                "device_id": {
+                    "name": "Charger",
+                    "description": "Charger device to apply the change to."
+                },
+                "day_type": {
+                    "name": "Day type",
+                    "description": "Which schedule to change: weekdays, Saturday or Sunday."
+                },
+                "limit_charging_times": {
+                    "name": "Limit charging times",
+                    "description": "Only charge inside the charging times."
+                },
+                "pv_surplus_outside_times": {
+                    "name": "PV surplus outside times",
+                    "description": "Allow charging with PV surplus outside the charging times."
+                },
+                "ranges": {
+                    "name": "Charging times",
+                    "description": "The charging windows, as a list of begin/end times of day (HH:MM). Each window must end after it begins on the same day and windows must not overlap; a window over midnight is split into an evening and a morning one, as the app does."
                 }
             }
         },
@@ -389,6 +422,33 @@
             },
             "rssi": {
                 "name": "WiFi Signal"
+            },
+            "schedule_saturday": {
+                "name": "Charging Schedule Saturday",
+                "state": {
+                    "off": "Off",
+                    "charging_times": "Charging times",
+                    "pv_surplus_outside_times": "PV surplus outside times",
+                    "charging_times_pv_surplus_outside": "Charging times + PV surplus outside"
+                }
+            },
+            "schedule_sunday": {
+                "name": "Charging Schedule Sunday",
+                "state": {
+                    "off": "Off",
+                    "charging_times": "Charging times",
+                    "pv_surplus_outside_times": "PV surplus outside times",
+                    "charging_times_pv_surplus_outside": "Charging times + PV surplus outside"
+                }
+            },
+            "schedule_weekdays": {
+                "name": "Charging Schedule Weekdays",
+                "state": {
+                    "off": "Off",
+                    "charging_times": "Charging times",
+                    "pv_surplus_outside_times": "PV surplus outside times",
+                    "charging_times_pv_surplus_outside": "Charging times + PV surplus outside"
+                }
             },
             "tma": {
                 "name": "Charger Temp"
@@ -695,8 +755,17 @@
         "entry_not_found": {
             "message": "Unable to identify the Wattpilot configuration entry for device {device_id}."
         },
+        "invalid_boolean": {
+            "message": "{parameter} must be true or false, got: {value}"
+        },
+        "invalid_day_type": {
+            "message": "{parameter} must be one of {options}, got: {value}"
+        },
         "invalid_debug_properties": {
             "message": "{parameter} must be true, false or a list of property names, got: {value}"
+        },
+        "invalid_schedule_ranges": {
+            "message": "{parameter} must be a list of begin/end times of day (HH:MM), got: {value}"
         },
         "invalid_trigger_time": {
             "message": "{parameter} is not a valid time: {trigger_time}"
@@ -707,11 +776,26 @@
         "reconnect_failed": {
             "message": "Unable to reconnect the Wattpilot charger for device {device_id}."
         },
+        "schedule_not_supported": {
+            "message": "Charger {charger} does not report a charging schedule ({property})."
+        },
+        "schedule_nothing_to_set": {
+            "message": "Nothing to change: supply at least one of {parameters}."
+        },
+        "schedule_range_crosses_midnight": {
+            "message": "{parameter}: a charging window must end after it begins on the same day (the next day has its own schedule) - split it at midnight: {ranges}"
+        },
+        "schedule_ranges_overlap": {
+            "message": "{parameter}: charging windows must not overlap: {ranges}"
+        },
         "service_failed": {
             "message": "The Wattpilot action {service} failed: {error}"
         },
         "set_next_trip_failed": {
             "message": "Unable to set the next trip timestamp on charger {charger}."
+        },
+        "set_schedule_failed": {
+            "message": "Unable to write the {day_type} charging schedule to charger {charger}."
         }
     }
 }

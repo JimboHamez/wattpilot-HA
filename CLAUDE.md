@@ -80,8 +80,12 @@ There is no build step (it is an HA custom component, copied into `config/custom
   the debug logs. The codebase logs verbosely under the `custom_components.wattpilot` logger
   namespace — enable `logger` debug there to trace behaviour.
 - **Live device scripts** — `tests/live_probe.py` (read-only property dump), `tests/live_e2e.py`
-  (integration helpers, one idempotent no-op write) and `tests/live_reconfigure.py` (read-only;
-  the config flow's charger-facing reconfiguration logic) run against a physical charger using
+  (integration helpers, one idempotent no-op write), `tests/live_schedule.py` (decodes the three
+  schedule properties, runs them through `validate_ranges`, and writes `sch_week` back **unchanged**
+  — the one write that proves the charger takes the nested dict `build_schedule` produces; passed
+  on the Flex, fw 43.4, 2026-09-11, with the charger echoing one `sch_week` push) and
+  `tests/live_reconfigure.py` (read-only; the config flow's charger-facing reconfiguration logic)
+  run against a physical charger using
   `wattpilot-api`, reading its address/password from a gitignored `.wp_test.json` (see
   `.wp_test.example.json`). Never log or commit those credentials. `live_reconfigure.py` exists
   because the identity guard only works if a real charger reports `sse` — it does (verified on a
@@ -166,6 +170,14 @@ or — `options_property:` — from a list property the charger reports (`clp` f
 entity when the charger has no such list, resubscribes to that property so the options follow it,
 and clears the selection (state unknown, at debug level) for a value with no option instead of
 logging the error a static enum would.
+
+A `sensor` with `schedule: true` (the three charging-schedule sensors) hands its object value to
+`schedule.py::decode_schedule` instead of the base namespace handling: the state is the object's
+`control` masked to the two known flag bits (so it always lands on an `enum` option), and the raw
+`control`, both flags and the `HH:MM` windows become attributes. `schedule.py` is shared with the
+`set_charging_schedule` service, which reads the current object, merges the supplied fields and
+writes the whole thing back (`build_schedule`) — the charger cannot take a partial write of a
+nested value. `async_SetChargerProp` passes a dict or list to the client as-is for that reason.
 
 An entity's value `source` is one of:
 - `property` — a key in `charger.all_properties` (the charger's live property dict). Push-capable.
@@ -261,7 +273,9 @@ Always go through the `utils.py` helpers rather than touching the charger object
 - Services are defined in `services.py`, described for the UI in `services.yaml`, and registered
   once in `__init__.py::async_setup` (not per entry): `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`
   (enable/disable go-e cloud API), `set_debug_properties` (toggle property-change warning logs),
-  `set_next_trip` (writes the `ftt` next-trip timestamp, with daylight-saving handling).
+  `set_next_trip` (writes the `ftt` next-trip timestamp, with daylight-saving handling),
+  `set_charging_schedule` (rewrites one of `sch_week` / `sch_satur` / `sch_sund` from the current
+  object plus the supplied fields — see `schedule.py`).
 
 ### Platforms
 Registered in `const.py::SUPPORTED_PLATFORMS` (a tuple): `button`, `number`, `select`, `sensor`,
@@ -363,6 +377,7 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
 | Code | Meaning |
 |------|---------|
 | `frc` | Force state — the Start/Stop/Force charging buttons (Neutral / Off / On) |
+| `sch_week` / `sch_satur` / `sch_sund` | The app's charging times per day type — `{control, ranges: [{begin: {hour, minute, second}, end: {…}}]}`. `control` is a **bitmask** on Fronius firmware (1 = limit charging times, 2 = PV surplus outside them; 3 observed on fw 43.4), not the Disabled/Inside/Outside enum in the client's `wattpilot.yaml`. Read by the `schedule_*` sensors, written whole by `set_charging_schedule`; the app writes only the day type being edited |
 | `amp` | Max charging current per phase (A) |
 | `clp` | The app's charging-current presets, a list of A values (e.g. `[10, 16, 20, 24, 32]`) — the app's slider only stops at these. Backs the `amp_preset` select via `select.yaml` `options_property`, which writes `amp` |
 | `lmo` | Charging mode (Default / Eco / Next Trip) |
