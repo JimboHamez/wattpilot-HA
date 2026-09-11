@@ -144,6 +144,12 @@ automation:
 ## Open Topics:
 
 * create a light integration for LED color control etc.
+* expose the app's charging schedule (`sch_week` / `sch_satur` / `sch_sund`) and the
+  app-only `cco` / `dwo` properties — see
+  [doc/charging-schedule-and-app-properties.md](doc/charging-schedule-and-app-properties.md)
+* dynamic pricing: expose `awpl` / `awcp`, and feed the charger an Amber Electric price
+  list or drive `frc` from Amber in HA — see
+  [doc/dynamic-pricing-and-amber.md](doc/dynamic-pricing-and-amber.md)
 
 ## Reporting issues:
 
