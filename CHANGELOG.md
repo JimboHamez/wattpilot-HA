@@ -10,11 +10,17 @@ for attribution.
 
 ## [Unreleased]
 
-### Changed
-- **CI: HACS and hassfest validation split into `validate.yaml` and `hassfest.yaml`**, the layout the
-  HACS default-repository inclusion checks look for. Same two checks as before; the HACS job now
-  runs with no permissions (it fetches the repository through the API) and the README carries a
-  badge for each.
+_Nothing yet._
+
+## [0.10.0] - 2026-09-11
+
+Two things the Fronius app could do and Home Assistant could not. The app's **charging schedule**
+— the time windows for weekdays, Saturday and Sunday, with the *Limit charging times* and *Charge
+with PV surplus* toggles — is now three sensors and a `set_charging_schedule` action, so a window
+can be widened or switched off from an automation. And a new **Charging Current Preset** select
+sets the charging current to one of the app's slider stops, for anyone who noticed the app's slider
+not moving after a current was set from Home Assistant. Nothing existing changes: the 1 A *Max
+Charging Current* number stays as it is, and no entity is renamed or rescaled.
 
 ### Added
 - **The app's charging schedule is now in Home Assistant** (#13). Three new *Charging Schedule*
@@ -27,8 +33,9 @@ for attribution.
   a partial write of a nested value. Windows are validated before the write: each must end after it
   begins on the same day, so a window cannot run over midnight into the next day type's schedule,
   and windows must not overlap. The write format was checked on a Flex (fw 43.4) by writing an
-  unchanged schedule back; `tests/live_schedule.py` repeats that check. `control` is decoded as a bitmask (bit 0 = limit charging
-  times, bit 1 = PV surplus outside them), which is what Fronius firmware 43.4 actually reports —
+  unchanged schedule back; `tests/live_schedule.py` repeats that check. `control` is decoded as a
+  bitmask (bit 0 = limit charging times, bit 1 = PV surplus outside them), which is what Fronius
+  firmware 43.4 actually reports —
   the API definition's Disabled/Inside/Outside enum is wrong for it — and a value with unexpected
   bits still lands on an option rather than being rejected. The sensor catalog gains a
   `schedule:` field for object-valued properties of this shape, and `async_SetChargerProp` now
@@ -41,6 +48,12 @@ for attribution.
   presets are changed, and it shows no selection while the current is between two presets; the
   1 A number entity is unchanged. The catalog gains an `options_property` field for selects whose
   options are a list the charger reports.
+
+### Changed
+- **CI: HACS and hassfest validation split into `validate.yaml` and `hassfest.yaml`**, the layout the
+  HACS default-repository inclusion checks look for. Same two checks as before; the HACS job now
+  runs with no permissions (it fetches the repository through the API) and the README carries a
+  badge for each.
 
 ## [0.9.2] - 2026-07-31
 
@@ -623,7 +636,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.8.2...v0.9.0
