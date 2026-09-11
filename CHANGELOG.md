@@ -17,6 +17,22 @@ for attribution.
   badge for each.
 
 ### Added
+- **The app's charging schedule is now in Home Assistant** (#13). Three new *Charging Schedule*
+  sensors (weekdays / Saturday / Sunday, backed by `sch_week` / `sch_satur` / `sch_sund`) show the
+  mode of each day type — off, charging times, PV surplus outside the times, or both — with the
+  raw `control`, the two flags and the charging windows (`ranges`, as `HH:MM` begin/end pairs) as
+  attributes. A new `set_charging_schedule` action writes a day type back: it takes `day_type` and
+  any of `limit_charging_times`, `pv_surplus_outside_times` and `ranges`, reads the current
+  schedule and rewrites the whole object with those fields changed, since the charger cannot take
+  a partial write of a nested value. Windows are validated before the write: each must end after it
+  begins on the same day, so a window cannot run over midnight into the next day type's schedule,
+  and windows must not overlap. The write format was checked on a Flex (fw 43.4) by writing an
+  unchanged schedule back; `tests/live_schedule.py` repeats that check. `control` is decoded as a bitmask (bit 0 = limit charging
+  times, bit 1 = PV surplus outside them), which is what Fronius firmware 43.4 actually reports —
+  the API definition's Disabled/Inside/Outside enum is wrong for it — and a value with unexpected
+  bits still lands on an option rather than being rejected. The sensor catalog gains a
+  `schedule:` field for object-valued properties of this shape, and `async_SetChargerProp` now
+  hands a dict or list to the client untouched instead of stringifying it.
 - **Charging Current Preset select** (#18). Setting *Max Charging Current* from Home Assistant
   updates the kW figure in the app's charging-speed screen, but the app's slider only has stops at
   its presets (the charger's `clp` list, e.g. 10/16/20/24/32 A) and does not move for a value

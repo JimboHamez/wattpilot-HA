@@ -19,6 +19,14 @@ from homeassistant.util import dt as dt_util, slugify
 
 from .catalog import async_setup_catalog_entities
 from .entities import ChargerPlatformEntity
+from .schedule import (
+    ATTR_CONTROL,
+    ATTR_LIMIT_CHARGING_TIMES,
+    ATTR_PV_SURPLUS_OUTSIDE_TIMES,
+    ATTR_RANGES,
+    CONTROL_MASK,
+    decode_schedule,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -76,6 +84,32 @@ class ChargerSensor(ChargerPlatformEntity, SensorEntity):
             or "default_state" not in self._entity_cfg
         ):
             self._attr_native_value = None
+
+    async def _async_update_validate_property(self, state: Any = None) -> Any:
+        """Async: Validate the given state object, decoding a charging schedule where the catalog asks for it."""
+        if self._entity_cfg.get("schedule") is not True:
+            return await super()._async_update_validate_property(state)
+        try:
+            # A schedule property is an object: the state is its 'control' field
+            # read as the two known flag bits, so a value with unexpected bits
+            # still lands on one of the enum options, and the raw value plus the
+            # decoded flags and windows travel along as attributes.
+            decoded = decode_schedule(state)
+            if decoded is None:
+                return None
+            for attr in (ATTR_CONTROL, ATTR_LIMIT_CHARGING_TIMES, ATTR_PV_SURPLUS_OUTSIDE_TIMES, ATTR_RANGES):
+                self._attributes[attr] = decoded[attr]
+            return decoded[ATTR_CONTROL] & CONTROL_MASK
+        except Exception as e:
+            _LOGGER.exception(
+                "%s - %s: _async_update_validate_property failed: %s (%s.%s)",
+                self._charger_id,
+                self._identifier,
+                str(e),
+                e.__class__.__module__,
+                type(e).__name__,
+            )
+            return None
 
     def _parse_timestamp(self, value: Any) -> datetime | None:
         """Parse a charger datetime string into a timezone-aware datetime.

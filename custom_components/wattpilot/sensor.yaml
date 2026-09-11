@@ -29,6 +29,9 @@ sensor:
 #    connection: <optional string "cloud / local" to setup entity only if charger connection type matches>
 #    default_state: <optional value to use as default state for "None"/"Null" charger properties - the default is STATE_UNKNOWN. Use with caution>
 #    html_unescape: <optional boolean to unescape HTML characters in state value>
+#    schedule: <optional boolean for the charging-schedule objects (sch_week / sch_satur / sch_sund): the state is the object's
+#               'control' read as flags (bit 0 = limit charging times, bit 1 = PV surplus outside the times) and mapped through
+#               'enum'; the raw control, both flags and the windows ("HH:MM" begin/end) are exposed as attributes>
 
   - source: attribute
     id: access_state
@@ -609,6 +612,46 @@ sensor:
     default_state: 0
     unit_of_measurement: "dB"
     entity_category: diagnostic
+
+# The app's charging times, one object per day type. 'control' is a bitmask on
+# Fronius firmware (the API definition's Disabled/Inside/Outside enum is wrong):
+# 1 = limit charging to the times, 2 = allow PV surplus outside them, 3 = both.
+# The enum keys below are the two flag bits, so any value lands on an option.
+  - source: property
+    id: sch_week
+    uid: schedule_weekdays
+    name: "Charging Schedule Weekdays"
+    description: "The app's charging times for Monday to Friday - state is the schedule mode, the charging windows are attributes"
+    schedule: True
+    enum:
+      0: "Off"
+      1: "Charging times"
+      2: "PV surplus outside times"
+      3: "Charging times + PV surplus outside"
+
+  - source: property
+    id: sch_satur
+    uid: schedule_saturday
+    name: "Charging Schedule Saturday"
+    description: "The app's charging times for Saturday - state is the schedule mode, the charging windows are attributes"
+    schedule: True
+    enum:
+      0: "Off"
+      1: "Charging times"
+      2: "PV surplus outside times"
+      3: "Charging times + PV surplus outside"
+
+  - source: property
+    id: sch_sund
+    uid: schedule_sunday
+    name: "Charging Schedule Sunday"
+    description: "The app's charging times for Sunday - state is the schedule mode, the charging windows are attributes"
+    schedule: True
+    enum:
+      0: "Off"
+      1: "Charging times"
+      2: "PV surplus outside times"
+      3: "Charging times + PV surplus outside"
 
   - source: property
     id: tma

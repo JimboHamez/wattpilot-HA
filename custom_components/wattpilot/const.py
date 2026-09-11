@@ -20,7 +20,11 @@ CONF_CHARGER: Final = "charger"
 CONF_CLOUD_API: Final = "cloud_api"
 CONF_CLOUD: Final = "cloud"
 CONF_CONNECTION: Final = "connection"
+CONF_DAY_TYPE: Final = "day_type"
+CONF_LIMIT_CHARGING_TIMES: Final = "limit_charging_times"
 CONF_LOCAL: Final = "local"
+CONF_PV_SURPLUS_OUTSIDE_TIMES: Final = "pv_surplus_outside_times"
+CONF_RANGES: Final = "ranges"
 CONF_SERIAL: Final = "serial"
 
 DEFAULT_TIMEOUT: Final = 15

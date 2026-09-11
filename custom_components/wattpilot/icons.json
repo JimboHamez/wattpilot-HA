@@ -199,6 +199,15 @@
       "rssi": {
         "default": "mdi:wifi"
       },
+      "schedule_saturday": {
+        "default": "mdi:calendar-clock"
+      },
+      "schedule_sunday": {
+        "default": "mdi:calendar-clock"
+      },
+      "schedule_weekdays": {
+        "default": "mdi:calendar-clock"
+      },
       "tma": {
         "default": "mdi:thermometer"
       },

@@ -17,6 +17,7 @@ from __future__ import annotations
 import datetime
 import logging
 import time
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -41,6 +42,14 @@ PROPS = {
     "ftt": 0,
     "tds": 0,
     "cae": False,
+    "sch_week": SimpleNamespace(
+        control=3,
+        ranges=[
+            SimpleNamespace(
+                begin=SimpleNamespace(hour=0, minute=0, second=0), end=SimpleNamespace(hour=6, minute=0, second=0)
+            )
+        ],
+    ),
 }
 
 
@@ -300,6 +309,7 @@ async def test_registering_an_existing_service_is_skipped():
         ("set_next_trip", {"trigger_time": "07:30:00"}),
         ("set_goe_cloud", {"cloud_api": True}),
         ("set_debug_properties", {CONF_DBG_PROPS: True}),
+        ("set_charging_schedule", {"day_type": "weekdays", "limit_charging_times": True}),
         ("reconnect_charger", {}),
         ("disconnect_charger", {}),
     ],
@@ -316,6 +326,7 @@ async def test_every_service_requires_a_device(hass, charger_device, service, da
     [
         ("set_next_trip", {"trigger_time": "07:30:00"}, "async_GetChargerProp"),
         ("set_goe_cloud", {"cloud_api": True}, "async_SetChargerProp"),
+        ("set_charging_schedule", {"day_type": "weekdays", "limit_charging_times": True}, "async_GetChargerProp"),
         ("reconnect_charger", {}, "async_ConnectCharger"),
     ],
 )
@@ -370,3 +381,156 @@ async def test_reconnect_charger_skips_disconnect_when_already_offline(hass, cha
         await hass.services.async_call(DOMAIN, "reconnect_charger", {"device_id": device_id}, blocking=True)
 
     charger.disconnect.assert_not_awaited()
+
+
+# --- set_charging_schedule ------------------------------------------------------
+
+
+async def test_set_charging_schedule_writes_the_whole_object(hass, charger_device):
+    """A valid call rewrites the day type's schedule with the supplied field changed."""
+    charger, device_id, _entry = charger_device
+
+    await hass.services.async_call(
+        DOMAIN,
+        "set_charging_schedule",
+        {"device_id": device_id, "day_type": "weekdays", "pv_surplus_outside_times": False},
+        blocking=True,
+    )
+
+    assert charger.sent[-1] == (
+        "sch_week",
+        {
+            "control": 1,
+            "ranges": [
+                {"begin": {"hour": 0, "minute": 0, "second": 0}, "end": {"hour": 6, "minute": 0, "second": 0}},
+            ],
+        },
+    )
+
+
+async def test_set_charging_schedule_requires_a_day_type(hass, charger_device):
+    """Without a day type there is nothing to address."""
+    _charger, device_id, _entry = charger_device
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN, "set_charging_schedule", {"device_id": device_id, "limit_charging_times": True}, blocking=True
+        )
+    assert err.value.translation_key == "missing_parameter"
+
+
+async def test_set_charging_schedule_rejects_an_unknown_day_type(hass, charger_device):
+    """A day type outside weekdays/saturday/sunday is a validation error."""
+    _charger, device_id, _entry = charger_device
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN,
+            "set_charging_schedule",
+            {"device_id": device_id, "day_type": "monday", "limit_charging_times": True},
+            blocking=True,
+        )
+    assert err.value.translation_key == "invalid_day_type"
+
+
+async def test_set_charging_schedule_rejects_a_non_boolean_flag(hass, charger_device):
+    """A flag that is neither a bool nor "true"/"false" is a validation error."""
+    _charger, device_id, _entry = charger_device
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN,
+            "set_charging_schedule",
+            {"device_id": device_id, "day_type": "weekdays", "limit_charging_times": "maybe"},
+            blocking=True,
+        )
+    assert err.value.translation_key == "invalid_boolean"
+
+
+@pytest.mark.parametrize(
+    "ranges",
+    [
+        "00:00-06:00",
+        [{"begin": "00:00"}],
+        ["00:00-06:00"],
+        [{"begin": "00:00", "end": "six"}],
+        [{"begin": 0, "end": "06:00"}],
+    ],
+)
+async def test_set_charging_schedule_rejects_malformed_ranges(hass, charger_device, ranges):
+    """Ranges must be a list of begin/end times of day."""
+    _charger, device_id, _entry = charger_device
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN,
+            "set_charging_schedule",
+            {"device_id": device_id, "day_type": "weekdays", "ranges": ranges},
+            blocking=True,
+        )
+    assert err.value.translation_key == "invalid_schedule_ranges"
+
+
+@pytest.mark.parametrize(
+    ("ranges", "key"),
+    [
+        ([{"begin": "22:00", "end": "06:00"}], "schedule_range_crosses_midnight"),
+        ([{"begin": "08:00", "end": "08:00"}], "schedule_range_crosses_midnight"),
+        ([{"begin": "00:00", "end": "06:00"}, {"begin": "05:30", "end": "08:00"}], "schedule_ranges_overlap"),
+    ],
+)
+async def test_set_charging_schedule_rejects_windows_before_writing(hass, charger_device, ranges, key):
+    """A window into the next day, or overlapping windows, is an error and nothing reaches the charger."""
+    charger, device_id, _entry = charger_device
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN,
+            "set_charging_schedule",
+            {"device_id": device_id, "day_type": "weekdays", "ranges": ranges},
+            blocking=True,
+        )
+    assert err.value.translation_key == key
+    assert not [sent for sent in charger.sent if sent[0] == "sch_week"]
+
+
+async def test_set_charging_schedule_needs_something_to_change(hass, charger_device):
+    """A call that supplies none of the schedule fields is a validation error."""
+    _charger, device_id, _entry = charger_device
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN, "set_charging_schedule", {"device_id": device_id, "day_type": "weekdays"}, blocking=True
+        )
+    assert err.value.translation_key == "schedule_nothing_to_set"
+
+
+async def test_set_charging_schedule_on_a_charger_without_one_raises(hass, charger_device):
+    """A charger that does not report the schedule property cannot take a schedule."""
+    _charger, device_id, _entry = charger_device
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(
+            DOMAIN,
+            "set_charging_schedule",
+            {"device_id": device_id, "day_type": "saturday", "limit_charging_times": True},
+            blocking=True,
+        )
+    assert err.value.translation_key == "schedule_not_supported"
+
+
+async def test_set_charging_schedule_write_failure_raises(hass, charger_device):
+    """A rejected property write surfaces as a Home Assistant error."""
+    _charger, device_id, _entry = charger_device
+
+    with (
+        patch("custom_components.wattpilot.services.async_SetChargerProp", new=AsyncMock(return_value=False)),
+        pytest.raises(HomeAssistantError) as err,
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            "set_charging_schedule",
+            {"device_id": device_id, "day_type": "weekdays", "limit_charging_times": False},
+            blocking=True,
+        )
+    assert err.value.translation_key == "set_schedule_failed"

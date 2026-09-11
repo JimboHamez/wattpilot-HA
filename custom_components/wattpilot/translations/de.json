@@ -106,6 +106,13 @@
                 "local": "Lokal (LAN)",
                 "cloud": "go-e Cloud"
             }
+        },
+        "day_type": {
+            "options": {
+                "weekdays": "Wochentage",
+                "saturday": "Samstag",
+                "sunday": "Sonntag"
+            }
         }
     },
     "services": {
@@ -120,6 +127,32 @@
                 "trigger_time": {
                     "name": "Nächste Fahrt",
                     "description": "Abfahrtszeit der nächsten Fahrt."
+                }
+            }
+        },
+        "set_charging_schedule": {
+            "name": "Ladezeiten festlegen",
+            "description": "Schreibt eine Tagesart des Ladezeitplans der App (Ladezeiten) auf die Ladestation. Leer gelassene Felder behalten ihren aktuellen Wert.",
+            "fields": {
+                "device_id": {
+                    "name": "Ladestation",
+                    "description": "Ladestation, auf die die Änderung angewendet wird."
+                },
+                "day_type": {
+                    "name": "Tagesart",
+                    "description": "Welcher Zeitplan geändert wird: Wochentage, Samstag oder Sonntag."
+                },
+                "limit_charging_times": {
+                    "name": "Ladezeiten begrenzen",
+                    "description": "Nur innerhalb der Ladezeiten laden."
+                },
+                "pv_surplus_outside_times": {
+                    "name": "PV-Überschuss außerhalb der Zeiten",
+                    "description": "Laden mit PV-Überschuss außerhalb der Ladezeiten erlauben."
+                },
+                "ranges": {
+                    "name": "Ladezeiten",
+                    "description": "Die Ladefenster als Liste von Beginn-/Endzeiten (HH:MM). Jedes Fenster muss am selben Tag nach seinem Beginn enden und Fenster dürfen sich nicht überschneiden; ein Fenster über Mitternacht wird wie in der App in ein Abend- und ein Morgenfenster geteilt."
                 }
             }
         },
@@ -389,6 +422,33 @@
             },
             "rssi": {
                 "name": "WLAN-Signal"
+            },
+            "schedule_saturday": {
+                "name": "Ladezeiten Samstag",
+                "state": {
+                    "off": "Aus",
+                    "charging_times": "Ladezeiten",
+                    "pv_surplus_outside_times": "PV-Überschuss außerhalb der Zeiten",
+                    "charging_times_pv_surplus_outside": "Ladezeiten + PV-Überschuss außerhalb"
+                }
+            },
+            "schedule_sunday": {
+                "name": "Ladezeiten Sonntag",
+                "state": {
+                    "off": "Aus",
+                    "charging_times": "Ladezeiten",
+                    "pv_surplus_outside_times": "PV-Überschuss außerhalb der Zeiten",
+                    "charging_times_pv_surplus_outside": "Ladezeiten + PV-Überschuss außerhalb"
+                }
+            },
+            "schedule_weekdays": {
+                "name": "Ladezeiten Wochentage",
+                "state": {
+                    "off": "Aus",
+                    "charging_times": "Ladezeiten",
+                    "pv_surplus_outside_times": "PV-Überschuss außerhalb der Zeiten",
+                    "charging_times_pv_surplus_outside": "Ladezeiten + PV-Überschuss außerhalb"
+                }
             },
             "tma": {
                 "name": "Ladestationstemperatur"
@@ -695,8 +755,17 @@
         "entry_not_found": {
             "message": "Für das Gerät {device_id} konnte kein Wattpilot Konfigurationseintrag ermittelt werden."
         },
+        "invalid_boolean": {
+            "message": "{parameter} muss true oder false sein, erhalten: {value}"
+        },
+        "invalid_day_type": {
+            "message": "{parameter} muss einer der Werte {options} sein, erhalten: {value}"
+        },
         "invalid_debug_properties": {
             "message": "{parameter} muss true, false oder eine Liste von Eigenschaftsnamen sein, erhalten: {value}"
+        },
+        "invalid_schedule_ranges": {
+            "message": "{parameter} muss eine Liste von Beginn-/Endzeiten (HH:MM) sein, erhalten: {value}"
         },
         "invalid_trigger_time": {
             "message": "{parameter} ist keine gültige Uhrzeit: {trigger_time}"
@@ -707,11 +776,26 @@
         "reconnect_failed": {
             "message": "Die Wattpilot Ladestation für das Gerät {device_id} konnte nicht neu verbunden werden."
         },
+        "schedule_not_supported": {
+            "message": "Die Ladestation {charger} meldet keinen Ladezeitplan ({property})."
+        },
+        "schedule_nothing_to_set": {
+            "message": "Nichts zu ändern: gib mindestens einen der Parameter {parameters} an."
+        },
+        "schedule_range_crosses_midnight": {
+            "message": "{parameter}: ein Ladefenster muss am selben Tag nach seinem Beginn enden (der nächste Tag hat seinen eigenen Zeitplan) - teile es um Mitternacht: {ranges}"
+        },
+        "schedule_ranges_overlap": {
+            "message": "{parameter}: Ladefenster dürfen sich nicht überschneiden: {ranges}"
+        },
         "service_failed": {
             "message": "Die Wattpilot Aktion {service} ist fehlgeschlagen: {error}"
         },
         "set_next_trip_failed": {
             "message": "Der Zeitpunkt der nächsten Fahrt konnte auf der Ladestation {charger} nicht gesetzt werden."
+        },
+        "set_schedule_failed": {
+            "message": "Der Ladezeitplan {day_type} konnte nicht auf die Ladestation {charger} geschrieben werden."
         }
     }
 }

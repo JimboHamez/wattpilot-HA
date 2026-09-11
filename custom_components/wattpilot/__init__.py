@@ -26,6 +26,7 @@ from .services import (
     async_registerService,
     async_service_DisconnectCharger,
     async_service_ReConnectCharger,
+    async_service_SetChargingSchedule,
     async_service_SetDebugProperties,
     async_service_SetGoECloud,
     async_service_SetNextTrip,
@@ -63,6 +64,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         _LOGGER.debug("%s - async_setup: register services", DOMAIN)
         await async_registerService(hass, "disconnect_charger", async_service_DisconnectCharger)
         await async_registerService(hass, "reconnect_charger", async_service_ReConnectCharger)
+        await async_registerService(hass, "set_charging_schedule", async_service_SetChargingSchedule)
         await async_registerService(hass, "set_goe_cloud", async_service_SetGoECloud)
         await async_registerService(hass, "set_debug_properties", async_service_SetDebugProperties)
         await async_registerService(hass, "set_next_trip", async_service_SetNextTrip)

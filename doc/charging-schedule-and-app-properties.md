@@ -2,8 +2,10 @@
 
 Notes from reading a Wattpilot Home 11 J (serial 91111999, firmware 43.4) over the
 local WebSocket API with `wattpilot-api` 1.4.0, while it was charging a 2026 Subaru
-Trailseeker. None of the properties below are exposed by the integration today, and
-one of them carries a value the library's API definition does not know.
+Trailseeker. When written, none of the properties below were exposed by the integration,
+and one of them carries a value the library's API definition does not know. The schedule
+has since gained the three *Charging Schedule* sensors and the `set_charging_schedule`
+action (#13, after 0.9.2); the rest is still open.
 
 ## The schedule the app sets is three properties
 
@@ -76,10 +78,19 @@ Also seen and not exposed: `awpl`, the hourly price list for dynamic pricing (a 
 
 ## Suggested integration work
 
-1. Treat schedule `control` as flags (bit 0 = limit times, bit 1 = allow PV surplus
-   outside the times) rather than the 0/1/2 enum, and tolerate unknown values.
-2. Expose `sch_week` / `sch_satur` / `sch_sund` — at minimum as read-only sensors with
-   the ranges as attributes, ideally editable through a service.
+1. ~~Treat schedule `control` as flags (bit 0 = limit times, bit 1 = allow PV surplus
+   outside the times) rather than the 0/1/2 enum, and tolerate unknown values.~~ Done
+   (#13): `custom_components/wattpilot/schedule.py` decodes the two bits and masks the
+   state onto them, keeping the raw value as an attribute.
+2. ~~Expose `sch_week` / `sch_satur` / `sch_sund` — at minimum as read-only sensors with
+   the ranges as attributes, ideally editable through a service.~~ Done (#13): the three
+   *Charging Schedule* sensors and the `set_charging_schedule` action. The action rejects a
+   window that does not end after it begins on the same day (it would run into the next
+   day type) and overlapping windows before writing. Writing the object back as a plain
+   nested dict was verified on 2026-09-11 with `tests/live_schedule.py`: an unchanged
+   `sch_week` was accepted, the charger pushed one `sch_week` echo, and the value read back
+   identical. Still unverified: whether the charger accepts more than two windows, and what
+   it does with `control = 2` on its own (the app never seems to produce it).
 3. Number entity for `cco` (kWh/100 km) and for `dwo` (Wh, nullable).
 4. Sensor for `tpa` (already used by the charger; a cheap "what the charger thinks the
    30 s power is").
@@ -103,7 +114,7 @@ properties have no entity:
 
 | group | keys |
 |-------|------|
-| scheduler / app-only | `sch_week` `sch_satur` `sch_sund` `cco` `dwo` `esk` `cdi` `tpa` |
+| scheduler / app-only | `cco` `dwo` `esk` `cdi` `tpa` — `sch_week` `sch_satur` `sch_sund` are exposed since #13 |
 | dynamic pricing | `awpl` (hourly price list) `awcp` (current slot) — `awp` is exposed |
 | current limits | `ama` `mca` `acu` (effective allowed current) `amt` `adi` `al1`–`al5` `pnp` — `clp` gained the *Charging Current Preset* select after 0.9.2 (#18) |
 | load balancing | `loa` `lof` `log` `lom` `lop` `los` `lot` `loty` `map` — only `loe` exists |

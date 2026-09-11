@@ -75,6 +75,11 @@ What people actually use this for:
   and the energy you need, and the charger works backwards from it. The `set_next_trip` action
   writes that departure time, so it can follow a calendar or an `input_datetime` helper rather
   than being typed into the app (see the example below).
+* **See and set the app's charging times from Home Assistant.** The three *Charging Schedule*
+  sensors (weekdays / Saturday / Sunday) show whether charging is limited to the app's time
+  windows, whether PV surplus may charge outside them, and the windows themselves; the
+  `set_charging_schedule` action changes any of that — e.g. widen the window on a public
+  holiday, or turn the limit off when a cheap-rate event is announced.
 * **Charge when electricity is cheap.** Point the *Charging Mode* select at Eco and let the
   charger use the aWattar/Lumina price feed, or drive *Max Charging Current* yourself from any
   price sensor you already have in Home Assistant (or *Charging Current Preset* if you want the
@@ -142,12 +147,37 @@ automation:
           trigger_time: "{{ trigger.calendar_event.start | as_datetime | as_local | strftime('%H:%M:%S') }}"
 ```
 
+```yaml
+# Widen the weekday charging window when the retailer announces a free-power event,
+# and put the normal schedule back afterwards. The action reads the current schedule
+# and rewrites it with only the fields given here changed.
+automation:
+  - alias: Wattpilot - free power event
+    triggers:
+      - trigger: state
+        entity_id: binary_sensor.free_power_event
+        to: "on"
+        id: start
+      - trigger: state
+        entity_id: binary_sensor.free_power_event
+        to: "off"
+        id: end
+    actions:
+      - action: wattpilot.set_charging_schedule
+        data:
+          device_id: !secret wattpilot_device_id
+          day_type: weekdays
+          ranges: >
+            {{ [{'begin': '00:00', 'end': '23:59:59'}] if trigger.id == 'start'
+               else [{'begin': '00:00', 'end': '06:00'}, {'begin': '08:00', 'end': '15:00'}] }}
+```
+
 ## Open Topics:
 
 * create a light integration for LED color control etc.
-* expose the app's charging schedule (`sch_week` / `sch_satur` / `sch_sund`) and the
-  app-only `cco` / `dwo` properties — see
+* expose the app-only `cco` / `dwo` properties — see
   [doc/charging-schedule-and-app-properties.md](doc/charging-schedule-and-app-properties.md)
+  (the charging schedule itself is now exposed — see [Actions](#actions))
 * dynamic pricing: expose `awpl` / `awcp`, and feed the charger an Amber Electric price
   list or drive `frc` from Amber in HA — see
   [doc/dynamic-pricing-and-amber.md](doc/dynamic-pricing-and-amber.md)
@@ -250,6 +280,7 @@ automations.
 | Action | Parameters | What it does |
 |--------|-----------|--------------|
 | `wattpilot.set_next_trip` | `trigger_time` (time of day, e.g. `06:30:00`) | Sets the departure time used by the Next Trip charging mode. The charger's daylight-saving setting is applied for you. Also fires a `wattpilot_property_message` event whenever the charger's own next-trip time changes, so a helper can be kept in sync. |
+| `wattpilot.set_charging_schedule` | `day_type` (`weekdays`, `saturday` or `sunday`), then any of `limit_charging_times` (boolean), `pv_surplus_outside_times` (boolean), `ranges` (list of `{begin: "HH:MM", end: "HH:MM"}`) | Writes one day type of the app's charging times. The charger only takes the whole schedule object, so the action reads the current one and rewrites it with the fields you supply changed — leave a field out to keep it. Windows are checked before anything is written: each must end after it begins on the same day (a window over midnight is split into an evening and a morning one, as the app does — each day type has its own schedule) and they must not overlap. The matching *Charging Schedule* sensor shows the result: state is the mode, the windows and flags are attributes. |
 | `wattpilot.set_goe_cloud` | `cloud_api` (boolean) | Enables or disables go-e cloud API access and caches the returned key/URL. Enabling is at your own responsibility — see the note under [What It Does](#what-it-does). |
 | `wattpilot.set_debug_properties` | `debug_properties` (`true`, `false`, or a list of property codes) | Logs charger property changes as warnings. `true` logs everything (noisy), a list logs only those codes — e.g. `[wda, cci, err]`. |
 | `wattpilot.disconnect_charger` | – | Closes the charger's WebSocket session; its entities go unavailable. Useful on a Wattpilot GO, which allows only one connection at a time, when you want the phone app to take over. |
@@ -323,6 +354,49 @@ Two different mechanisms do this, and the difference matters if you look closely
 > be updated (e.g. a `Start Charging at` of `4000` now means 4000 kW, not 4000 W — set `4.0`).
 > Per-phase powers exposed as *attributes* of Charging Power (`L1_Power`, `TotalPower`, …) are
 > **not** converted and remain in watts.
+
+## Charging schedule
+
+The app's *charging times* screen — one schedule each for **weekdays**, **Saturday** and
+**Sunday**, with a *Limit charging times* toggle, a *Charge with PV surplus* toggle and a list
+of time windows — is stored on the charger as three properties (`sch_week`, `sch_satur`,
+`sch_sund`). The integration shows and sets them:
+
+- **Three *Charging Schedule* sensors.** The state is the schedule's mode: `Off`, `Charging
+  times` (charge only inside the windows), `PV surplus outside times`, or `Charging times + PV
+  surplus outside` (both toggles on — the usual setting). The windows and flags are attributes:
+
+  | Attribute | Example | Meaning |
+  |---|---|---|
+  | `ranges` | `[{begin: "00:00", end: "06:00"}, {begin: "08:00", end: "15:00"}]` | The charging windows, as the app shows them |
+  | `limit_charging_times` | `true` | *Limit charging times* toggle |
+  | `pv_surplus_outside_times` | `true` | *Charge with PV surplus* toggle |
+  | `control` | `3` | The charger's raw value (bit 0 = limit, bit 1 = PV surplus) |
+
+- **The `set_charging_schedule` action** writes one day type back (see [Actions](#actions)).
+  Give it `day_type` and any of `limit_charging_times`, `pv_surplus_outside_times` and
+  `ranges`; whatever you leave out keeps its current value.
+
+Rules the action enforces **before** anything is sent to the charger, each reported as an
+error on the calling automation:
+
+- Every window must **end after it begins on the same day**. Each day type has its own
+  schedule, so a window like `22:00 → 06:00` cannot run over midnight into the next one — split
+  it into `22:00 → 23:59:59` and `00:00 → 06:00`, which is what the app does too.
+- Windows must **not overlap**. They may touch (`06:00 → 08:00` then `08:00 → 10:00`), and the
+  order you list them in does not matter.
+- Times are `HH:MM` or `HH:MM:SS`.
+
+Whether the charger honours a schedule is visible in *ChargingReason*: `NotChargingBecauseScheduler`
+means a window is blocking charging right now. Note the app writes only the day type being
+edited, so changing weekdays in the app never touches Saturday or Sunday — the same is true of
+the action.
+
+> The charger's `control` field is a **bitmask** on Fronius firmware, not the
+> `Disabled / Inside / Outside` enum the community API definition documents (which is what a
+> go-e charger uses). The integration decodes the two bits and passes anything else through as
+> the raw `control` attribute rather than rejecting it. Verified on a Flex, firmware 43.4 — see
+> [doc/charging-schedule-and-app-properties.md](doc/charging-schedule-and-app-properties.md).
 
 ## Local Time (charger clock vs HA clock)
 
