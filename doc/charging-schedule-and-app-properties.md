@@ -105,7 +105,7 @@ properties have no entity:
 |-------|------|
 | scheduler / app-only | `sch_week` `sch_satur` `sch_sund` `cco` `dwo` `esk` `cdi` `tpa` |
 | dynamic pricing | `awpl` (hourly price list) `awcp` (current slot) — `awp` is exposed |
-| current limits | `ama` `mca` `acu` (effective allowed current) `amt` `adi` `al1`–`al5` `clp` `pnp` |
+| current limits | `ama` `mca` `acu` (effective allowed current) `amt` `adi` `al1`–`al5` `pnp` — `clp` gained the *Charging Current Preset* select after 0.9.2 (#18) |
 | load balancing | `loa` `lof` `log` `lom` `lop` `los` `lot` `loty` `map` — only `loe` exists |
 | PV / eco tuning | `po` `psh` `sh` `fzf` `zfo` `mci` `mcpd` `mcpea` `fsp` `psmd` `fsptws` `pwm` `ido` |
 | timestamps / diagnostics | `lcctc` `lccfc` `lccfi` `lmsc` `lpsc` `lfspt` `msi` `etop` `fwc` `cpe` `cpr` `rcd` `ferm` `frm` |

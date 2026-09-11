@@ -77,7 +77,8 @@ What people actually use this for:
   than being typed into the app (see the example below).
 * **Charge when electricity is cheap.** Point the *Charging Mode* select at Eco and let the
   charger use the aWattar/Lumina price feed, or drive *Max Charging Current* yourself from any
-  price sensor you already have in Home Assistant.
+  price sensor you already have in Home Assistant (or *Charging Current Preset* if you want the
+  app's slider to follow — see [Known limitations](#known-limitations)).
 * **See what the wallbox is doing, and record it.** *Charging Power*, *Totally Charged* and
   *Connection Charged* are proper energy/power entities, so they slot straight into the Energy
   dashboard and long-term statistics; *ChargingReason* tells you why charging is (not) running
@@ -360,6 +361,13 @@ work on it directly.
   them from the device page if you need them.
 - The go-e cloud charging API toggle is provided for convenience but is your own
   responsibility to use; it is not required for this integration to work.
+- The Fronius app's charging-speed **slider only has stops at its presets** (10, 16, 20, 24
+  and 32 A on a 22 kW charger — the charger's `clp` list). The *Max Charging Current* number
+  entity sets any 1 A step, and the charger accepts it — the app then shows the right kW figure
+  but the slider does not move. If you want what you set in Home Assistant to land on a slider
+  stop, use the *Charging Current Preset* select instead: its options are the charger's own
+  presets, it writes the same setting, and it shows no selection while the current is between
+  two presets.
 
 ## Troubleshooting
 

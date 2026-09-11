@@ -487,6 +487,9 @@
                     "authentication_required": "Authentifizierung erforderlich"
                 }
             },
+            "amp_preset": {
+                "name": "Ladestrom-Voreinstellung"
+            },
             "awc": {
                 "name": "aWATTar-Land",
                 "state": {
