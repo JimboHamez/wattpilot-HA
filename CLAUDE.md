@@ -97,6 +97,12 @@ There is no build step (it is an HA custom component, copied into `config/custom
   because the identity guard only works if a real charger reports `sse` — it does (verified on a
   Flex, `sse=91111999`), but no mock can establish that. Note it deliberately sends **one wrong
   password** to check the `invalid_auth` path.
+- `tests/live_migration.py` is a pytest module run the same explicit way as `live_reauth.py`
+  below, with the same socket setup. It lays out a 0.11.0-style registry (an IP-keyed entry,
+  name-prefixed entities), sets it up against the physical charger, and checks that the entry and
+  entities move to the serial with their entity ids and live values intact. It also runs the local
+  config flow. It is read-only on the charger. It passed on the Flex (fw 43.4, serial 91111999) on
+  2026-09-23.
 - `tests/live_reauth.py` is the exception to the "live scripts are standalone" rule: it is a
   pytest module (run it explicitly — `pytest.ini`'s `python_files` does not match `live_*.py`,
   so a normal run skips it) that drives the real flows through a real `hass` against the

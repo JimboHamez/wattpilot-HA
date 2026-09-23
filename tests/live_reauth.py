@@ -120,7 +120,10 @@ async def test_reconfigure_against_the_real_charger_keeps_the_entry(hass):
     assert result["step_id"] == "reconfigure"
 
     changed = {**before, CONF_FRIENDLY_NAME: "live-reauth-renamed", CONF_TIMEOUT: before[CONF_TIMEOUT] + 1}
-    submitted = {k: v for k, v in changed.items() if k != CONF_CONNECTION}
+    # Submit only the fields the form has, as a user would: entry.data also holds
+    # keys that are not form fields, such as the serial a local entry stores since 0.12.0.
+    form_fields = {str(key) for key in result["data_schema"].schema}
+    submitted = {k: v for k, v in changed.items() if k in form_fields}
     result = await hass.config_entries.flow.async_configure(result["flow_id"], submitted)
     await hass.async_block_till_done()
 
