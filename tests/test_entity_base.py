@@ -208,7 +208,22 @@ def test_device_info_describes_the_charger(make_charger):
     assert info["manufacturer"] == "Fronius"
     assert info["model"] == "model"
     assert info["sw_version"] == "38.5"
-    assert info["hw_version"] == "11 KW"
+    assert info["hw_version"] == "11 kW"
+
+
+def test_device_info_leaves_out_what_the_charger_does_not_report(make_charger):
+    """Missing metadata is omitted, not shown as the literal string 'unknown'."""
+    charger = make_charger(props={"amp": 6, "sse": "SN"}, serial="SN")
+    for attr in ("manufacturer", "firmware", "device_type"):
+        if hasattr(charger, attr):
+            delattr(charger, attr)
+
+    info = _build(charger).device_info
+
+    assert info["manufacturer"] is None
+    assert info["model"] is None
+    assert info["sw_version"] is None
+    assert info["hw_version"] is None
 
 
 # --- availability -------------------------------------------------------------

@@ -11,11 +11,12 @@ from packaging.version import Version
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
 from homeassistant.const import CONF_TIMEOUT
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 
 from .catalog import async_setup_catalog_entities
-from .const import DEFAULT_TIMEOUT
+from .const import DEFAULT_TIMEOUT, DOMAIN
 from .entities import ChargerPlatformEntity
-from .utils import GetChargerProp, async_SetChargerProp
+from .utils import GetChargerProp
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -133,20 +134,22 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
             if version is None:
                 version = self._attr_latest_version
             if version is None:
-                _LOGGER.error(
-                    "%s - %s: async_install failed: no version to install", self._charger_id, self._identifier
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="update_no_version",
+                    translation_placeholders={"entity": str(self.entity_id)},
                 )
-                return None
             v_name = self._available_versions.get(version, None)
             if v_name is None:
-                _LOGGER.error(
-                    "%s - %s: async_install failed: version (%s) not in available: %s",
-                    self._charger_id,
-                    self._identifier,
-                    version,
-                    self._available_versions,
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="update_unknown_version",
+                    translation_placeholders={
+                        "entity": str(self.entity_id),
+                        "version": str(version),
+                        "versions": ", ".join(str(v) for v in self._available_versions),
+                    },
                 )
-                return
             _LOGGER.debug(
                 "%s - %s: async_install: trigger charger update via: %s -> %s",
                 self._charger_id,
@@ -154,8 +157,9 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 self._identifier_trigger,
                 v_name,
             )
-            await async_SetChargerProp(
-                self._charger, self._identifier_trigger, v_name, force=True, force_type=self._set_type
+            # INSTALL is only advertised when id_trigger is set, so it is never None here.
+            await self._async_write_property(
+                str(self._identifier_trigger), v_name, force=True, force_type=self._set_type
             )
             # Resolve the configured connection timeout (falling back to the
             # default). A firmware flash plus reboot takes far longer than a
@@ -168,13 +172,11 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 await asyncio.sleep(1)
                 timer += 1
             if self._charger.connected:
-                _LOGGER.error(
-                    "%s - %s: async_install: update timeout during update install: %s seconds",
-                    self._charger_id,
-                    self._identifier,
-                    timeout,
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="update_install_timeout",
+                    translation_placeholders={"entity": str(self.entity_id), "timeout": str(timeout)},
                 )
-                return None
             _LOGGER.debug(
                 "%s - %s: async_install: charger disconnected - waiting for reconnect",
                 self._charger_id,
@@ -185,22 +187,15 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
                 await asyncio.sleep(1)
                 timer += 1
             if not self._charger.connected:
-                _LOGGER.error(
-                    "%s - %s: async_install: update timeout during charger restart: %s seconds",
-                    self._charger_id,
-                    self._identifier,
-                    timeout,
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="update_restart_timeout",
+                    translation_placeholders={"entity": str(self.entity_id), "timeout": str(timeout)},
                 )
-                return None
+        except HomeAssistantError:
+            raise
         except Exception as e:
-            _LOGGER.exception(
-                "%s - %s: async_install failed: %s (%s.%s)",
-                self._charger_id,
-                self._identifier,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
+            raise self._action_failure("async_install", e) from e
 
     async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for sensor specific requirements."""

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import voluptuous as vol
 from wattpilot_api.exceptions import AuthenticationError
@@ -39,8 +39,6 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Custom config flow."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
-    loaded_platforms: ClassVar[list[str]] = []
 
     def __init__(self) -> None:
         """Initialize."""

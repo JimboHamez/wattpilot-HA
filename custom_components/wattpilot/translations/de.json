@@ -752,6 +752,12 @@
         "cloud_api_key_timeout": {
             "message": "Die Ladestation hat innerhalb von {timeout} Sekunden keinen go-e Cloud-API-Schlüssel zurückgegeben."
         },
+        "entity_action_failed": {
+            "message": "{action} für {entity} ist fehlgeschlagen: {error}"
+        },
+        "entity_write_failed": {
+            "message": "Die Wallbox hat den neuen Wert von {property} für {entity} nicht übernommen."
+        },
         "entry_not_found": {
             "message": "Für das Gerät {device_id} konnte kein Wattpilot Konfigurationseintrag ermittelt werden."
         },
@@ -766,6 +772,9 @@
         },
         "invalid_debug_properties": {
             "message": "{parameter} muss true, false oder eine Liste von Eigenschaftsnamen sein, erhalten: {value}"
+        },
+        "invalid_option": {
+            "message": "{option} ist keine Option von {entity}. Gültige Optionen: {options}"
         },
         "invalid_schedule_ranges": {
             "message": "{parameter} muss eine Liste von Beginn-/Endzeiten (HH:MM) sein, erhalten: {value}"
@@ -799,6 +808,18 @@
         },
         "set_schedule_failed": {
             "message": "Der Ladezeitplan {day_type} konnte nicht auf die Ladestation {charger} geschrieben werden."
+        },
+        "update_install_timeout": {
+            "message": "{entity}: Die Wallbox hat die Installation des Updates nicht innerhalb von {timeout} Sekunden gestartet."
+        },
+        "update_no_version": {
+            "message": "{entity}: Es gibt keine Firmware-Version zum Installieren."
+        },
+        "update_restart_timeout": {
+            "message": "{entity}: Die Wallbox war {timeout} Sekunden nach der Installation des Updates noch nicht wieder erreichbar."
+        },
+        "update_unknown_version": {
+            "message": "{entity}: Version {version} wird von der Wallbox nicht angeboten. Verfügbar: {versions}"
         }
     }
 }

@@ -156,7 +156,8 @@ async def async_PropertyUpdateHandler(
             params = entry_data.params
             charger_id = str(params.get(CONF_FRIENDLY_NAME, params.get(CONF_IP_ADDRESS, DEFAULT_NAME)))
             data = {"charger_id": charger_id, "entry_id": entry.entry_id, "property": identifier, "value": value}
-            hass.bus.fire(EVENT_PROPS_ID, data)
+            # The client calls back on the event loop, so the loop-only variant applies.
+            hass.bus.async_fire(EVENT_PROPS_ID, data)
 
         if entry_data.debug_properties:
             hass.async_create_task(async_PropertyDebug(identifier, value, entry_data.debug_properties))

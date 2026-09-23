@@ -6,10 +6,10 @@ import logging
 from typing import TYPE_CHECKING, Any, Final
 
 from homeassistant.components.number import UNIT_CONVERTERS, NumberEntity, NumberMode  # type: ignore[attr-defined]
+from homeassistant.exceptions import HomeAssistantError
 
 from .catalog import async_setup_catalog_entities
 from .entities import ChargerPlatformEntity
-from .utils import async_SetChargerProp
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -86,14 +86,9 @@ class ChargerNumber(ChargerPlatformEntity, NumberEntity):
                     self._charger_id,
                     self._identifier,
                 )
-                await async_SetChargerProp(self._charger, "esk", True)
-            await async_SetChargerProp(self._charger, self._identifier, value * self._factor, force_type=self._set_type)
+                await self._async_write_property("esk", True)
+            await self._async_write_property(self._identifier, value * self._factor, force_type=self._set_type)
+        except HomeAssistantError:
+            raise
         except Exception as e:
-            _LOGGER.exception(
-                "%s - %s: update failed: %s (%s.%s)",
-                self._charger_id,
-                self._identifier,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
+            raise self._action_failure("async_set_native_value", e) from e

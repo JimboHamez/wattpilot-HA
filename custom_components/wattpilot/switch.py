@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING, Any, Final
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNKNOWN
+from homeassistant.exceptions import HomeAssistantError
 
 from .catalog import async_setup_catalog_entities
 from .entities import ChargerPlatformEntity
-from .utils import async_SetChargerProp
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -110,29 +110,19 @@ class ChargerSwitch(ChargerPlatformEntity, SwitchEntity):
         try:
             _LOGGER.debug("%s - %s: async_turn_on: %s", self._charger_id, self._identifier, self._attr_translation_key)
             value = not self._entity_cfg.get("invert", False)
-            await async_SetChargerProp(self._charger, self._identifier, value)
+            await self._async_write_property(self._identifier, value)
+        except HomeAssistantError:
+            raise
         except Exception as e:
-            _LOGGER.exception(
-                "%s - %s: async_turn_on failed: %s (%s.%s)",
-                self._charger_id,
-                self._identifier,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
+            raise self._action_failure("async_turn_on", e) from e
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Async: Turn entity off."""
         try:
             _LOGGER.debug("%s - %s: async_turn_off: %s", self._charger_id, self._identifier, self._attr_translation_key)
             value = bool(self._entity_cfg.get("invert", False))
-            await async_SetChargerProp(self._charger, self._identifier, value)
+            await self._async_write_property(self._identifier, value)
+        except HomeAssistantError:
+            raise
         except Exception as e:
-            _LOGGER.exception(
-                "%s - %s: async_turn_off failed: %s (%s.%s)",
-                self._charger_id,
-                self._identifier,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
+            raise self._action_failure("async_turn_off", e) from e

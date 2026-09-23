@@ -10,6 +10,35 @@ for attribution.
 
 ## [Unreleased]
 
+### Changed
+- **Entity actions now report failures instead of failing silently.** Turning a switch on or off,
+  pressing a button, choosing a select option, setting a number and installing a firmware update
+  used to log a failed write and carry on. The UI showed nothing and a calling automation kept
+  going as if it had worked. These actions now raise a translated error (quality-scale
+  `action-exceptions`), which Home Assistant shows in the UI and which stops the automation:
+  - a write the charger did not take raises `entity_write_failed`;
+  - an unknown select option raises `invalid_option`;
+  - an update version the charger does not offer raises `update_unknown_version`, and nothing to
+    install raises `update_no_version`;
+  - a firmware install that does not start or finish in time raises `update_install_timeout` or
+    `update_restart_timeout`.
+
+  **An automation that relied on a failed write being ignored will now stop at that step.** Add
+  `continue_on_error: true` to the step to keep the old behaviour. Setting the next-trip energy no
+  longer writes the value when switching the charger to kWh mode fails, so the target is never
+  applied in kilometres.
+- **Typed runtime data.** `entry.runtime_data` is now a `WattpilotRuntimeData` dataclass (new
+  `models.py`) instead of a dict keyed by string constants. Config entries are typed as
+  `WattpilotConfigEntry = ConfigEntry[WattpilotRuntimeData]`, following Home Assistant's pattern
+  (quality-scale `runtime-data`, `strict-typing`). The unused key constants `CONF_CHARGER`,
+  `CONF_CHARGERS`, `FUNC_CONNECTION_MONITOR` and `FUNC_PROPERTY_UPDATES_CALLBACK` are gone from
+  `const.py`. Internal only; nothing user-visible changes. One small side effect: an entry that
+  does not record its connection type is now gated as local, which is how it was always
+  connected. Before, the check depended on whether runtime data existed yet.
+- **Device-id lookups only consider Wattpilot entries.** The service actions' device → charger
+  lookup used to take the runtime data of whichever entry on the device it found first, even one
+  belonging to another integration.
+
 ### Fixed
 - **`switch.toggle` works on Wattpilot switches.** `ChargerSwitch` derived only from the bare
   `Entity`, not `SwitchEntity`, so the toggle action failed with an `AttributeError` on every
@@ -34,24 +63,17 @@ for attribution.
   by it) and in its title. The charger properties also carried the WiFi access-point keys (`wak`,
   `facwak`), SSIDs, MAC addresses, hostname, friendly names, serial, current-WiFi details, the OCPP
   URL and the RFID card names. All of these are now redacted.
+- **Smaller clean-ups.** Property events are fired with the event loop's `async_fire`. The
+  config flow drops the deprecated `CONNECTION_CLASS` and an unused class attribute. The static
+  `description` attribute is kept out of the recorder's history. The device page no longer shows
+  the literal "unknown" for metadata the charger does not report, and the hardware version reads
+  "11 kW" rather than "11 KW". A five-second sleep-and-retry for a setup race that the dispatcher
+  subscription has made impossible is gone.
 - **Service actions refuse a charger whose entry is not loaded.** An unloaded or failed entry
   still holds its last runtime data, so a call used to reach a stale, disconnected client. It now
   raises a translated `entry_not_loaded` validation error (quality-scale `action-setup`). The
   services are also registered with schemas, which reject misspelt or unknown fields; each field's
   value is still checked by its handler, with the existing translated messages.
-
-### Changed
-- **Typed runtime data.** `entry.runtime_data` is now a `WattpilotRuntimeData` dataclass (new
-  `models.py`) instead of a dict keyed by string constants. Config entries are typed as
-  `WattpilotConfigEntry = ConfigEntry[WattpilotRuntimeData]`, following Home Assistant's pattern
-  (quality-scale `runtime-data`, `strict-typing`). The unused key constants `CONF_CHARGER`,
-  `CONF_CHARGERS`, `FUNC_CONNECTION_MONITOR` and `FUNC_PROPERTY_UPDATES_CALLBACK` are gone from
-  `const.py`. Internal only; nothing user-visible changes. One small side effect: an entry that
-  does not record its connection type is now gated as local, which is how it was always
-  connected. Before, the check depended on whether runtime data existed yet.
-- **Device-id lookups only consider Wattpilot entries.** The service actions' device → charger
-  lookup used to take the runtime data of whichever entry on the device it found first, even one
-  belonging to another integration.
 
 ## [0.10.0] - 2026-09-11
 

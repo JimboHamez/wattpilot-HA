@@ -752,6 +752,12 @@
         "cloud_api_key_timeout": {
             "message": "The charger returned no go-e cloud API key within {timeout} seconds."
         },
+        "entity_action_failed": {
+            "message": "{action} on {entity} failed: {error}"
+        },
+        "entity_write_failed": {
+            "message": "The charger did not accept the new value of {property} for {entity}."
+        },
         "entry_not_found": {
             "message": "Unable to identify the Wattpilot configuration entry for device {device_id}."
         },
@@ -766,6 +772,9 @@
         },
         "invalid_debug_properties": {
             "message": "{parameter} must be true, false or a list of property names, got: {value}"
+        },
+        "invalid_option": {
+            "message": "{option} is not an option of {entity}. Valid options: {options}"
         },
         "invalid_schedule_ranges": {
             "message": "{parameter} must be a list of begin/end times of day (HH:MM), got: {value}"
@@ -799,6 +808,18 @@
         },
         "set_schedule_failed": {
             "message": "Unable to write the {day_type} charging schedule to charger {charger}."
+        },
+        "update_install_timeout": {
+            "message": "{entity}: the charger did not start installing the update within {timeout} seconds."
+        },
+        "update_no_version": {
+            "message": "{entity}: there is no firmware version to install."
+        },
+        "update_restart_timeout": {
+            "message": "{entity}: the charger did not come back within {timeout} seconds after installing the update."
+        },
+        "update_unknown_version": {
+            "message": "{entity}: version {version} is not offered by the charger. Available: {versions}"
         }
     }
 }
