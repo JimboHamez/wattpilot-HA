@@ -13,11 +13,12 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 from homeassistant.const import CONF_IP_ADDRESS, CONF_PASSWORD
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.icon import async_get_icons
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.wattpilot.const import CONF_CHARGER, CONF_CONNECTION, CONF_LOCAL, DOMAIN
+from custom_components.wattpilot.const import CONF_CONNECTION, CONF_LOCAL, DOMAIN
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +45,7 @@ async def test_setup_stores_runtime_data_and_push_updates_entity(hass, make_char
         await hass.async_block_till_done()
 
     # runtime-data: per-entry state lives on the config entry, not hass.data.
-    assert entry.runtime_data[CONF_CHARGER] is charger
+    assert entry.runtime_data.charger is charger
     assert DOMAIN not in hass.data
 
     # The charger-temperature entity was created (keyed by its unchanged unique_id).
@@ -66,6 +67,71 @@ async def test_setup_stores_runtime_data_and_push_updates_entity(hass, make_char
     served = (await async_get_icons(hass, "entity", integrations=[DOMAIN]))[DOMAIN]
     assert served["sensor"]["tma"] == {"default": "mdi:thermometer"}
     assert hass.states.get(entity_id).attributes.get("icon") is None
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_switch_actions_reach_the_charger(hass, make_charger):
+    """switch.turn_off and switch.toggle are served by a real SwitchEntity.
+
+    ChargerSwitch once derived from the bare Entity only, so the toggle action
+    failed with an AttributeError for every Wattpilot switch.
+    """
+    charger = make_charger(
+        props={"fup": True, "car": 1, "typ": "model", "var": 11, "sse": "SN"}, serial="SN", name="WB"
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_CONNECTION: CONF_LOCAL, CONF_IP_ADDRESS: "1.2.3.4", "friendly_name": "WB", CONF_PASSWORD: "p"},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_id = er.async_get(hass).async_get_entity_id("switch", DOMAIN, "WB-fup")
+    assert entity_id is not None
+    assert hass.states.get(entity_id).state == "on"
+
+    await hass.services.async_call("switch", "turn_off", {"entity_id": entity_id}, blocking=True)
+    assert charger.sent[-1] == ("fup", False)
+
+    # The entity is still on (the mock charger does not echo the write), so a
+    # toggle turns it off again.
+    await hass.services.async_call("switch", "toggle", {"entity_id": entity_id}, blocking=True)
+    assert charger.sent[-1] == ("fup", False)
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def test_a_rejected_switch_write_reaches_the_caller_translated(hass, make_charger):
+    """An entity action the charger rejects raises, with the translated message (action-exceptions)."""
+    charger = make_charger(
+        props={"fup": True, "car": 1, "typ": "model", "var": 11, "sse": "SN"}, serial="SN", name="WB"
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_CONNECTION: CONF_LOCAL, CONF_IP_ADDRESS: "1.2.3.4", "friendly_name": "WB", CONF_PASSWORD: "p"},
+    )
+    entry.add_to_hass(hass)
+
+    with patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    entity_id = er.async_get(hass).async_get_entity_id("switch", DOMAIN, "WB-fup")
+    with (
+        patch("custom_components.wattpilot.entities.async_SetChargerProp", new=AsyncMock(return_value=False)),
+        pytest.raises(HomeAssistantError) as err,
+    ):
+        await hass.services.async_call("switch", "turn_off", {"entity_id": entity_id}, blocking=True)
+
+    assert err.value.translation_key == "entity_write_failed"
+    # The message resolves from strings.json (Home Assistant drops its closing full stop).
+    assert str(err.value).rstrip(".") == f"The charger did not accept the new value of fup for {entity_id}"
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

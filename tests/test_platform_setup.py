@@ -17,7 +17,8 @@ pytest.importorskip("pytest_homeassistant_custom_component")
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.wattpilot import button, catalog, number, select, sensor, switch, update
-from custom_components.wattpilot.const import CONF_CHARGER, DOMAIN
+from custom_components.wattpilot.const import DOMAIN
+from custom_components.wattpilot.models import WattpilotRuntimeData
 
 PLATFORMS = [button, number, select, sensor, switch, update]
 PLATFORM_IDS = [module.platform for module in PLATFORMS]
@@ -45,18 +46,19 @@ CHARGER_PROPS = {
 }
 
 
-def _entry(hass, runtime_data):
-    """Return a config entry carrying the given runtime data."""
+def _entry(hass, charger):
+    """Return a config entry whose runtime data holds the given charger, or none if it is None."""
     entry = MockConfigEntry(domain=DOMAIN, data={"friendly_name": "WB"})
     entry.add_to_hass(hass)
-    entry.runtime_data = runtime_data
+    if charger is not None:
+        entry.runtime_data = WattpilotRuntimeData(charger=charger, params=entry.data)
     return entry
 
 
 @pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
 async def test_setup_adds_entities(hass, make_charger, module):
     """Each platform builds entities from its own YAML catalog."""
-    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB")})
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB"))
     added = MagicMock()
 
     await module.async_setup_entry(hass, entry, added)
@@ -68,7 +70,7 @@ async def test_setup_adds_entities(hass, make_charger, module):
 @pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
 async def test_setup_without_a_catalog_is_logged(hass, make_charger, module, caplog):
     """An unreadable YAML catalog aborts that platform without raising."""
-    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS))})
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS)))
     added = MagicMock()
 
     with (
@@ -83,8 +85,8 @@ async def test_setup_without_a_catalog_is_logged(hass, make_charger, module, cap
 
 @pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
 async def test_setup_without_a_charger_is_logged(hass, module, caplog):
-    """A runtime data store with no charger aborts that platform."""
-    entry = _entry(hass, {})
+    """An entry without runtime data (so without a charger) aborts that platform."""
+    entry = _entry(hass, None)
     added = MagicMock()
 
     with caplog.at_level(logging.ERROR, logger=CATALOG_LOGGER):
@@ -97,7 +99,7 @@ async def test_setup_without_a_charger_is_logged(hass, module, caplog):
 @pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
 async def test_setup_skips_definitions_without_an_id(hass, make_charger, module, caplog):
     """A catalog entry with no id is reported and skipped."""
-    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS))})
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS)))
     added = MagicMock()
 
     with (
@@ -113,7 +115,7 @@ async def test_setup_skips_definitions_without_an_id(hass, make_charger, module,
 @pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
 async def test_setup_adds_nothing_when_the_catalog_is_empty(hass, make_charger, module):
     """An empty catalog is not an error, it just adds no entities."""
-    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS))})
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS)))
     added = MagicMock()
 
     with patch.object(catalog.yaml, "safe_load", return_value={module.platform: []}):
@@ -125,7 +127,7 @@ async def test_setup_adds_nothing_when_the_catalog_is_empty(hass, make_charger, 
 @pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
 async def test_setup_reports_a_failing_entity_definition(hass, make_charger, module, caplog):
     """A definition that cannot be turned into an entity is logged."""
-    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS))})
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS)))
     added = MagicMock()
 
     # A non-dict definition breaks on the first attribute access inside the loop.
@@ -139,9 +141,23 @@ async def test_setup_reports_a_failing_entity_definition(hass, make_charger, mod
     assert any(r.levelno == logging.ERROR for r in caplog.records)
 
 
+@pytest.mark.parametrize("module", PLATFORMS, ids=PLATFORM_IDS)
+async def test_setup_keeps_the_rest_of_the_catalog_after_a_failing_definition(hass, make_charger, module):
+    """A broken definition costs only its own entity, not the rest of the platform."""
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB"))
+    definitions = await catalog.async_load_catalog(entry, module.platform)
+    added = MagicMock()
+
+    with patch.object(catalog.yaml, "safe_load", return_value={module.platform: ["not-a-definition", *definitions]}):
+        await module.async_setup_entry(hass, entry, added)
+
+    assert added.called, f"{module.platform} dropped its whole catalog after one bad definition"
+    assert added.call_args.args[0]
+
+
 async def test_setup_tolerates_a_catalog_that_is_not_a_mapping(hass, make_charger):
     """An empty or malformed catalog file adds no entities instead of raising."""
-    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS))})
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS)))
     added = MagicMock()
 
     # An empty YAML file parses to None, not to a dict.
@@ -159,7 +175,7 @@ async def test_setup_skips_entities_that_fail_their_gate(hass, make_charger, mod
     ``entity is None`` instead, which a constructor never returns, so a gated
     button entity would have been registered regardless of its gate.
     """
-    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB")})
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB"))
     added = MagicMock()
 
     # The charger reports var=11, so a 22 kW-only definition must be skipped.
@@ -174,7 +190,7 @@ async def test_setup_skips_entities_that_fail_their_gate(hass, make_charger, mod
 @pytest.mark.parametrize("missing", ["id_installed", "id_trigger"])
 async def test_update_setup_requires_its_extra_ids(hass, make_charger, missing, caplog):
     """The update platform needs the installed-version and trigger property ids."""
-    entry = _entry(hass, {CONF_CHARGER: make_charger(props=dict(CHARGER_PROPS))})
+    entry = _entry(hass, make_charger(props=dict(CHARGER_PROPS)))
     added = MagicMock()
     definition = {"id": "onv", "id_installed": "fwv", "id_trigger": "oct"}
     definition[missing] = None

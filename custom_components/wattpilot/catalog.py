@@ -20,23 +20,21 @@ from typing import TYPE_CHECKING, Any, Final
 import aiofiles
 import yaml
 
-from .const import CONF_CHARGER
-
 if TYPE_CHECKING:
     from wattpilot_api import Wattpilot
 
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
     from .entities import ChargerPlatformEntity
+    from .models import WattpilotConfigEntry
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 CATALOG_DIR: Final = os.path.dirname(os.path.realpath(__file__))
 
 
-async def async_load_catalog(entry: ConfigEntry, platform: str) -> list[Any] | None:
+async def async_load_catalog(entry: WattpilotConfigEntry, platform: str) -> list[Any] | None:
     """Read a platform's YAML catalog and return its entity definitions.
 
     Args:
@@ -67,7 +65,7 @@ async def async_load_catalog(entry: ConfigEntry, platform: str) -> list[Any] | N
     return list(yaml_cfg.get(platform) or [])
 
 
-def get_charger(entry: ConfigEntry, platform: str) -> Wattpilot | None:
+def get_charger(entry: WattpilotConfigEntry, platform: str) -> Wattpilot | None:
     """Return the connected charger stored in the config entry's runtime data.
 
     Args:
@@ -80,8 +78,8 @@ def get_charger(entry: ConfigEntry, platform: str) -> Wattpilot | None:
     """
     _LOGGER.debug("%s - async_setup_entry %s: Getting charger instance from data store", entry.entry_id, platform)
     try:
-        charger: Wattpilot = entry.runtime_data[CONF_CHARGER]
-    except (AttributeError, KeyError, TypeError) as e:
+        charger: Wattpilot = entry.runtime_data.charger
+    except AttributeError as e:
         _LOGGER.error(
             "%s - async_setup_entry %s: Getting charger instance from data store failed: %s (%s.%s)",
             entry.entry_id,
@@ -94,7 +92,9 @@ def get_charger(entry: ConfigEntry, platform: str) -> Wattpilot | None:
     return charger
 
 
-def _definition_is_complete(entry: ConfigEntry, platform: str, entity_cfg: Any, required: tuple[str, ...]) -> bool:
+def _definition_is_complete(
+    entry: WattpilotConfigEntry, platform: str, entity_cfg: Any, required: tuple[str, ...]
+) -> bool:
     """Report whether a catalog definition carries every key its platform needs.
 
     Args:
@@ -122,7 +122,7 @@ def _definition_is_complete(entry: ConfigEntry, platform: str, entity_cfg: Any, 
 
 async def async_setup_catalog_entities(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: WattpilotConfigEntry,
     async_add_entities: AddEntitiesCallback,
     platform: str,
     entity_class: type[ChargerPlatformEntity],
@@ -177,7 +177,9 @@ async def async_setup_catalog_entities(
                 e.__class__.__module__,
                 type(e).__name__,
             )
-            return
+            # One broken definition costs only its own entity, not the ones
+            # already built or still to come.
+            continue
 
     _LOGGER.info("%s - async_setup_entry: setup %s %s entities", entry.entry_id, len(entities), platform)
     if not entities:

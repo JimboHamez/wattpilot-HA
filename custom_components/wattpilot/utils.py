@@ -12,15 +12,13 @@ from wattpilot_api import Wattpilot
 from wattpilot_api.definition import load_api_definition
 from wattpilot_api.exceptions import AuthenticationError, WattpilotError
 
-from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PARAMS, CONF_PASSWORD, CONF_TIMEOUT
+from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PASSWORD, CONF_TIMEOUT
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from .const import (
-    CONF_CHARGER,
     CONF_CLOUD,
     CONF_CONNECTION,
-    CONF_DBG_PROPS,
     CONF_LOCAL,
     CONF_SERIAL,
     DEFAULT_NAME,
@@ -35,8 +33,9 @@ if TYPE_CHECKING:
 
     from wattpilot_api.definition import ApiDefinition
 
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+
+    from .models import WattpilotConfigEntry, WattpilotRuntimeData
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -143,7 +142,9 @@ async def async_PropertyDebug(identifier: str, value: str, include_properties: b
         _LOGGER.warning("async_PropertyDebug: watch_properties: %s => %s ", identifier, value)
 
 
-async def async_PropertyUpdateHandler(hass: HomeAssistant, entry: ConfigEntry, identifier: str, value: str) -> None:
+async def async_PropertyUpdateHandler(
+    hass: HomeAssistant, entry: WattpilotConfigEntry, identifier: str, value: str
+) -> None:
     """Async: dispatch a charger property update to the subscribed entities."""
     try:
         entry_data = entry.runtime_data
@@ -152,16 +153,14 @@ async def async_PropertyUpdateHandler(hass: HomeAssistant, entry: ConfigEntry, i
         async_dispatcher_send(hass, property_update_signal(entry.entry_id, identifier), value)
 
         if identifier in EVENT_PROPS:
-            charger_id = str(
-                entry_data[CONF_PARAMS].get(
-                    CONF_FRIENDLY_NAME, entry_data[CONF_PARAMS].get(CONF_IP_ADDRESS, DEFAULT_NAME)
-                )
-            )
+            params = entry_data.params
+            charger_id = str(params.get(CONF_FRIENDLY_NAME, params.get(CONF_IP_ADDRESS, DEFAULT_NAME)))
             data = {"charger_id": charger_id, "entry_id": entry.entry_id, "property": identifier, "value": value}
-            hass.bus.fire(EVENT_PROPS_ID, data)
+            # The client calls back on the event loop, so the loop-only variant applies.
+            hass.bus.async_fire(EVENT_PROPS_ID, data)
 
-        if entry_data.get(CONF_DBG_PROPS, False):
-            hass.async_create_task(async_PropertyDebug(identifier, value, entry_data.get(CONF_DBG_PROPS)))
+        if entry_data.debug_properties:
+            hass.async_create_task(async_PropertyDebug(identifier, value, entry_data.debug_properties))
     except Exception as e:
         _LOGGER.exception(
             "%s - async_PropertyUpdateHandler: Could not 'self' execute async: %s (%s.%s)",
@@ -300,6 +299,25 @@ async def async_SetChargerProp(
         return False
 
 
+def _runtime_data_for_device(hass: HomeAssistant, device_id: str) -> WattpilotRuntimeData | None:
+    """Return the runtime data of the first set-up Wattpilot entry behind a device.
+
+    Only this integration's entries are considered: a device can also belong to
+    other integrations' entries, whose runtime data is something else entirely.
+    The device is assumed to exist; the callers check that first.
+    """
+    device = dr.async_get(hass).async_get(device_id)
+    for entry_id in device.config_entries if device else ():
+        entry = hass.config_entries.async_get_entry(entry_id)
+        if entry is None or entry.domain != DOMAIN:
+            continue
+        # runtime_data is unset until the entry has been set up once.
+        entry_data: WattpilotRuntimeData | None = getattr(entry, "runtime_data", None)
+        if entry_data is not None:
+            return entry_data
+    return None
+
+
 async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str) -> Any:
     """Async: return the data store for a specific device_id."""
     try:
@@ -311,12 +329,7 @@ async def async_GetDataStoreFromDeviceID(hass: HomeAssistant, device_id: str) ->
             return None
 
         _LOGGER.debug("%s - async_GetDataStoreFromDeviceID: get charger data store for config entry", DOMAIN)
-        entry_data = None
-        for entry_id in device.config_entries:
-            if entry_data is not None:
-                continue
-            entry = hass.config_entries.async_get_entry(entry_id)
-            entry_data = getattr(entry, "runtime_data", None) if entry else None
+        entry_data = _runtime_data_for_device(hass, device_id)
         if entry_data is None:
             _LOGGER.error(
                 "%s - async_GetDataStoreFromDeviceID: Unable to receive data store for device: %s", DOMAIN, device_id
@@ -348,13 +361,8 @@ async def async_GetChargerFromDeviceID(hass: HomeAssistant, device_id: str) -> A
             return None
 
         _LOGGER.debug("%s - async_GetChargerFromDeviceID: get charger object and data store for config entry", DOMAIN)
-        charger = None
-        for entry_id in device.config_entries:
-            if charger is not None:
-                continue
-            entry = hass.config_entries.async_get_entry(entry_id)
-            entry_data = getattr(entry, "runtime_data", None) if entry else None
-            charger = entry_data.get(CONF_CHARGER, None) if entry_data else None
+        entry_data = _runtime_data_for_device(hass, device_id)
+        charger = entry_data.charger if entry_data is not None else None
         if charger is None:
             _LOGGER.error(
                 "%s - async_GetChargerFromDeviceID: Unable to identify charger object for device: %s", DOMAIN, device_id

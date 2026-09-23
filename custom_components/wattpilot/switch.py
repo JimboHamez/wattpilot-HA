@@ -5,16 +5,18 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Final
 
+from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNKNOWN
+from homeassistant.exceptions import HomeAssistantError
 
 from .catalog import async_setup_catalog_entities
 from .entities import ChargerPlatformEntity
-from .utils import async_SetChargerProp
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .models import WattpilotConfigEntry
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "switch"
@@ -27,13 +29,24 @@ TRUE_VALUES: Final = frozenset({"true", "1", "1.0", STATE_ON})
 FALSE_VALUES: Final = frozenset({"false", "0", "0.0", STATE_OFF})
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: WattpilotConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up the switch platform."""
     await async_setup_catalog_entities(hass, entry, async_add_entities, platform, ChargerSwitch, source="property")
 
 
-class ChargerSwitch(ChargerPlatformEntity):
-    """Switch class for Fronius Wattpilot integration."""
+class ChargerSwitch(ChargerPlatformEntity, SwitchEntity):
+    """Switch class for Fronius Wattpilot integration.
+
+    ``SwitchEntity`` derives ``state`` from ``is_on`` and does not allow it to be
+    set, so the validated STATE_ON / STATE_OFF / STATE_UNKNOWN value lives in
+    ``_switch_state`` and ``is_on`` reads it back. Inheriting ``SwitchEntity``
+    also brings ``async_toggle`` for the ``switch.toggle`` action.
+    """
+
+    _state_attr = "_switch_state"
+    _switch_state: str = STATE_UNKNOWN
 
     async def _async_update_validate_platform_state(self, state: Any = None) -> Any:
         """Async: Validate the given state for switch specific requirements."""
@@ -84,38 +97,32 @@ class ChargerSwitch(ChargerPlatformEntity):
             return None
 
     @property
-    def is_on(self) -> bool:
-        """Return true if entity is on."""
-        return self.state == STATE_ON
+    def is_on(self) -> bool | None:
+        """Return true if entity is on, or None while the state is unknown."""
+        if self._switch_state == STATE_ON:
+            return True
+        if self._switch_state == STATE_OFF:
+            return False
+        return None
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Async: Turn entity on."""
         try:
             _LOGGER.debug("%s - %s: async_turn_on: %s", self._charger_id, self._identifier, self._attr_translation_key)
             value = not self._entity_cfg.get("invert", False)
-            await async_SetChargerProp(self._charger, self._identifier, value)
+            await self._async_write_property(self._identifier, value)
+        except HomeAssistantError:
+            raise
         except Exception as e:
-            _LOGGER.exception(
-                "%s - %s: async_turn_on failed: %s (%s.%s)",
-                self._charger_id,
-                self._identifier,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
+            raise self._action_failure("async_turn_on", e) from e
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Async: Turn entity off."""
         try:
             _LOGGER.debug("%s - %s: async_turn_off: %s", self._charger_id, self._identifier, self._attr_translation_key)
             value = bool(self._entity_cfg.get("invert", False))
-            await async_SetChargerProp(self._charger, self._identifier, value)
+            await self._async_write_property(self._identifier, value)
+        except HomeAssistantError:
+            raise
         except Exception as e:
-            _LOGGER.exception(
-                "%s - %s: async_turn_off failed: %s (%s.%s)",
-                self._charger_id,
-                self._identifier,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
+            raise self._action_failure("async_turn_off", e) from e

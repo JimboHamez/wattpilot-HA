@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
-from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PARAMS, CONF_PASSWORD
+from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PASSWORD
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -24,15 +24,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from wattpilot_api.exceptions import AuthenticationError, WattpilotError
 
 from custom_components.wattpilot.const import (
-    CONF_CHARGER,
     CONF_CLOUD,
     CONF_CONNECTION,
-    CONF_DBG_PROPS,
     CONF_LOCAL,
     CONF_SERIAL,
     DOMAIN,
     EVENT_PROPS_ID,
 )
+from custom_components.wattpilot.models import WattpilotRuntimeData
 
 # Importing utils triggers Home Assistant imports and the dynamic load of the
 # vendored wattpilot library (needs websocket-client). Skip the whole module
@@ -182,7 +181,7 @@ def _entry_with_runtime_data(hass, dbg=False):
     """Return a config entry with the runtime data the handler expects."""
     entry = MockConfigEntry(domain=DOMAIN, data={CONF_FRIENDLY_NAME: "WB"})
     entry.add_to_hass(hass)
-    entry.runtime_data = {CONF_PARAMS: {CONF_FRIENDLY_NAME: "WB"}, CONF_DBG_PROPS: dbg}
+    entry.runtime_data = WattpilotRuntimeData(charger=MagicMock(), params=entry.data, debug_properties=dbg)
     return entry
 
 
@@ -315,7 +314,7 @@ def _registered_device(hass, charger):
     """Register a device for an entry holding the given charger."""
     entry = MockConfigEntry(domain=DOMAIN, data={})
     entry.add_to_hass(hass)
-    entry.runtime_data = {CONF_CHARGER: charger, CONF_PARAMS: {}}
+    entry.runtime_data = WattpilotRuntimeData(charger=charger, params=entry.data)
     device = dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id, identifiers={(DOMAIN, "SN")}, name="WB"
     )

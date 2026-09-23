@@ -287,7 +287,11 @@ automations.
 | `wattpilot.reconnect_charger` | – | Reopens the session after `disconnect_charger`, or forces a reconnect. |
 
 Failures surface as errors on the calling script rather than being silently logged, so an
-automation stops when a charger cannot carry out what it was asked.
+automation stops when a charger cannot carry out what it was asked. The same holds for the
+entities' own actions: turning a switch on or off, pressing a button, picking a select option,
+setting a number or installing a firmware update all raise an error when the charger does not
+take the change. To let an automation carry on past such a step, add `continue_on_error: true`
+to it.
 
 ## Supported devices
 

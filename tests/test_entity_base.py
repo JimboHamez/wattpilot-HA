@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 pytest.importorskip("wattpilot_api", reason="integration import unavailable")
-from homeassistant.const import CONF_PARAMS, STATE_UNKNOWN, EntityCategory
+from homeassistant.const import STATE_UNKNOWN, EntityCategory
 
 from custom_components.wattpilot.const import CONF_CLOUD, CONF_CONNECTION, CONF_LOCAL
 from custom_components.wattpilot.entities import ChargerPlatformEntity
@@ -29,8 +29,7 @@ def _build(charger, entry_connection=CONF_LOCAL, **cfg):
     hass = MagicMock()
     entry = MagicMock()
     entry.entry_id = "e1"
-    entry.data = {"friendly_name": "WB"}
-    entry.runtime_data = {CONF_PARAMS: {CONF_CONNECTION: entry_connection}}
+    entry.data = {"friendly_name": "WB", CONF_CONNECTION: entry_connection}
     definition = {"source": "property", "id": "amp"}
     definition.update(cfg)
     return ChargerPlatformEntity(hass, entry, definition, charger)
@@ -105,18 +104,18 @@ def test_connection_gate(make_charger, connection, supported):
     assert entity._connection_supported is supported
 
 
-def test_connection_gate_passes_without_runtime_data(make_charger):
-    """Before runtime data exists the connection gate does not block setup."""
+@pytest.mark.parametrize(("connection", "supported"), [(CONF_LOCAL, True), (CONF_CLOUD, False)])
+def test_connection_gate_treats_an_entry_without_a_type_as_local(make_charger, connection, supported):
+    """An entry that does not record its connection type was connected locally, so it gates as local."""
     hass = MagicMock()
     entry = MagicMock()
     entry.entry_id = "e1"
     entry.data = {"friendly_name": "WB"}
-    entry.runtime_data = None
     charger = make_charger(props=dict(BASE_PROPS))
 
-    entity = ChargerPlatformEntity(hass, entry, {"source": "property", "id": "amp", "connection": CONF_CLOUD}, charger)
+    entity = ChargerPlatformEntity(hass, entry, {"source": "property", "id": "amp", "connection": connection}, charger)
 
-    assert entity._connection_supported is True
+    assert entity._connection_supported is supported
 
 
 @pytest.mark.parametrize(
@@ -209,7 +208,22 @@ def test_device_info_describes_the_charger(make_charger):
     assert info["manufacturer"] == "Fronius"
     assert info["model"] == "model"
     assert info["sw_version"] == "38.5"
-    assert info["hw_version"] == "11 KW"
+    assert info["hw_version"] == "11 kW"
+
+
+def test_device_info_leaves_out_what_the_charger_does_not_report(make_charger):
+    """Missing metadata is omitted, not shown as the literal string 'unknown'."""
+    charger = make_charger(props={"amp": 6, "sse": "SN"}, serial="SN")
+    for attr in ("manufacturer", "firmware", "device_type"):
+        if hasattr(charger, attr):
+            delattr(charger, attr)
+
+    info = _build(charger).device_info
+
+    assert info["manufacturer"] is None
+    assert info["model"] is None
+    assert info["sw_version"] is None
+    assert info["hw_version"] is None
 
 
 # --- availability -------------------------------------------------------------

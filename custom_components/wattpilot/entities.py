@@ -2,27 +2,28 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Final
 
 from packaging.version import Version
 
-from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PARAMS, STATE_UNKNOWN, EntityCategory
+from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, STATE_UNKNOWN, EntityCategory
 from homeassistant.core import callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import slugify
 
-from .const import CONF_CONNECTION, DEFAULT_NAME, DOMAIN
-from .utils import GetChargerProp, async_GetChargerProp, property_update_signal
+from .const import CONF_CONNECTION, CONF_LOCAL, DEFAULT_NAME, DOMAIN
+from .utils import GetChargerProp, async_GetChargerProp, async_SetChargerProp, property_update_signal
 
 if TYPE_CHECKING:
     from wattpilot_api import Wattpilot
 
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+
+    from .models import WattpilotConfigEntry
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -48,8 +49,13 @@ class ChargerPlatformEntity(Entity):
 
     _state_attr = "state"
     _attr_has_entity_name = True
+    # The catalog description is the same text on every state change; keep it
+    # visible on the entity but out of the recorder's history.
+    _unrecorded_attributes = frozenset({"description"})
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, entity_cfg: dict[str, Any], charger: Wattpilot) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: WattpilotConfigEntry, entity_cfg: dict[str, Any], charger: Wattpilot
+    ) -> None:
         """Initialize the object."""
         try:
             self._charger_id = str(entry.data.get(CONF_FRIENDLY_NAME, entry.data.get(CONF_IP_ADDRESS, DEFAULT_NAME)))
@@ -157,6 +163,63 @@ class ChargerPlatformEntity(Entity):
             )
             return None
 
+    async def _async_write_property(
+        self, identifier: str, value: Any, *, force: bool = False, force_type: str | None = None
+    ) -> None:
+        """Write a value to the charger for an entity action, raising if it was not taken.
+
+        Entity actions (turn on, press, select, set value, install) are started by a
+        person or an automation, so a failed write has to reach them - the UI shows
+        the error and the calling script stops - rather than only the log
+        (quality-scale ``action-exceptions``). ``async_SetChargerProp`` has already
+        logged the cause, so this only raises.
+
+        Args:
+            identifier: The charger property to write.
+            value: The value to write.
+            force: Write even if the charger does not report the property.
+            force_type: The JSON type to coerce the value to.
+
+        Raises:
+            HomeAssistantError: If the charger did not take the value.
+        """
+        if not await async_SetChargerProp(self._charger, identifier, value, force=force, force_type=force_type):
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="entity_write_failed",
+                translation_placeholders={"entity": str(self.entity_id), "property": identifier},
+            )
+
+    def _action_failure(self, action: str, e: Exception) -> HomeAssistantError:
+        """Log an unexpected entity-action failure and return the error to raise for it.
+
+        The entity-action counterpart of ``services.py::_raise_service_failure``:
+        called from a handler rather than being one, so the traceback is attached
+        from the exception it was handed.
+
+        Args:
+            action: The action method's name, used as the log context.
+            e: The unexpected exception.
+
+        Returns:
+            The ``HomeAssistantError`` the caller should raise from ``e``.
+        """
+        _LOGGER.error(
+            "%s - %s: %s failed: %s (%s.%s)",
+            self._charger_id,
+            self._identifier,
+            action,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+            exc_info=e,
+        )
+        return HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="entity_action_failed",
+            translation_placeholders={"entity": str(self.entity_id), "action": action, "error": str(e)},
+        )
+
     def _init_platform_specific(self) -> None:
         """Platform specific init actions."""
         # do nothing here as this is only a drop-in option for other platforms
@@ -255,13 +318,9 @@ class ChargerPlatformEntity(Entity):
         c_tst = self._entity_cfg.get("connection", None)
         if c_tst is None:
             return True
-        entry_data = getattr(self._entry, "runtime_data", None)
-        if entry_data is None:
-            return True
-        config_params = entry_data.get(CONF_PARAMS, None)
-        if config_params is None:
-            return True
-        connection = config_params.get(CONF_CONNECTION, STATE_UNKNOWN)
+        # An entry without a connection type predates the cloud option and was
+        # connected locally, which is also how async_ConnectCharger reads it.
+        connection = self._entry.data.get(CONF_CONNECTION, CONF_LOCAL)
         v = str(connection).upper() == str(c_tst).upper()
         _LOGGER.debug(
             "%s - %s: _check_connection_supported complete (%s=%s -> %s)",
@@ -499,13 +558,16 @@ class ChargerPlatformEntity(Entity):
     def device_info(self) -> DeviceInfo:
         """Return a device description for device registry."""
         # _LOGGER.debug("%s - %s: device_info", self._charger_id, self._identifier)
+        # A detail the charger does not report is left out (None) rather than shown
+        # as the literal string "unknown" on the device page.
+        variant = GetChargerProp(self._charger, "var", None)
         info = DeviceInfo(
             identifiers={(DOMAIN, getattr(self._charger, "serial", GetChargerProp(self._charger, "sse", None)))},
-            manufacturer=getattr(self._charger, "manufacturer", STATE_UNKNOWN),
-            model=GetChargerProp(self._charger, "typ", getattr(self._charger, "device_type", STATE_UNKNOWN)),
-            name=getattr(self._charger, "name", getattr(self._charger, "hostname", STATE_UNKNOWN)),
-            sw_version=getattr(self._charger, "firmware", STATE_UNKNOWN),
-            hw_version=str(GetChargerProp(self._charger, "var", STATE_UNKNOWN)) + " KW",
+            manufacturer=getattr(self._charger, "manufacturer", None) or None,
+            model=GetChargerProp(self._charger, "typ", getattr(self._charger, "device_type", None)) or None,
+            name=getattr(self._charger, "name", getattr(self._charger, "hostname", None)) or DEFAULT_NAME,
+            sw_version=getattr(self._charger, "firmware", None) or None,
+            hw_version=f"{variant} kW" if variant is not None else None,
         )
         # _LOGGER.debug("%s - %s: device_info result: %s", self._charger_id, self._identifier, info)
         return info
@@ -639,7 +701,7 @@ class ChargerPlatformEntity(Entity):
                 type(e).__name__,
             )
 
-    async def async_local_push(self, state: Any = None, initwait: bool = False) -> None:
+    async def async_local_push(self, state: Any = None) -> None:
         """Async: Get the latest status from the entity after an update was pushed."""
         try:
             if not self.enabled:
@@ -662,20 +724,11 @@ class ChargerPlatformEntity(Entity):
             else:
                 await self.async_local_poll()
         except Exception as e:
-            if type(e).__name__ == "NoEntitySpecifiedError" and initwait is False:
-                _LOGGER.debug(
-                    "%s - %s: async_local_push: wait and retry once for setup init delay",
-                    self._charger_id,
-                    self._identifier,
-                )
-                await asyncio.sleep(5)
-                await self.async_local_push(state, True)
-            else:
-                _LOGGER.exception(
-                    "%s - %s: async_local_push failed: %s (%s.%s)",
-                    self._charger_id,
-                    self._identifier,
-                    str(e),
-                    e.__class__.__module__,
-                    type(e).__name__,
-                )
+            _LOGGER.exception(
+                "%s - %s: async_local_push failed: %s (%s.%s)",
+                self._charger_id,
+                self._identifier,
+                str(e),
+                e.__class__.__module__,
+                type(e).__name__,
+            )

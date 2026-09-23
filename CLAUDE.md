@@ -238,8 +238,8 @@ All platform entities subclass this. It centralizes:
   logs *only transitions* — one warning when the connection drops, one info when it returns
   (the quality-scale `log-when-unavailable` rule). `charger_available()` in the same module is
   the shared predicate; `entities.py::available` checks the same two flags per entity, at debug
-  level. Started in `async_setup_entry`, its cancel callable is stored under
-  `FUNC_CONNECTION_MONITOR` and invoked on unload.
+  level. Started in `async_setup_entry`, its cancel callable is stored in
+  `runtime_data.connection_monitor_cancel` and invoked on unload.
 
 ### Reading and writing charger values
 Always go through the `utils.py` helpers rather than touching the charger object directly:
@@ -270,12 +270,23 @@ Always go through the `utils.py` helpers rather than touching the charger object
   helpers are `_is_same_charger` / `_reconfigured_unique_id`, and `_async_validate_charger` is
   the shared "connect, and tell me which charger answered" primitive (`_async_test_connection`
   wraps it for the steps that only need the error).
-- Per-entry runtime state lives on **`entry.runtime_data`** (a dict), *not* `hass.data[DOMAIN]`
-  — keys from `const.py`: `CONF_CHARGER` (the connected charger object), `CONF_PARAMS`,
-  `CONF_DBG_PROPS`, plus the `on_property_change` unsubscribe handle
-  (`FUNC_PROPERTY_UPDATES_CALLBACK`) and the connection-monitor cancel callable
-  (`FUNC_CONNECTION_MONITOR`). `utils.py` has `async_GetChargerFromDeviceID` / `async_GetDataStoreFromDeviceID` to
-  resolve these from a HA `device_id` (used by services).
+- Per-entry runtime state lives on **`entry.runtime_data`**, *not* `hass.data[DOMAIN]`. It is a
+  `models.py::WattpilotRuntimeData` dataclass, and entries are typed as
+  `WattpilotConfigEntry = ConfigEntry[WattpilotRuntimeData]` (quality-scale `runtime-data` /
+  `strict-typing`). Fields: `charger` (the connected client), `params` (`entry.data` at setup),
+  `debug_properties`, the `on_property_change` unsubscribe handle (`property_updates_unsub`),
+  the connection-monitor cancel callable (`connection_monitor_cancel`), and the
+  `set_goe_cloud` results (`cloud_api_key`, `cloud_api_url`). Code that needs connection settings
+  outside setup (the connection gate, the update timeout) reads `entry.data` directly.
+  `models.py` is its own module because `utils`, `catalog` and `services` all need the type and
+  `__init__` imports them. `utils.py` has `async_GetChargerFromDeviceID` /
+  `async_GetDataStoreFromDeviceID` to resolve these from a HA `device_id` (used by services);
+  they only consider this integration's entries.
+- **Setup order:** connect → runtime data → property callback → connection monitor → forward
+  platforms. Everything that is not a platform is wired up first, so a failing step only
+  releases the entry's own resources (`__init__.py::_async_release_charger`, shared with
+  unload) and raises `ConfigEntryError`. Setup never unloads platforms. Unload goes through
+  `async_unload_platforms` and only releases the charger when every platform unloaded.
 - Services are defined in `services.py`, described for the UI in `services.yaml`, and registered
   once in `__init__.py::async_setup` (not per entry): `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`
   (enable/disable go-e cloud API), `set_debug_properties` (toggle property-change warning logs),
@@ -321,11 +332,14 @@ until the README gained its **Use cases**, **Example automations** and **Actions
 if you change what those sections cover, the rules go with them.
 
 The Silver `action-exceptions` rule was in direct tension with the log-and-degrade convention
-below, and the trade was settled deliberately: **`services.py` raises, everything else still logs
-and degrades.** A service action is invoked by a person or a script, so its failure has to reach
-the UI and stop the calling automation; an entity update or a background poll has no such caller.
-Do not extend the raising style past `services.py` (entity command methods included) without
-agreeing that separately.
+below, and the trade was settled deliberately: **actions raise, everything else still logs and
+degrades.** "Actions" means the service handlers in `services.py` *and* the entity action methods
+(`async_turn_on` / `async_turn_off`, `async_press`, `async_select_option`,
+`async_set_native_value`, `async_install`); HA's rule covers both, and entity actions were brought
+in by agreement in 0.11.0. An action is invoked by a person or a script, so its failure has to
+reach the UI and stop the calling automation. An entity update, a push callback or a background
+poll has no such caller, so those keep logging and degrading. Do not extend the raising style
+past actions without agreeing that separately.
 
 ## HACS packaging
 `hacs.json` (repo root) declares the HACS metadata; `"homeassistant"` is the **minimum HA version**
@@ -443,7 +457,14 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
   there is nothing to trace. `services.py::_raise_service_failure` is called *from* its handlers
   rather than being one, so it passes `exc_info=e` explicitly (ruff `LOG004` rejects a bare
   `.exception()` outside a handler).
-- **`services.py` is the one exception** (quality-scale `action-exceptions`): its handlers keep the
+- **Actions are the one exception** (quality-scale `action-exceptions`): `services.py` handlers and
+  the entity action methods. Entity actions write through
+  `entities.py::ChargerPlatformEntity._async_write_property`, which raises `entity_write_failed`
+  when `async_SetChargerProp` returns `False` (that helper has already logged the cause). Anything
+  unexpected goes through `_action_failure`, the entity-side twin of `_raise_service_failure`.
+  They follow the same shape as the service handlers: re-raise `HomeAssistantError`, raise
+  `ServiceValidationError` for a bad argument (an unknown select option, an update version the
+  charger does not offer). The service handlers keep the
   same `try/except` shape and the same log line, but end in a raise — `ServiceValidationError` for
   a bad call (missing parameter, unknown device, unusable value), `HomeAssistantError` for a valid
   call the charger could not carry out. Each handler re-raises `HomeAssistantError` untouched and
@@ -453,8 +474,9 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
   `translation_key` (plus `translation_placeholders`, values stringified) instead of a literal
   message — quality-scale `exception-translations`. A new key means adding an `exceptions` entry
   to `strings.json`, `translations/en.json` **and** `translations/de.json`;
-  `tests/test_exception_translations.py` fails on a missing key, an orphaned one, or a message
-  interpolating a placeholder the raise does not pass.
+  `tests/test_exception_translations.py` (which scans every module, not just `services.py`) fails
+  on a missing key, an orphaned one, or a message interpolating a placeholder the raise does not
+  pass.
 - Charger property short-codes (e.g. `nrg`, `acs`, `amp`, `frc`) largely come from the go-e API;
   the field reference is
   https://github.com/goecharger/go-eCharger-API-v2/blob/main/API_KEYS_FIRMWARE/apikeys-de.md

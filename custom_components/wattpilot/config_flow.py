@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, ClassVar, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import voluptuous as vol
 from wattpilot_api.exceptions import AuthenticationError
@@ -39,8 +39,6 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Custom config flow."""
 
     VERSION = 1
-    CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
-    loaded_platforms: ClassVar[list[str]] = []
 
     def __init__(self) -> None:
         """Initialize."""
@@ -151,10 +149,20 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         _LOGGER.debug("%s - ConfigFlowHandler: async_step_zeroconf_confirm", DOMAIN)
         try:
             name = self.data.get(CONF_FRIENDLY_NAME, DEFAULT_NAME)
+            errors: dict[str, str] = {}
             if user_input is not None:
-                self.data[CONF_PASSWORD] = user_input[CONF_PASSWORD]
-                self.data[CONF_TIMEOUT] = user_input.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
-                return self.async_create_entry(title=name, data=self.data)
+                data = {
+                    **self.data,
+                    CONF_PASSWORD: user_input[CONF_PASSWORD],
+                    CONF_TIMEOUT: user_input.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+                }
+                # Discovery only supplied the address; the password is the user's,
+                # so check it before creating an entry that would fail to set up.
+                error = await self._async_test_connection(data)
+                if error is None:
+                    self.data = data
+                    return self.async_create_entry(title=name, data=self.data)
+                errors["base"] = error
             schema = vol.Schema(
                 {
                     vol.Required(CONF_PASSWORD): cv.string,
@@ -162,7 +170,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             )
             return self.async_show_form(
-                step_id="zeroconf_confirm", data_schema=schema, description_placeholders={"name": name}
+                step_id="zeroconf_confirm", data_schema=schema, description_placeholders={"name": name}, errors=errors
             )
         except Exception as e:
             _LOGGER.exception(

@@ -16,7 +16,7 @@ import pytest
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 from homeassistant.const import CONF_IP_ADDRESS, CONF_PASSWORD
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryError, ConfigEntryNotReady
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from wattpilot_api.exceptions import AuthenticationError
 
@@ -27,12 +27,9 @@ from custom_components.wattpilot import (
 )
 from custom_components.wattpilot.const import (
     AUTH_FAILURE_REAUTH_THRESHOLD,
-    CONF_CHARGER,
     CONF_CONNECTION,
     CONF_LOCAL,
     DOMAIN,
-    FUNC_CONNECTION_MONITOR,
-    FUNC_PROPERTY_UPDATES_CALLBACK,
 )
 
 ENTRY_DATA = {
@@ -62,7 +59,7 @@ def _no_platforms(hass):
     return patch.multiple(
         hass.config_entries,
         async_forward_entry_setups=AsyncMock(),
-        async_forward_entry_unload=AsyncMock(return_value=True),
+        async_unload_platforms=AsyncMock(return_value=True),
     )
 
 
@@ -108,9 +105,10 @@ async def test_setup_entry_stores_runtime_data_and_starts_the_monitor(hass, make
     ):
         assert await async_setup_entry(hass, entry) is True
 
-    assert entry.runtime_data[CONF_CHARGER] is charger
-    assert callable(entry.runtime_data[FUNC_PROPERTY_UPDATES_CALLBACK])
-    assert callable(entry.runtime_data[FUNC_CONNECTION_MONITOR])
+    assert entry.runtime_data.charger is charger
+    assert entry.runtime_data.params == entry.data
+    assert callable(entry.runtime_data.property_updates_unsub)
+    assert callable(entry.runtime_data.connection_monitor_cancel)
 
 
 async def test_setup_entry_retries_when_the_charger_is_unreachable(hass):
@@ -225,13 +223,18 @@ async def test_setup_entry_survives_an_unknown_integration_version(hass, make_ch
     ],
 )
 async def test_setup_entry_aborts_when_a_step_fails(hass, make_charger, caplog, target, message):
-    """Each wiring step aborts setup and is reported."""
+    """Each wiring step aborts setup with ConfigEntryError, is reported, and releases the charger.
+
+    Setup never unloads platforms from inside itself: every non-platform step runs
+    before the platforms are forwarded, so a failure only has the connection, the
+    callback and the monitor to release.
+    """
     charger = make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB")
     entry = _entry(hass)
 
     patches = [
         patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)),
-        patch.object(hass.config_entries, "async_forward_entry_unload", AsyncMock(return_value=True)),
+        patch.object(hass.config_entries, "async_unload_platforms", AsyncMock(return_value=True)),
     ]
     if target == "async_forward_entry_setups":
         patches.append(
@@ -248,12 +251,15 @@ async def test_setup_entry_aborts_when_a_step_fails(hass, make_charger, caplog, 
         for p in patches:
             p.start()
         try:
-            assert await async_setup_entry(hass, entry) is False
+            with pytest.raises(ConfigEntryError):
+                await async_setup_entry(hass, entry)
         finally:
             for p in patches:
                 p.stop()
 
     assert any(message in r.getMessage() for r in caplog.records)
+    assert charger.connected is False
+    assert charger._property_callbacks == []
 
 
 # --- entry unload -------------------------------------------------------------
@@ -303,7 +309,7 @@ async def test_unload_entry_reports_a_missing_runtime_data(hass, caplog):
 
     with (
         caplog.at_level(logging.ERROR, logger="custom_components.wattpilot"),
-        patch.object(hass.config_entries, "async_forward_entry_unload", AsyncMock(return_value=True)),
+        patch.object(hass.config_entries, "async_unload_platforms", AsyncMock(return_value=True)),
     ):
         assert await async_unload_entry(hass, entry) is False
 
@@ -311,7 +317,7 @@ async def test_unload_entry_reports_a_missing_runtime_data(hass, caplog):
 
 
 async def test_setup_entry_reports_a_failing_runtime_data_store(hass, make_charger, caplog):
-    """A runtime data store that cannot be written aborts setup."""
+    """A runtime data store that cannot be written aborts setup and disconnects the charger."""
     charger = make_charger(props=dict(CHARGER_PROPS), serial="SN", name="WB")
 
     class _BrokenEntry:
@@ -331,17 +337,19 @@ async def test_setup_entry_reports_a_failing_runtime_data_store(hass, make_charg
     with (
         caplog.at_level(logging.ERROR, logger="custom_components.wattpilot"),
         patch("custom_components.wattpilot.async_ConnectCharger", new=AsyncMock(return_value=charger)),
+        pytest.raises(ConfigEntryError),
     ):
-        assert await async_setup_entry(hass, _BrokenEntry()) is False
+        await async_setup_entry(hass, _BrokenEntry())
 
     assert any("Creating data store failed" in r.getMessage() for r in caplog.records)
+    assert charger.connected is False
 
 
 @pytest.mark.parametrize(
     ("key", "message"),
     [
-        (FUNC_CONNECTION_MONITOR, "failed to stop charger connection monitor"),
-        (FUNC_PROPERTY_UPDATES_CALLBACK, "failed to remove registered event handlers"),
+        ("connection_monitor_cancel", "failed to stop charger connection monitor"),
+        ("property_updates_unsub", "failed to remove registered event handlers"),
     ],
 )
 async def test_unload_entry_reports_a_failing_teardown_step(hass, make_charger, caplog, key, message):
@@ -358,7 +366,7 @@ async def test_unload_entry_reports_a_failing_teardown_step(hass, make_charger, 
         def _explode():
             raise RuntimeError("boom")
 
-        entry.runtime_data[key] = _explode
+        setattr(entry.runtime_data, key, _explode)
         with caplog.at_level(logging.ERROR, logger="custom_components.wattpilot"):
             assert await async_unload_entry(hass, entry) is True
 
@@ -378,9 +386,10 @@ async def test_unload_entry_reports_a_platform_that_will_not_unload(hass, make_c
 
     with (
         caplog.at_level(logging.ERROR, logger="custom_components.wattpilot"),
-        patch.object(hass.config_entries, "async_forward_entry_unload", AsyncMock(return_value=False)),
-        patch("custom_components.wattpilot.asyncio.gather", new=AsyncMock(return_value=[])),
+        patch.object(hass.config_entries, "async_unload_platforms", AsyncMock(return_value=False)),
     ):
         assert await async_unload_entry(hass, entry) is False
 
     assert any("failed to unload" in r.getMessage() for r in caplog.records)
+    # The charger stays connected: the entry is still partly loaded.
+    assert charger.connected is True

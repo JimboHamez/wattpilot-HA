@@ -7,24 +7,29 @@ from typing import TYPE_CHECKING, Any, Final
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import callback
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import slugify
 
 from .catalog import async_setup_catalog_entities
+from .const import DOMAIN
 from .entities import ChargerPlatformEntity
-from .utils import GetChargerProp, async_SetChargerProp, property_update_signal
+from .utils import GetChargerProp, property_update_signal
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .models import WattpilotConfigEntry
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "select"
 PARALLEL_UPDATES = 0  # local push over a single WebSocket; no rate limit needed
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: WattpilotConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up the select platform."""
     await async_setup_catalog_entities(hass, entry, async_add_entities, platform, ChargerSelect, source="property")
 
@@ -174,22 +179,18 @@ class ChargerSelect(ChargerPlatformEntity, SelectEntity):
             # Map the exposed option (slug or label) back to the raw charger key.
             key = next((k for k, v in self._opt_out.items() if v == option), None)
             if key is None:
-                _LOGGER.error(
-                    "%s - %s: async_select_option: option %s not within options: %s",
-                    self._charger_id,
-                    self._identifier,
-                    option,
-                    self._opt_out,
+                raise ServiceValidationError(
+                    translation_domain=DOMAIN,
+                    translation_key="invalid_option",
+                    translation_placeholders={
+                        "entity": str(self.entity_id),
+                        "option": str(option),
+                        "options": ", ".join(str(v) for v in self._opt_out.values()),
+                    },
                 )
-                return None
             _LOGGER.debug("%s - %s: async_select_option: save option key %s", self._charger_id, self._identifier, key)
-            await async_SetChargerProp(self._charger, self._identifier, key, force_type=self._set_type)
+            await self._async_write_property(self._identifier, key, force_type=self._set_type)
+        except HomeAssistantError:
+            raise
         except Exception as e:
-            _LOGGER.exception(
-                "%s - %s: async_select_option failed: %s (%s.%s)",
-                self._charger_id,
-                self._identifier,
-                str(e),
-                e.__class__.__module__,
-                type(e).__name__,
-            )
+            raise self._action_failure("async_select_option", e) from e
