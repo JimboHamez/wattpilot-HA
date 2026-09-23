@@ -10,6 +10,20 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.11.0] - 2026-09-23
+
+A review against Home Assistant's current integration guidelines, and the fixes it turned up. The one
+change you may notice: **entity actions now report a failed write instead of ignoring it.** If the
+charger does not take a switch, button, select, number or firmware-update action, Home Assistant
+now shows an error and a calling automation stops at that step. Before, the failure only reached
+the log. Add `continue_on_error: true` to a step that should carry on regardless. Among the fixes:
+`switch.toggle` works again on every Wattpilot switch, and a diagnostics download no longer
+contains the charger's IP address or its WiFi access-point keys. If you have shared a diagnostics
+file from an earlier version, consider changing the charger's access-point password. No entity is
+renamed, rescaled or removed.
+
 ### Changed
 - **Entity actions now report failures instead of failing silently.** Turning a switch on or off,
   pressing a button, choosing a select option, setting a number and installing a firmware update
@@ -699,7 +713,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.0...v0.9.1
