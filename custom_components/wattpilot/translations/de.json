@@ -755,6 +755,9 @@
         "entry_not_found": {
             "message": "Für das Gerät {device_id} konnte kein Wattpilot Konfigurationseintrag ermittelt werden."
         },
+        "entry_not_loaded": {
+            "message": "Der Wattpilot-Konfigurationseintrag für das Gerät {device_id} ist nicht geladen. Prüfe, ob die Wallbox eingerichtet und erreichbar ist."
+        },
         "invalid_boolean": {
             "message": "{parameter} muss true oder false sein, erhalten: {value}"
         },

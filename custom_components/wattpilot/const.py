@@ -6,8 +6,6 @@ from datetime import timedelta
 from typing import Final
 
 DOMAIN: Final = "wattpilot"
-FUNC_CONNECTION_MONITOR: Final = "connection_monitor"
-FUNC_PROPERTY_UPDATES_CALLBACK: Final = "property_updates_callback"
 # Plain strings rather than homeassistant.const.Platform members: const.py is
 # deliberately free of Home Assistant imports so tests/test_const.py can load it
 # in isolation, without pulling in the whole HA stack.
@@ -15,8 +13,6 @@ SUPPORTED_PLATFORMS: Final = ("button", "number", "select", "sensor", "switch", 
 
 DEFAULT_NAME: Final = "Wattpilot"
 CONF_DBG_PROPS: Final = "debug_properties"
-CONF_CHARGERS: Final = "chargers"
-CONF_CHARGER: Final = "charger"
 CONF_CLOUD_API: Final = "cloud_api"
 CONF_CLOUD: Final = "cloud"
 CONF_CONNECTION: Final = "connection"

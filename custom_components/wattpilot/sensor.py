@@ -29,16 +29,19 @@ from .schedule import (
 )
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .models import WattpilotConfigEntry
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "sensor"
 PARALLEL_UPDATES = 0  # local push over a single WebSocket; no rate limit needed
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: WattpilotConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up the sensor platform."""
     # Sensors are the one platform whose value source varies per definition
     # (property / attribute / namespacelist), so the catalog's own source stands.

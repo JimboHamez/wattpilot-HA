@@ -41,7 +41,6 @@ def _build(entity_class, platform: str, key: str, charger, **overrides):
     entry = MagicMock()
     entry.entry_id = "e1"
     entry.data = {"friendly_name": "WB"}
-    entry.runtime_data = {}
     cfg = dict(_catalog(platform)[key])
     cfg.setdefault("source", "property")
     cfg.update(overrides)
@@ -159,14 +158,18 @@ async def test_inverted_switch_writes_inverted_booleans(make_charger):
 
 
 async def test_switch_is_on_follows_the_state(make_charger):
-    """is_on mirrors the entity state."""
+    """is_on mirrors the validated switch state, and the state follows is_on."""
     charger = make_charger(props={"fup": False, "typ": "m", "var": 11})
     entity = _build(ChargerSwitch, "switch", "fup", charger)
 
-    entity.state = STATE_ON
+    assert entity.is_on is None
+    assert entity.state is None
+    entity._switch_state = STATE_ON
     assert entity.is_on is True
-    entity.state = STATE_OFF
+    assert entity.state == STATE_ON
+    entity._switch_state = STATE_OFF
     assert entity.is_on is False
+    assert entity.state == STATE_OFF
 
 
 @pytest.mark.parametrize("method", ["async_turn_on", "async_turn_off"])

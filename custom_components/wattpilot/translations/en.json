@@ -755,6 +755,9 @@
         "entry_not_found": {
             "message": "Unable to identify the Wattpilot configuration entry for device {device_id}."
         },
+        "entry_not_loaded": {
+            "message": "The Wattpilot configuration entry for device {device_id} is not loaded. Check that the charger is set up and reachable."
+        },
         "invalid_boolean": {
             "message": "{parameter} must be true or false, got: {value}"
         },

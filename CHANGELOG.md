@@ -10,7 +10,48 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **`switch.toggle` works on Wattpilot switches.** `ChargerSwitch` derived only from the bare
+  `Entity`, not `SwitchEntity`, so the toggle action failed with an `AttributeError` on every
+  switch. Turn on and turn off were unaffected. A switch whose value is not known yet now shows as
+  unknown rather than off.
+- **A discovered charger's password is checked before the entry is created.** The zeroconf
+  confirm step used to store whatever was typed, so a wrong password only showed up later as a
+  failed setup. It now reports `invalid_auth` / `cannot_connect` on the form, like manual setup
+  (quality-scale `test-before-configure`).
+- **Unloading reports a platform that fails to unload.** The check tested a one-item list, which
+  is always truthy, so it could never fail. Unload now uses `async_unload_platforms` and leaves the
+  charger connected when a platform stays loaded.
+- **A setup that fails part-way no longer unloads platforms from inside setup.** The property
+  callback and the connection monitor are now wired up before the platforms are forwarded. A
+  failing step releases only this entry's own resources and raises `ConfigEntryError` instead of
+  returning `False`.
+- **One broken catalog definition no longer drops the whole platform.** The entity loop stopped
+  at the first definition that raised, discarding the entities already built. It now skips just
+  that one.
+- **Diagnostics no longer leak the charger's IP address or identity.** The IP was redacted from
+  the entry data but still present in the entry's `unique_id` (a manually added local entry is keyed
+  by it) and in its title. The charger properties also carried the WiFi access-point keys (`wak`,
+  `facwak`), SSIDs, MAC addresses, hostname, friendly names, serial, current-WiFi details, the OCPP
+  URL and the RFID card names. All of these are now redacted.
+- **Service actions refuse a charger whose entry is not loaded.** An unloaded or failed entry
+  still holds its last runtime data, so a call used to reach a stale, disconnected client. It now
+  raises a translated `entry_not_loaded` validation error (quality-scale `action-setup`). The
+  services are also registered with schemas, which reject misspelt or unknown fields; each field's
+  value is still checked by its handler, with the existing translated messages.
+
+### Changed
+- **Typed runtime data.** `entry.runtime_data` is now a `WattpilotRuntimeData` dataclass (new
+  `models.py`) instead of a dict keyed by string constants. Config entries are typed as
+  `WattpilotConfigEntry = ConfigEntry[WattpilotRuntimeData]`, following Home Assistant's pattern
+  (quality-scale `runtime-data`, `strict-typing`). The unused key constants `CONF_CHARGER`,
+  `CONF_CHARGERS`, `FUNC_CONNECTION_MONITOR` and `FUNC_PROPERTY_UPDATES_CALLBACK` are gone from
+  `const.py`. Internal only; nothing user-visible changes. One small side effect: an entry that
+  does not record its connection type is now gated as local, which is how it was always
+  connected. Before, the check depended on whether runtime data existed yet.
+- **Device-id lookups only consider Wattpilot entries.** The service actions' device → charger
+  lookup used to take the runtime data of whichever entry on the device it found first, even one
+  belonging to another integration.
 
 ## [0.10.0] - 2026-09-11
 

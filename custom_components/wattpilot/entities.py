@@ -8,21 +8,22 @@ from typing import TYPE_CHECKING, Any, Final
 
 from packaging.version import Version
 
-from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PARAMS, STATE_UNKNOWN, EntityCategory
+from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, STATE_UNKNOWN, EntityCategory
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import slugify
 
-from .const import CONF_CONNECTION, DEFAULT_NAME, DOMAIN
+from .const import CONF_CONNECTION, CONF_LOCAL, DEFAULT_NAME, DOMAIN
 from .utils import GetChargerProp, async_GetChargerProp, property_update_signal
 
 if TYPE_CHECKING:
     from wattpilot_api import Wattpilot
 
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+
+    from .models import WattpilotConfigEntry
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -49,7 +50,9 @@ class ChargerPlatformEntity(Entity):
     _state_attr = "state"
     _attr_has_entity_name = True
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, entity_cfg: dict[str, Any], charger: Wattpilot) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: WattpilotConfigEntry, entity_cfg: dict[str, Any], charger: Wattpilot
+    ) -> None:
         """Initialize the object."""
         try:
             self._charger_id = str(entry.data.get(CONF_FRIENDLY_NAME, entry.data.get(CONF_IP_ADDRESS, DEFAULT_NAME)))
@@ -255,13 +258,9 @@ class ChargerPlatformEntity(Entity):
         c_tst = self._entity_cfg.get("connection", None)
         if c_tst is None:
             return True
-        entry_data = getattr(self._entry, "runtime_data", None)
-        if entry_data is None:
-            return True
-        config_params = entry_data.get(CONF_PARAMS, None)
-        if config_params is None:
-            return True
-        connection = config_params.get(CONF_CONNECTION, STATE_UNKNOWN)
+        # An entry without a connection type predates the cloud option and was
+        # connected locally, which is also how async_ConnectCharger reads it.
+        connection = self._entry.data.get(CONF_CONNECTION, CONF_LOCAL)
         v = str(connection).upper() == str(c_tst).upper()
         _LOGGER.debug(
             "%s - %s: _check_connection_supported complete (%s=%s -> %s)",

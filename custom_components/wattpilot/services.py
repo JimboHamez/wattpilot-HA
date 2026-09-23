@@ -25,8 +25,12 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from homeassistant.const import CONF_API_KEY, CONF_DEVICE_ID, CONF_EXTERNAL_URL, CONF_PARAMS, CONF_TRIGGER_TIME
+import voluptuous as vol
+
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import CONF_DEVICE_ID, CONF_TRIGGER_TIME
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .const import (
     CLOUD_API_URL_POSTFIX,
@@ -67,15 +71,43 @@ if TYPE_CHECKING:
 
     from homeassistant.core import HomeAssistant, ServiceCall
 
+    from .models import WattpilotRuntimeData
+
 _LOGGER: Final = logging.getLogger(__name__)
 
 
+def _fields_schema(*fields: str) -> vol.Schema:
+    """Return a schema that accepts only the given fields, each of any value.
+
+    The schema rejects a misspelt or unknown field before the handler runs. The
+    fields' values are deliberately left to the handlers, which check them and
+    raise a translated ``ServiceValidationError`` naming the parameter - a
+    stricter schema would replace those messages with a generic one.
+    """
+    return vol.Schema({vol.Optional(field): cv.match_all for field in fields})
+
+
+# The fields each service accepts, matching services.yaml.
+SERVICE_SCHEMAS: Final[dict[str, vol.Schema]] = {
+    "disconnect_charger": _fields_schema(CONF_DEVICE_ID),
+    "reconnect_charger": _fields_schema(CONF_DEVICE_ID),
+    "set_charging_schedule": _fields_schema(
+        CONF_DAY_TYPE, CONF_DEVICE_ID, CONF_LIMIT_CHARGING_TIMES, CONF_PV_SURPLUS_OUTSIDE_TIMES, CONF_RANGES
+    ),
+    "set_debug_properties": _fields_schema(CONF_DBG_PROPS, CONF_DEVICE_ID),
+    "set_goe_cloud": _fields_schema(CONF_CLOUD_API, CONF_DEVICE_ID),
+    "set_next_trip": _fields_schema(CONF_DEVICE_ID, CONF_TRIGGER_TIME),
+}
+
+
 async def async_registerService(hass: HomeAssistant, name: str, service: Callable[..., Any]) -> None:
-    """Register a service if it does not already exist."""
+    """Register a service, with its schema from SERVICE_SCHEMAS, if it does not already exist."""
     try:
         _LOGGER.debug("%s - async_registerService: %s", DOMAIN, name)
         if not hass.services.has_service(DOMAIN, name):
-            hass.services.async_register(DOMAIN, name, functools.partial(service, hass))
+            hass.services.async_register(
+                DOMAIN, name, functools.partial(service, hass), schema=SERVICE_SCHEMAS.get(name)
+            )
         else:
             _LOGGER.debug("%s - async_registerService: service already exists: %s", DOMAIN, name)
     except Exception as e:
@@ -107,6 +139,38 @@ def _required(call: ServiceCall, key: str) -> Any:
     return value
 
 
+def _ensure_entry_loaded(hass: HomeAssistant, device_id: str) -> None:
+    """Refuse a call aimed at a charger whose config entry is not loaded.
+
+    An entry that failed to set up, or was unloaded, can still hold the runtime
+    data of its last setup, so resolving the charger would hand back a stale,
+    disconnected client. An unknown device is left to the resolution helpers,
+    which report it with their own errors.
+
+    Args:
+        hass: The Home Assistant instance.
+        device_id: The device the service call targets.
+
+    Raises:
+        ServiceValidationError: If the device belongs to this integration but none
+            of its config entries is loaded.
+    """
+    device = dr.async_get(hass).async_get(device_id)
+    if device is None:
+        return
+    entries = [
+        entry
+        for entry_id in device.config_entries
+        if (entry := hass.config_entries.async_get_entry(entry_id)) is not None and entry.domain == DOMAIN
+    ]
+    if entries and not any(entry.state is ConfigEntryState.LOADED for entry in entries):
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="entry_not_loaded",
+            translation_placeholders={"device_id": str(device_id)},
+        )
+
+
 async def _async_get_charger(hass: HomeAssistant, device_id: str) -> Wattpilot:
     """Return the charger object behind a device id.
 
@@ -118,8 +182,10 @@ async def _async_get_charger(hass: HomeAssistant, device_id: str) -> Wattpilot:
         The connected ``Wattpilot`` client for that device.
 
     Raises:
-        ServiceValidationError: If no charger can be resolved for the device.
+        ServiceValidationError: If the device's config entry is not loaded, or no
+            charger can be resolved for the device.
     """
+    _ensure_entry_loaded(hass, device_id)
     charger = await async_GetChargerFromDeviceID(hass, device_id)
     if not charger:
         raise ServiceValidationError(
@@ -130,7 +196,7 @@ async def _async_get_charger(hass: HomeAssistant, device_id: str) -> Wattpilot:
     return cast("Wattpilot", charger)
 
 
-async def _async_get_entry_data(hass: HomeAssistant, device_id: str) -> dict[str, Any]:
+async def _async_get_entry_data(hass: HomeAssistant, device_id: str) -> WattpilotRuntimeData:
     """Return the runtime data store behind a device id.
 
     Args:
@@ -138,11 +204,13 @@ async def _async_get_entry_data(hass: HomeAssistant, device_id: str) -> dict[str
         device_id: The device the service call targets.
 
     Returns:
-        The config entry's runtime data dict.
+        The config entry's runtime data.
 
     Raises:
-        ServiceValidationError: If no data store can be resolved for the device.
+        ServiceValidationError: If the device's config entry is not loaded, or no
+            data store can be resolved for the device.
     """
+    _ensure_entry_loaded(hass, device_id)
     entry_data = await async_GetDataStoreFromDeviceID(hass, device_id)
     if not entry_data:
         raise ServiceValidationError(
@@ -150,7 +218,7 @@ async def _async_get_entry_data(hass: HomeAssistant, device_id: str) -> dict[str
             translation_key="entry_not_found",
             translation_placeholders={"device_id": str(device_id)},
         )
-    return cast("dict[str, Any]", entry_data)
+    return cast("WattpilotRuntimeData", entry_data)
 
 
 def _raise_service_failure(name: str, call: ServiceCall, e: Exception) -> HomeAssistantError:
@@ -429,7 +497,7 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
                 await asyncio.sleep(1)
                 timer += 1
             if not timeout > timer:
-                entry_data[CONF_API_KEY] = False
+                entry_data.cloud_api_key = False
                 # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure -- reports only the timeout duration, never the key  # noqa: E501
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,
@@ -438,8 +506,8 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
                 )
 
             _LOGGER.debug("%s - async_service_SetGoECloud: Saving api key to data store", DOMAIN)
-            entry_data[CONF_API_KEY] = charger.cak
-            api_key = str(entry_data[CONF_API_KEY]) if entry_data[CONF_API_KEY] is not None else ""
+            entry_data.cloud_api_key = charger.cak
+            api_key = str(charger.cak) if charger.cak is not None else ""
             # Log only whether a key is present and its length, never the key itself.
             # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure -- deliberately logs presence/length only  # noqa: E501
             _LOGGER.debug(
@@ -452,16 +520,16 @@ async def async_service_SetGoECloud(hass: HomeAssistant, call: ServiceCall) -> N
 
             serial = getattr(charger, "serial", await async_GetChargerProp(charger, "sse", False))
             if serial:
-                entry_data[CONF_EXTERNAL_URL] = CLOUD_API_URL_PREFIX + serial + CLOUD_API_URL_POSTFIX
+                entry_data.cloud_api_url = CLOUD_API_URL_PREFIX + serial + CLOUD_API_URL_POSTFIX
                 _LOGGER.info(
                     "%s - async_service_SetGoECloud: %s cloud API URL: %s",
                     DOMAIN,
                     charger.name,
-                    entry_data[CONF_EXTERNAL_URL],
+                    entry_data.cloud_api_url,
                 )
         else:
             _LOGGER.debug("%s - async_service_SetGoECloud: %s disabling cloud api", DOMAIN, charger.name)
-            entry_data[CONF_API_KEY] = False
+            entry_data.cloud_api_key = False
             if not await async_SetChargerProp(charger, "cae", False):
                 raise HomeAssistantError(
                     translation_domain=DOMAIN,
@@ -495,13 +563,13 @@ async def async_service_SetDebugProperties(hass: HomeAssistant, call: ServiceCal
         entry_data = await _async_get_entry_data(hass, device_id)
 
         if isinstance(dbg_state, bool):
-            entry_data[CONF_DBG_PROPS] = dbg_state
+            entry_data.debug_properties = dbg_state
         elif isinstance(dbg_state, str) and dbg_state.lower() == "true":
-            entry_data[CONF_DBG_PROPS] = True
+            entry_data.debug_properties = True
         elif isinstance(dbg_state, str) and dbg_state.lower() == "false":
-            entry_data[CONF_DBG_PROPS] = False
+            entry_data.debug_properties = False
         elif isinstance(dbg_state, list):
-            entry_data[CONF_DBG_PROPS] = dbg_state
+            entry_data.debug_properties = [str(prop) for prop in dbg_state]
         else:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
@@ -543,7 +611,7 @@ async def async_service_ReConnectCharger(hass: HomeAssistant, call: ServiceCall)
         _LOGGER.debug("%s - async_service_ReConnectCharger: Connecting charger", DOMAIN)
         # The existing charger object is reused, so entities and the connection
         # monitor keep pointing at the reconnected session.
-        reconnected = await async_ConnectCharger(device_id, entry_data[CONF_PARAMS], charger)
+        reconnected = await async_ConnectCharger(device_id, entry_data.params, charger)
         if reconnected is False:
             raise HomeAssistantError(
                 translation_domain=DOMAIN,

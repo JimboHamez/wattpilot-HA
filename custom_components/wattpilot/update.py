@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Final
 from packaging.version import Version
 
 from homeassistant.components.update import UpdateEntity, UpdateEntityFeature
-from homeassistant.const import CONF_PARAMS, CONF_TIMEOUT
+from homeassistant.const import CONF_TIMEOUT
 
 from .catalog import async_setup_catalog_entities
 from .const import DEFAULT_TIMEOUT
@@ -18,16 +18,19 @@ from .entities import ChargerPlatformEntity
 from .utils import GetChargerProp, async_SetChargerProp
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+    from .models import WattpilotConfigEntry
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "update"
 PARALLEL_UPDATES = 0  # local push over a single WebSocket; no rate limit needed
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
+async def async_setup_entry(
+    hass: HomeAssistant, entry: WattpilotConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Set up the update platform."""
     await async_setup_catalog_entities(
         hass,
@@ -157,10 +160,7 @@ class ChargerUpdate(ChargerPlatformEntity, UpdateEntity):
             # Resolve the configured connection timeout (falling back to the
             # default). A firmware flash plus reboot takes far longer than a
             # normal connect, so allow up to 4x that budget below.
-            entry_data = getattr(self._entry, "runtime_data", None)
-            config_params = entry_data.get(CONF_PARAMS, None) if entry_data else None
-            timeout = DEFAULT_TIMEOUT if config_params is None else config_params.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)
-            timeout = timeout * 4
+            timeout = self._entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT) * 4
             # The charger drops its WebSocket while flashing: first wait for it
             # to disconnect (update started), then wait for it to reconnect.
             timer = 0

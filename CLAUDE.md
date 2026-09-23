@@ -238,8 +238,8 @@ All platform entities subclass this. It centralizes:
   logs *only transitions* — one warning when the connection drops, one info when it returns
   (the quality-scale `log-when-unavailable` rule). `charger_available()` in the same module is
   the shared predicate; `entities.py::available` checks the same two flags per entity, at debug
-  level. Started in `async_setup_entry`, its cancel callable is stored under
-  `FUNC_CONNECTION_MONITOR` and invoked on unload.
+  level. Started in `async_setup_entry`, its cancel callable is stored in
+  `runtime_data.connection_monitor_cancel` and invoked on unload.
 
 ### Reading and writing charger values
 Always go through the `utils.py` helpers rather than touching the charger object directly:
@@ -270,12 +270,23 @@ Always go through the `utils.py` helpers rather than touching the charger object
   helpers are `_is_same_charger` / `_reconfigured_unique_id`, and `_async_validate_charger` is
   the shared "connect, and tell me which charger answered" primitive (`_async_test_connection`
   wraps it for the steps that only need the error).
-- Per-entry runtime state lives on **`entry.runtime_data`** (a dict), *not* `hass.data[DOMAIN]`
-  — keys from `const.py`: `CONF_CHARGER` (the connected charger object), `CONF_PARAMS`,
-  `CONF_DBG_PROPS`, plus the `on_property_change` unsubscribe handle
-  (`FUNC_PROPERTY_UPDATES_CALLBACK`) and the connection-monitor cancel callable
-  (`FUNC_CONNECTION_MONITOR`). `utils.py` has `async_GetChargerFromDeviceID` / `async_GetDataStoreFromDeviceID` to
-  resolve these from a HA `device_id` (used by services).
+- Per-entry runtime state lives on **`entry.runtime_data`**, *not* `hass.data[DOMAIN]`. It is a
+  `models.py::WattpilotRuntimeData` dataclass, and entries are typed as
+  `WattpilotConfigEntry = ConfigEntry[WattpilotRuntimeData]` (quality-scale `runtime-data` /
+  `strict-typing`). Fields: `charger` (the connected client), `params` (`entry.data` at setup),
+  `debug_properties`, the `on_property_change` unsubscribe handle (`property_updates_unsub`),
+  the connection-monitor cancel callable (`connection_monitor_cancel`), and the
+  `set_goe_cloud` results (`cloud_api_key`, `cloud_api_url`). Code that needs connection settings
+  outside setup (the connection gate, the update timeout) reads `entry.data` directly.
+  `models.py` is its own module because `utils`, `catalog` and `services` all need the type and
+  `__init__` imports them. `utils.py` has `async_GetChargerFromDeviceID` /
+  `async_GetDataStoreFromDeviceID` to resolve these from a HA `device_id` (used by services);
+  they only consider this integration's entries.
+- **Setup order:** connect → runtime data → property callback → connection monitor → forward
+  platforms. Everything that is not a platform is wired up first, so a failing step only
+  releases the entry's own resources (`__init__.py::_async_release_charger`, shared with
+  unload) and raises `ConfigEntryError`. Setup never unloads platforms. Unload goes through
+  `async_unload_platforms` and only releases the charger when every platform unloaded.
 - Services are defined in `services.py`, described for the UI in `services.yaml`, and registered
   once in `__init__.py::async_setup` (not per entry): `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`
   (enable/disable go-e cloud API), `set_debug_properties` (toggle property-change warning logs),

@@ -9,22 +9,65 @@ from typing import TYPE_CHECKING, Any, Final
 import wattpilot_api
 
 from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.const import CONF_IP_ADDRESS, CONF_PASSWORD
+from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PASSWORD
 
-from .const import CONF_CHARGER
+from .const import CONF_SERIAL
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
 
-REDACT_CONFIG = {CONF_IP_ADDRESS, CONF_PASSWORD}
-REDACT_ALLPROPS = {"wifis", "scan", "data", "dll", "cak", "ocppck", "ocppcc", "ocppsc"}
+    from .models import WattpilotConfigEntry
+
+# The entry's unique_id and title repeat what its data holds: a manually added
+# local entry is keyed by its IP address, and without a friendly name the title
+# is that address too. Redacting only the data would leave both in the download.
+REDACT_CONFIG = {CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, CONF_PASSWORD, CONF_SERIAL, "title", "unique_id"}
+# Credentials (the cloud key, the WiFi access-point keys, OCPP secrets) and
+# anything that identifies the charger, its network or its users: serial, names,
+# hostname, SSIDs, MAC addresses, the OCPP server URL and the RFID card names.
+REDACT_ALLPROPS = {
+    "c0n",
+    "c1n",
+    "c2n",
+    "c3n",
+    "c4n",
+    "c5n",
+    "c6n",
+    "c7n",
+    "c8n",
+    "c9n",
+    "cak",
+    "cards",
+    "ccw",
+    "data",
+    "dll",
+    "facwak",
+    "ffna",
+    "fna",
+    "fwan",
+    "host",
+    "maca",
+    "macs",
+    "ocppcc",
+    "ocppck",
+    "ocppsc",
+    "ocppu",
+    "scan",
+    "sse",
+    "wak",
+    "wan",
+    "wcb",
+    "wfb",
+    "wifis",
+    "wpb",
+    "wss",
+}
 
 _LOGGER: Final = logging.getLogger(__name__)
 platform = "diagnostics"
 
 
-async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigEntry) -> dict[str, Any]:
+async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: WattpilotConfigEntry) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
     _LOGGER.debug("Returning %s platform entry: %s", platform, entry.entry_id)
     try:
@@ -33,7 +76,7 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
             entry.entry_id,
             platform,
         )
-        charger = entry.runtime_data[CONF_CHARGER]
+        charger = entry.runtime_data.charger
     except Exception as e:
         _LOGGER.exception(
             "%s - async_get_config_entry_diagnostics %s: Getting charger instance from data store failed: %s (%s.%s)",

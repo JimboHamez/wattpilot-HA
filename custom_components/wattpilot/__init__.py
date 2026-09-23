@@ -2,26 +2,17 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any, Final, Literal
 
 from wattpilot_api.exceptions import AuthenticationError
 
-from homeassistant.const import CONF_PARAMS
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryError, ConfigEntryNotReady
 from homeassistant.loader import async_get_integration
 
 from .availability import ChargerConnectionMonitor
-from .const import (
-    AUTH_FAILURE_REAUTH_THRESHOLD,
-    CONF_CHARGER,
-    CONF_DBG_PROPS,
-    DOMAIN,
-    FUNC_CONNECTION_MONITOR,
-    FUNC_PROPERTY_UPDATES_CALLBACK,
-    SUPPORTED_PLATFORMS,
-)
+from .const import AUTH_FAILURE_REAUTH_THRESHOLD, DOMAIN, SUPPORTED_PLATFORMS
+from .models import WattpilotRuntimeData
 from .services import (
     async_registerService,
     async_service_DisconnectCharger,
@@ -41,8 +32,9 @@ from .utils import (
 if TYPE_CHECKING:
     from wattpilot_api import Wattpilot
 
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+
+    from .models import WattpilotConfigEntry
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -80,7 +72,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: WattpilotConfigEntry) -> bool:
     """Set up a charger from the config entry."""
     _LOGGER.debug("Setting up config entry: %s", entry.entry_id)
 
@@ -144,11 +136,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         _LOGGER.debug("%s - async_setup_entry: Creating runtime data store for %s", entry.entry_id, DOMAIN)
-        entry.runtime_data = {
-            CONF_CHARGER: charger,
-            CONF_PARAMS: entry.data,
-            CONF_DBG_PROPS: False,
-        }
+        entry.runtime_data = WattpilotRuntimeData(charger=charger, params=entry.data)
         entry_data = entry.runtime_data
     except Exception as e:
         _LOGGER.exception(
@@ -159,8 +147,47 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             type(e).__name__,
         )
         await async_DisconnectCharger(entry.entry_id, charger)
-        await async_unload_entry(hass, entry)
-        return False
+        raise ConfigEntryError(f"Creating the data store failed for entry {entry.entry_id}: {e}") from e
+
+    # Everything that is not a platform is wired up before the platforms are
+    # forwarded, so a failing step only has this entry's own resources to release
+    # and never has to unload platforms from inside setup. A property pushed before
+    # the entities exist reaches no subscriber, which is harmless: each entity
+    # seeds its state from the charger when it is added.
+    try:
+        _LOGGER.debug("%s - async_setup_entry: register properties update handler", entry.entry_id)
+
+        # The wattpilot_api client fires property callbacks on Home Assistant's
+        # own event loop, so an async callback can be registered directly.
+        # on_property_change returns an unsubscribe function used on unload.
+        async def _property_update_callback(identifier: str, value: Any) -> None:
+            await async_PropertyUpdateHandler(hass, entry, identifier, value)
+
+        entry_data.property_updates_unsub = charger.on_property_change(_property_update_callback)
+    except Exception as e:
+        _LOGGER.exception(
+            "%s - async_setup_entry: Could not register properties updater handler: %s (%s.%s)",
+            entry.entry_id,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
+        await _async_release_charger(entry.entry_id, entry_data)
+        raise ConfigEntryError(f"Registering the property handler failed for entry {entry.entry_id}: {e}") from e
+
+    try:
+        _LOGGER.debug("%s - async_setup_entry: start charger connection monitor", entry.entry_id)
+        entry_data.connection_monitor_cancel = ChargerConnectionMonitor(hass, entry.entry_id, charger).async_start()
+    except Exception as e:
+        _LOGGER.exception(
+            "%s - async_setup_entry: Could not start charger connection monitor: %s (%s.%s)",
+            entry.entry_id,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
+        await _async_release_charger(entry.entry_id, entry_data)
+        raise ConfigEntryError(f"Starting the connection monitor failed for entry {entry.entry_id}: {e}") from e
 
     try:
         _LOGGER.debug("%s - async_setup_entry: Trigger setup for platforms", entry.entry_id)
@@ -173,119 +200,76 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             e.__class__.__module__,
             type(e).__name__,
         )
-        await async_unload_entry(hass, entry)
-        return False
-
-    try:
-        _LOGGER.debug("%s - async_setup_entry: register properties update handler", entry.entry_id)
-
-        # The wattpilot_api client fires property callbacks on Home Assistant's
-        # own event loop, so an async callback can be registered directly.
-        # on_property_change returns an unsubscribe function used on unload.
-        async def _property_update_callback(identifier: str, value: Any) -> None:
-            await async_PropertyUpdateHandler(hass, entry, identifier, value)
-
-        entry_data[FUNC_PROPERTY_UPDATES_CALLBACK] = charger.on_property_change(_property_update_callback)
-    except Exception as e:
-        _LOGGER.exception(
-            "%s - async_setup_entry: Could not register properties updater handler: %s (%s.%s)",
-            entry.entry_id,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        await async_unload_entry(hass, entry)
-        return False
-
-    try:
-        _LOGGER.debug("%s - async_setup_entry: start charger connection monitor", entry.entry_id)
-        entry_data[FUNC_CONNECTION_MONITOR] = ChargerConnectionMonitor(hass, entry.entry_id, charger).async_start()
-    except Exception as e:
-        _LOGGER.exception(
-            "%s - async_setup_entry: Could not start charger connection monitor: %s (%s.%s)",
-            entry.entry_id,
-            str(e),
-            e.__class__.__module__,
-            type(e).__name__,
-        )
-        await async_unload_entry(hass, entry)
-        return False
+        await _async_release_charger(entry.entry_id, entry_data)
+        raise ConfigEntryError(f"Setting up the platforms failed for entry {entry.entry_id}: {e}") from e
 
     _LOGGER.debug("%s - async_setup_entry: Completed", entry.entry_id)
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def _async_release_charger(entry_id: str, entry_data: WattpilotRuntimeData) -> None:
+    """Stop the connection monitor, unsubscribe from the charger and disconnect it.
+
+    Shared by unload and by a setup that fails after connecting. Each step is
+    attempted on its own, so one failing step does not leave the others undone.
+
+    Args:
+        entry_id: The config entry id, used as the log prefix.
+        entry_data: The entry's runtime data store.
+    """
+    try:
+        _LOGGER.debug("%s - _async_release_charger: stop charger connection monitor", entry_id)
+        if entry_data.connection_monitor_cancel is not None:
+            entry_data.connection_monitor_cancel()
+            entry_data.connection_monitor_cancel = None
+    except Exception as e:
+        _LOGGER.exception(
+            "%s - _async_release_charger: failed to stop charger connection monitor: %s (%s.%s)",
+            entry_id,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
+
+    try:
+        _LOGGER.debug("%s - _async_release_charger: remove registered event handlers", entry_id)
+        if entry_data.property_updates_unsub is not None:
+            entry_data.property_updates_unsub()
+            entry_data.property_updates_unsub = None
+    except Exception as e:
+        _LOGGER.exception(
+            "%s - _async_release_charger: failed to remove registered event handlers: %s (%s.%s)",
+            entry_id,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
+
+    try:
+        await async_DisconnectCharger(entry_id, entry_data.charger)
+    except Exception as e:
+        _LOGGER.exception(
+            "%s - _async_release_charger: could not disconnect charger, its session may stay open until the "
+            "charger restarts: %s (%s.%s)",
+            entry_id,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: WattpilotConfigEntry) -> bool:
     """Unload a config entry."""
     try:
         _LOGGER.debug("Unloading config entry: %s", entry.entry_id)
         _AUTH_FAILURE_COUNTS.pop(entry.entry_id, None)
-        all_ok = True
-        for platform in SUPPORTED_PLATFORMS:
-            _LOGGER.debug("%s - async_unload_entry: unload platform: %s", entry.entry_id, platform)
-            platform_ok = await asyncio.gather(*[hass.config_entries.async_forward_entry_unload(entry, platform)])
-
-            if not platform_ok:
-                _LOGGER.error(
-                    "%s - async_unload_entry: failed to unload: %s (%s)", entry.entry_id, platform, platform_ok
-                )
-                all_ok = False
-
-        if all_ok:
-            entry_data = entry.runtime_data
-            charger = entry_data[CONF_CHARGER]
-
-            try:
-                _LOGGER.debug("%s - async_unload_entry: stop charger connection monitor", entry.entry_id)
-                # async_start returned the timer-cancel callable at setup.
-                stop_monitor = entry_data.get(FUNC_CONNECTION_MONITOR)
-                if callable(stop_monitor):
-                    stop_monitor()
-            except Exception as e:
-                _LOGGER.exception(
-                    "%s - async_unload_entry: failed to stop charger connection monitor: %s (%s.%s)",
-                    entry.entry_id,
-                    str(e),
-                    e.__class__.__module__,
-                    type(e).__name__,
-                )
-                pass
-
-            try:
-                _LOGGER.debug("%s - async_unload_entry: remove registered event handlers", entry.entry_id)
-                # on_property_change returned an unsubscribe callable at setup.
-                unsubscribe = entry_data.get(FUNC_PROPERTY_UPDATES_CALLBACK)
-                if callable(unsubscribe):
-                    unsubscribe()
-            except Exception as e:
-                _LOGGER.exception(
-                    "%s - async_unload_entry: failed to remove registered event handlers: %s (%s.%s)",
-                    entry.entry_id,
-                    str(e),
-                    e.__class__.__module__,
-                    type(e).__name__,
-                )
-                pass
-
-            try:
-                await async_DisconnectCharger(entry.entry_id, charger)
-                charger = None
-            except Exception as e:
-                _LOGGER.exception(
-                    "%s - async_unload_entry: could not disconnect charger: %s (%s.%s)",
-                    entry.entry_id,
-                    str(e),
-                    e.__class__.__module__,
-                    type(e).__name__,
-                )
-                _LOGGER.exception(
-                    "%s - async_unload_entry: session at charger %s (%s) stays open -> restart charger",
-                    entry.entry_id,
-                    charger.name,
-                    charger.serial,
-                )
-                pass
-        return all_ok
+        # async_unload_platforms returns False if at least one platform did not unload.
+        unload_ok = await hass.config_entries.async_unload_platforms(entry, SUPPORTED_PLATFORMS)
+        if not unload_ok:
+            _LOGGER.error("%s - async_unload_entry: failed to unload platforms", entry.entry_id)
+            return False
+        await _async_release_charger(entry.entry_id, entry.runtime_data)
+        return True
     except Exception as e:
         _LOGGER.exception(
             "%s - async_unload_entry: Unload device failed: %s (%s.%s)",

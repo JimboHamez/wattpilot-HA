@@ -191,7 +191,8 @@ async def test_zeroconf_discovery_creates_entry(hass):
     assert result["type"] == FlowResultType.FORM
     assert result["step_id"] == "zeroconf_confirm"
 
-    with patch("custom_components.wattpilot.async_setup_entry", return_value=True):
+    connect, disconnect, setup = _reachable()
+    with connect, disconnect, setup:
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_PASSWORD: "secret"})
         await hass.async_block_till_done()
 
@@ -200,6 +201,28 @@ async def test_zeroconf_discovery_creates_entry(hass):
     assert result["data"][CONF_SERIAL] == "91111999"
     assert result["data"][CONF_PASSWORD] == "secret"
     assert result["result"].unique_id == "91111999"
+
+
+@pytest.mark.parametrize(
+    ("connect", "error"),
+    [
+        ({"side_effect": AuthenticationError("bad password")}, "invalid_auth"),
+        ({"new": AsyncMock(return_value=False)}, "cannot_connect"),
+    ],
+)
+async def test_zeroconf_confirm_tests_the_password(hass, connect, error):
+    """A discovered charger is only added once its password works (test-before-configure)."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=_discovery()
+    )
+
+    with patch("custom_components.wattpilot.config_flow.async_ConnectCharger", **connect):
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_PASSWORD: "wrong"})
+
+    assert result["type"] == FlowResultType.FORM
+    assert result["step_id"] == "zeroconf_confirm"
+    assert result["errors"] == {"base": error}
+    assert not hass.config_entries.async_entries(DOMAIN)
 
 
 async def test_zeroconf_already_configured_updates_ip_and_aborts(hass):
@@ -228,7 +251,8 @@ async def test_zeroconf_prefers_the_ipv4_address(hass):
     )
     assert result["type"] == FlowResultType.FORM
 
-    with patch("custom_components.wattpilot.async_setup_entry", return_value=True):
+    connect, disconnect, setup = _reachable()
+    with connect, disconnect, setup:
         result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_PASSWORD: "secret"})
         await hass.async_block_till_done()
 

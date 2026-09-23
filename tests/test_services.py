@@ -21,6 +21,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import voluptuous as vol
 
 pytest.importorskip("pytest_homeassistant_custom_component")
 from homeassistant.const import CONF_IP_ADDRESS, CONF_PASSWORD
@@ -117,6 +118,39 @@ async def test_set_next_trip_missing_parameter_raises(hass, charger_device):
     assert err.value.translation_key == "missing_parameter"
 
 
+@pytest.mark.parametrize(
+    ("service", "data"),
+    [
+        ("set_next_trip", {"trigger_time": "07:30:00"}),
+        ("set_goe_cloud", {"cloud_api": True}),
+        ("set_debug_properties", {"debug_properties": True}),
+        ("disconnect_charger", {}),
+    ],
+)
+async def test_services_refuse_a_charger_whose_entry_is_not_loaded(hass, charger_device, service, data):
+    """An unloaded entry keeps its old runtime data; a call must not reach that stale charger (action-setup)."""
+    charger, device_id, entry = charger_device
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    sent_before = list(charger.sent)
+
+    with pytest.raises(ServiceValidationError) as err:
+        await hass.services.async_call(DOMAIN, service, {"device_id": device_id, **data}, blocking=True)
+    assert err.value.translation_key == "entry_not_loaded"
+    assert charger.sent == sent_before
+
+
+async def test_services_reject_an_unknown_field(hass, charger_device):
+    """The service schema rejects a field the action does not have, before the handler runs."""
+    charger, device_id, _entry = charger_device
+
+    with pytest.raises(vol.Invalid):
+        await hass.services.async_call(
+            DOMAIN, "set_next_trip", {"device_id": device_id, "trigger_tme": "07:30:00"}, blocking=True
+        )
+    assert not any(key == "ftt" for key, _value in charger.sent)
+
+
 async def test_set_next_trip_unknown_device_raises(hass, charger_device):
     """An unresolvable device id is reported as a validation error."""
     with pytest.raises(ServiceValidationError) as err:
@@ -158,12 +192,12 @@ async def test_set_debug_properties_updates_the_data_store(hass, charger_device)
     await hass.services.async_call(
         DOMAIN, "set_debug_properties", {"device_id": device_id, CONF_DBG_PROPS: True}, blocking=True
     )
-    assert entry.runtime_data[CONF_DBG_PROPS] is True
+    assert entry.runtime_data.debug_properties is True
 
     await hass.services.async_call(
         DOMAIN, "set_debug_properties", {"device_id": device_id, CONF_DBG_PROPS: ["amp", "frc"]}, blocking=True
     )
-    assert entry.runtime_data[CONF_DBG_PROPS] == ["amp", "frc"]
+    assert entry.runtime_data.debug_properties == ["amp", "frc"]
 
 
 async def test_set_debug_properties_invalid_state_raises(hass, charger_device):
@@ -242,8 +276,8 @@ async def test_set_goe_cloud_enable_stores_key_and_url(hass, charger_device):
 
     await hass.services.async_call(DOMAIN, "set_goe_cloud", {"device_id": device_id, "cloud_api": True}, blocking=True)
 
-    assert entry.runtime_data["api_key"] == "cloud-key"
-    assert entry.runtime_data["external_url"].endswith(".api.v3.go-e.io/api/")
+    assert entry.runtime_data.cloud_api_key == "cloud-key"
+    assert entry.runtime_data.cloud_api_url.endswith(".api.v3.go-e.io/api/")
 
 
 async def test_set_goe_cloud_key_timeout_raises(hass, charger_device):
@@ -261,7 +295,7 @@ async def test_set_goe_cloud_key_timeout_raises(hass, charger_device):
         )
     assert err.value.translation_key == "cloud_api_key_timeout"
 
-    assert entry.runtime_data["api_key"] is False
+    assert entry.runtime_data.cloud_api_key is False
 
 
 async def test_set_goe_cloud_write_failure_raises(hass, charger_device):
@@ -349,12 +383,12 @@ async def test_set_debug_properties_accepts_bool_like_strings(hass, charger_devi
     await hass.services.async_call(
         DOMAIN, "set_debug_properties", {"device_id": device_id, CONF_DBG_PROPS: "true"}, blocking=True
     )
-    assert entry.runtime_data[CONF_DBG_PROPS] is True
+    assert entry.runtime_data.debug_properties is True
 
     await hass.services.async_call(
         DOMAIN, "set_debug_properties", {"device_id": device_id, CONF_DBG_PROPS: "false"}, blocking=True
     )
-    assert entry.runtime_data[CONF_DBG_PROPS] is False
+    assert entry.runtime_data.debug_properties is False
 
 
 async def test_set_goe_cloud_enable_failure_raises(hass, charger_device):
