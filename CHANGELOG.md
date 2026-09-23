@@ -10,7 +10,16 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Fixed
+- **Setting the next-trip departure time did not work outside UTC and central Europe.** The charger
+  stores the departure time as seconds since its own local midnight, and applies its time zone and
+  daylight saving itself. The `set_next_trip` action turned the picked time into a 1970 timestamp in
+  the Home Assistant host's time zone instead. On a host in Australia, 06:30 was sent as −12600,
+  ten hours early and negative, which the charger cannot use. The "add an hour when `tds` is 1"
+  step only happened to cancel the error in central Europe. The action now sends the plain time of
+  day, whatever the host's time zone and the charger's daylight-saving setting. It also accepts
+  `HH:MM` as well as the picker's `HH:MM:SS`. Checked on a Flex (fw 43.4) set to Australian
+  daylight saving (`tds` = 3).
 
 ## [0.12.0] - 2026-09-23
 

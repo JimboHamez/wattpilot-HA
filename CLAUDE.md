@@ -97,6 +97,10 @@ There is no build step (it is an HA custom component, copied into `config/custom
   because the identity guard only works if a real charger reports `sse` — it does (verified on a
   Flex, `sse=91111999`), but no mock can establish that. Note it deliberately sends **one wrong
   password** to check the `invalid_auth` path.
+- `tests/live_actions.py` runs `set_next_trip` (with the host forced to Australia/Sydney) and
+  `set_charging_schedule` (in the action UI's payload shape) through a real `hass` against the
+  charger. Each writes back the value the charger already holds and reads it back, so it writes
+  but changes nothing. It passed on the Flex on 2026-09-23.
 - `tests/live_migration.py` is a pytest module run the same explicit way as `live_reauth.py`
   below, with the same socket setup. It lays out a 0.11.0-style registry (an IP-keyed entry,
   name-prefixed entities), sets it up against the physical charger, and checks that the entry and
@@ -311,7 +315,7 @@ Always go through the `utils.py` helpers rather than touching the charger object
 - Services are defined in `services.py`, described for the UI in `services.yaml`, and registered
   once in `__init__.py::async_setup` (not per entry): `disconnect_charger`, `reconnect_charger`, `set_goe_cloud`
   (enable/disable go-e cloud API), `set_debug_properties` (toggle property-change warning logs),
-  `set_next_trip` (writes the `ftt` next-trip timestamp, with daylight-saving handling),
+  `set_next_trip` (writes the `ftt` next-trip time as seconds since the charger's local midnight),
   `set_charging_schedule` (rewrites one of `sch_week` / `sch_satur` / `sch_sund` from the current
   object plus the supplied fields — see `schedule.py`).
 
@@ -444,10 +448,10 @@ to the Default / Eco / Next Trip modes shown in `select.yaml`.
 ### Next-trip charging (see `set_next_trip` service and `number.py`)
 | Code | Meaning |
 |------|---------|
-| `ftt` | Next-trip timestamp — written by `set_next_trip`; also in `EVENT_PROPS` |
+| `ftt` | Next-trip departure time as **seconds since the charger's local midnight** (the app's 06:00 reads back as 21600). Written by `set_next_trip` as plain clock arithmetic: until 0.12.1 it was a `time.mktime` 1970 timestamp, which shifted it by the HA host's UTC offset (10 h, and negative, in Australia). CI runs in UTC and cannot see that class of bug, so `tests/test_services.py` forces the host time zone. Also in `EVENT_PROPS` |
 | `fte` | Next-trip energy target (Wh, shown kWh). Setting it forces `esk: true` (kWh instead of km) |
 | `esk` | Next-trip distance unit flag (workaround in `number.py::async_set_native_value`) |
-| `tds` | Daylight-saving mode — `set_next_trip` adds an hour when `tds == 1` |
+| `tds` | Daylight-saving mode (3 = Australian, on the Flex). The charger applies it itself, so `set_next_trip` ignores it |
 
 ### go-e cloud API (see `set_goe_cloud` service)
 | Code | Meaning |

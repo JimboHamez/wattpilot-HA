@@ -19,10 +19,8 @@ drift apart.
 from __future__ import annotations
 
 import asyncio
-import datetime
 import functools
 import logging
-import time
 from typing import TYPE_CHECKING, Any, Final, cast
 
 import voluptuous as vol
@@ -65,6 +63,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
+    import datetime
     from collections.abc import Callable
 
     from wattpilot_api import Wattpilot
@@ -272,22 +271,22 @@ async def async_service_SetNextTrip(hass: HomeAssistant, call: ServiceCall) -> N
         charger = await _async_get_charger(hass, device_id)
 
         _LOGGER.debug("%s - async_service_SetNextTrip: trigger time: %s", DOMAIN, trigger_time)
+        # The charger stores the departure time as seconds since its own local
+        # midnight (the app's 06:00 reads back as ftt = 21600), and applies its own
+        # time zone and daylight saving. So the value is plain clock arithmetic.
+        # It used to be a 1970 timestamp built with time.mktime, which shifted it
+        # by the Home Assistant host's UTC offset - ten hours, and negative, in
+        # Australia - with an hour added back when tds == 1 that only cancelled
+        # the error in central Europe.
         try:
-            timestamp = int(
-                time.mktime(datetime.datetime.strptime("1970-01-01 " + trigger_time, "%Y-%m-%d %H:%M:%S").timetuple())
-            )
-        except (TypeError, ValueError) as e:
+            departure = parse_time(trigger_time)
+        except ValueError as e:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,
                 translation_key="invalid_trigger_time",
                 translation_placeholders={"parameter": CONF_TRIGGER_TIME, "trigger_time": str(trigger_time)},
             ) from e
-
-        _LOGGER.debug("%s - async_service_SetNextTrip: validate daylight saving", DOMAIN)
-        tds = await async_GetChargerProp(charger, "tds")
-        if tds is not None and int(tds) == 1:
-            _LOGGER.debug("%s - async_service_SetNextTrip: apply daylight saving time", DOMAIN)
-            timestamp = timestamp + 3600
+        timestamp = departure.hour * 3600 + departure.minute * 60 + departure.second
 
         _LOGGER.debug(
             "%s - async_service_SetNextTrip: set nexttrip timestamp %s for charger: %s", DOMAIN, timestamp, charger.name
