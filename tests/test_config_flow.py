@@ -114,8 +114,50 @@ async def test_cloud_flow_creates_entry(hass):
     assert result["result"].unique_id == "123456"
 
 
-async def test_duplicate_local_charger_aborts(hass):
-    """Re-adding a charger with the same IP aborts (unique-config-entry)."""
+async def test_local_flow_keys_the_entry_by_the_charger_serial(hass):
+    """A charger that reports a serial is keyed by it, and the serial is stored (unique-config-entry)."""
+    result = await _start_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_CONNECTION: CONF_LOCAL})
+
+    connect, disconnect, setup = _reachable()
+    with connect, disconnect, setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.1.50", CONF_PASSWORD: "secret"},
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["result"].unique_id == "91111999"
+    assert result["data"][CONF_SERIAL] == "91111999"
+
+
+async def test_duplicate_local_charger_aborts_and_follows_its_new_address(hass):
+    """Re-adding a configured charger aborts, and a changed address is taken over (unique-config-entry)."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="91111999",
+        data={CONF_CONNECTION: CONF_LOCAL, CONF_IP_ADDRESS: "192.168.1.50", CONF_SERIAL: "91111999"},
+    )
+    entry.add_to_hass(hass)
+
+    result = await _start_flow(hass)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_CONNECTION: CONF_LOCAL})
+    connect, disconnect, setup = _reachable()
+    with connect, disconnect, setup:
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.1.77", CONF_PASSWORD: "secret"},
+        )
+        await hass.async_block_till_done()
+
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+    assert entry.data[CONF_IP_ADDRESS] == "192.168.1.77"
+
+
+async def test_duplicate_local_charger_without_a_serial_aborts_by_address(hass):
+    """A charger that reports no serial is still refused twice, by its address."""
     MockConfigEntry(
         domain=DOMAIN,
         unique_id="192.168.1.50",
@@ -124,14 +166,14 @@ async def test_duplicate_local_charger_aborts(hass):
 
     result = await _start_flow(hass)
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {CONF_CONNECTION: CONF_LOCAL})
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            CONF_FRIENDLY_NAME: "Garage",
-            CONF_IP_ADDRESS: "192.168.1.50",
-            CONF_PASSWORD: "secret",
-        },
-    )
+    with (
+        patch("custom_components.wattpilot.config_flow.async_ConnectCharger", new=AsyncMock(return_value=object())),
+        patch("custom_components.wattpilot.config_flow.async_DisconnectCharger", new=AsyncMock()),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.1.50", CONF_PASSWORD: "secret"},
+        )
 
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
@@ -372,9 +414,37 @@ async def test_reconfigure_updates_the_local_connection(hass):
     assert result["reason"] == "reconfigure_successful"
     assert entry.data[CONF_IP_ADDRESS] == "192.168.1.99"
     assert entry.data[CONF_PASSWORD] == "secret"
-    # The entry was keyed by its IP address, so its identity moves with it.
-    assert entry.unique_id == "192.168.1.99"
+    # The entry was keyed by its IP address; it moves onto the serial the charger
+    # reported, and the serial is stored for later identity checks.
+    assert entry.unique_id == "91111999"
+    assert entry.data[CONF_SERIAL] == "91111999"
     assert entry.title == "Garage"
+
+
+async def test_reconfigure_moves_an_ip_keyed_entry_without_a_serial_to_the_new_address(hass):
+    """A charger that reports no serial keeps the old behaviour: the identity follows the address."""
+    entry = _entry()
+    entry.add_to_hass(hass)
+    result = await entry.start_reconfigure_flow(hass)
+
+    _connect, disconnect, setup = _reachable()
+    with (
+        patch(
+            "custom_components.wattpilot.config_flow.async_ConnectCharger",
+            new=AsyncMock(return_value=MockCharger({})),
+        ),
+        disconnect,
+        setup,
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {CONF_FRIENDLY_NAME: "Garage", CONF_IP_ADDRESS: "192.168.1.99", CONF_PASSWORD: "secret"},
+        )
+        await hass.async_block_till_done()
+
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.unique_id == "192.168.1.99"
+    assert CONF_SERIAL not in entry.data
 
 
 async def test_reconfigure_keeps_a_serial_keyed_identity(hass):
@@ -477,14 +547,14 @@ async def test_reconfigure_cloud_entry_updates_the_password(hass):
     assert entry.data[CONF_PASSWORD] == "new"
 
 
-async def test_reconfigure_onto_an_already_configured_address_aborts(hass):
-    """Moving an entry onto another configured charger's address is refused."""
+async def test_reconfigure_onto_an_already_configured_charger_aborts(hass):
+    """Moving an entry onto a charger that another entry already holds is refused."""
     entry = _entry()
     entry.add_to_hass(hass)
     MockConfigEntry(
         domain=DOMAIN,
-        unique_id="192.168.1.99",
-        data={CONF_CONNECTION: CONF_LOCAL, CONF_IP_ADDRESS: "192.168.1.99"},
+        unique_id="91111999",
+        data={CONF_CONNECTION: CONF_LOCAL, CONF_IP_ADDRESS: "192.168.1.99", CONF_SERIAL: "91111999"},
     ).add_to_hass(hass)
 
     result = await entry.start_reconfigure_flow(hass)
@@ -635,20 +705,20 @@ async def test_connection_step_reports_a_failure(hass, caplog):
 
 
 @pytest.mark.parametrize(
-    ("step", "user_input"),
+    ("step", "validator", "user_input"),
     [
-        ("async_step_local", {CONF_IP_ADDRESS: "1.2.3.4", CONF_PASSWORD: "p"}),
-        ("async_step_cloud", {CONF_SERIAL: "SN", CONF_PASSWORD: "p"}),
+        ("async_step_local", "_async_validate_charger", {CONF_IP_ADDRESS: "1.2.3.4", CONF_PASSWORD: "p"}),
+        ("async_step_cloud", "_async_test_connection", {CONF_SERIAL: "SN", CONF_PASSWORD: "p"}),
     ],
 )
-async def test_connection_steps_report_a_failure(hass, caplog, step, user_input):
+async def test_connection_steps_report_a_failure(hass, caplog, step, validator, user_input):
     """A failure while validating a connection aborts the flow."""
     flow = ConfigFlowHandler()
     flow.hass = hass
 
     with (
         caplog.at_level(logging.ERROR, logger="custom_components.wattpilot.config_flow"),
-        patch.object(flow, "_async_test_connection", side_effect=RuntimeError("boom")),
+        patch.object(flow, validator, side_effect=RuntimeError("boom")),
     ):
         result = await getattr(flow, step)(dict(user_input))
 

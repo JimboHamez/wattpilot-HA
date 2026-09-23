@@ -85,7 +85,7 @@ async def test_preset_select_builds_its_options_from_clp(make_charger):
 
     assert entity._init_failed is False
     assert entity._attr_options == ["10", "16", "20", "24", "32"]
-    assert entity._attr_unique_id == "WB-amp_preset"
+    assert entity._attr_unique_id == "123456-amp_preset"
     assert await entity._async_update_validate_platform_state(16) == "16"
 
 

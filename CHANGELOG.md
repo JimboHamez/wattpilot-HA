@@ -10,7 +10,26 @@ for attribution.
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+- **Chargers and their entities are identified by the charger's serial number** instead of by the
+  name or IP address you gave them. Home Assistant rules out both of those as identifiers, and
+  they caused two real problems:
+  - Two chargers left at the default name "Wattpilot" shared the same entity ids, so only the
+    first charger got any entities.
+  - Renaming a charger in *Reconfigure* replaced all of its entities with new ones. The old ones
+    were left unavailable and history did not carry over.
+
+  Existing installs are moved over automatically the first time the charger connects after the
+  update. **Entity ids, names, history, dashboards and automations are kept.** Only the internal
+  unique ids change. A charger added by IP address is re-keyed by its serial too. Discovery
+  now recognises it, so a charger that gets a new address from DHCP is followed instead of being
+  offered as a new device. Adding the same charger by hand a second time is refused, and moves the
+  existing entry to the address you typed. A charger that reports no serial keeps the old
+  behaviour.
+
+  Two things the migration deliberately leaves alone: entities already orphaned by an earlier
+  rename (they show as unavailable, and can be deleted), and a charger configured twice (the
+  log says which entry to remove).
 
 ## [0.11.0] - 2026-09-23
 

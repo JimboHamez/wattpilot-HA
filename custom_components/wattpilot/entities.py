@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 from packaging.version import Version
 
-from homeassistant.const import CONF_FRIENDLY_NAME, CONF_IP_ADDRESS, STATE_UNKNOWN, EntityCategory
+from homeassistant.const import STATE_UNKNOWN, EntityCategory
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -16,7 +16,14 @@ from homeassistant.helpers.entity import Entity
 from homeassistant.util import slugify
 
 from .const import CONF_CONNECTION, CONF_LOCAL, DEFAULT_NAME, DOMAIN
-from .utils import GetChargerProp, async_GetChargerProp, async_SetChargerProp, property_update_signal
+from .utils import (
+    GetChargerProp,
+    async_GetChargerProp,
+    async_SetChargerProp,
+    charger_serial,
+    legacy_unique_prefix,
+    property_update_signal,
+)
 
 if TYPE_CHECKING:
     from wattpilot_api import Wattpilot
@@ -58,7 +65,7 @@ class ChargerPlatformEntity(Entity):
     ) -> None:
         """Initialize the object."""
         try:
-            self._charger_id = str(entry.data.get(CONF_FRIENDLY_NAME, entry.data.get(CONF_IP_ADDRESS, DEFAULT_NAME)))
+            self._charger_id = legacy_unique_prefix(entry.data)
             self._source = entity_cfg.get("source", "property")
             # Only a namespacelist id carries its item index as a suffix
             # ('cards_0' -> property 'cards', item 0). Every other id is used
@@ -147,8 +154,13 @@ class ChargerPlatformEntity(Entity):
 
             self._init_platform_specific()
 
+            # Keyed by the charger's serial, which neither a rename nor a second
+            # charger with the same name can change or collide with. A charger that
+            # reports no serial keeps the legacy name-or-IP prefix. Setup migrates
+            # existing entities to these ids before the platforms add them.
+            unique_prefix = charger_serial(self._charger) or self._charger_id
             self._attr_unique_id = (
-                self._charger_id + "-" + self._entity_cfg.get("uid", self._entity_cfg.get("id", self._identifier))
+                unique_prefix + "-" + self._entity_cfg.get("uid", self._entity_cfg.get("id", self._identifier))
             )
             if self._init_failed is True:
                 return None

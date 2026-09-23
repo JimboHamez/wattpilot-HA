@@ -262,14 +262,29 @@ Always go through the `utils.py` helpers rather than touching the charger object
   fire on **any** entry change, it emptied `entry.data` every time reauth or reconfigure
   finished. `tests/test_config_flow.py` runs both flows against a fully set-up entry to keep
   that from coming back.
+- **Identity is the charger's serial** (since 0.12.0). Config entries are keyed by it: the cloud
+  step uses the serial the user types, and the local step uses the `sse` the charger reports
+  after connecting (stored as `CONF_SERIAL`). Zeroconf uses the mDNS `serial`. Entity unique ids
+  are `<serial>-<uid>` (`utils.py::charger_serial`). A charger that reports no serial falls back
+  to the pre-0.12.0 scheme: the entry is keyed by its IP, and entities by the friendly name, else
+  the IP (`utils.py::legacy_unique_prefix`). HA rules out both of those as unique-id sources.
+  Two chargers left at the default name collided, and a rename orphaned every entity.
+- **`migration.py` moves older installs over.** It runs from `async_setup_entry` after connecting
+  and before the platforms load, because the serial is only known then, so it cannot be an
+  `async_migrate_entry`. It renames `<legacy prefix>-<uid>` entities to `<serial>-<uid>`, keeping
+  their entity ids and history. It re-keys an IP-keyed entry to the serial and stores
+  `CONF_SERIAL`. Entities orphaned by an earlier rename, and an id that is already taken, are
+  left alone. The same charger configured twice keeps its IP key and is logged. It is
+  idempotent, and a failure is logged without blocking setup.
 - Reconfiguration keeps the entry's connection type (local stays local) and guards its identity:
   a cloud entry is its serial, so a changed serial aborts (`wrong_charger`); a local entry that
-  stores a serial (zeroconf-discovered) is verified against the `sse` the reconnected charger
-  reports; a manually added local entry is keyed by its IP, so the unique id moves with the
-  address — after checking the new address is not another configured charger. The identity
-  helpers are `_is_same_charger` / `_reconfigured_unique_id`, and `_async_validate_charger` is
-  the shared "connect, and tell me which charger answered" primitive (`_async_test_connection`
-  wraps it for the steps that only need the error).
+  stores a serial is verified against the `sse` the reconnected charger reports. An entry still
+  keyed by its IP (a charger that reports no serial, or one not yet migrated) moves to the
+  serial when the charger reports one, else to the new address. Either way, it first checks
+  that no other entry already holds that id. The identity helpers are `_is_same_charger` /
+  `_reconfigured_unique_id`, and `_async_validate_charger` is the shared "connect, and tell me
+  which charger answered" primitive (`_async_test_connection` wraps it for the steps that only
+  need the error).
 - Per-entry runtime state lives on **`entry.runtime_data`**, *not* `hass.data[DOMAIN]`. It is a
   `models.py::WattpilotRuntimeData` dataclass, and entries are typed as
   `WattpilotConfigEntry = ConfigEntry[WattpilotRuntimeData]` (quality-scale `runtime-data` /

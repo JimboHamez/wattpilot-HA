@@ -238,6 +238,10 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     errors["base"] = "wrong_charger"
                 else:
                     unique_id = self._reconfigured_unique_id(entry, data, serial)
+                    if serial and connection == CONF_LOCAL:
+                        # Store the serial so later reconfigurations can check
+                        # they still reach the same charger.
+                        data[CONF_SERIAL] = serial
                     if unique_id != entry.unique_id:
                         # The entry's identity moved with its address; make sure it
                         # does not land on a charger that is already configured.
@@ -302,12 +306,12 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         Returns:
             The new unique id, which only differs from the current one for a locally
-            added entry keyed by its IP address — the field a reconfiguration most
-            often changes. Serial-keyed entries (cloud and discovered chargers) keep
-            the identity they were created with.
+            added entry still keyed by its IP address: it moves to the charger's
+            serial, or - for a charger that reports none - to the new address.
+            Serial-keyed entries keep the identity they were created with.
         """
         if entry.unique_id and entry.unique_id == entry.data.get(CONF_IP_ADDRESS):
-            return str(data.get(CONF_IP_ADDRESS, entry.unique_id))
+            return serial or str(data.get(CONF_IP_ADDRESS, entry.unique_id))
         return entry.unique_id
 
     async def async_step_connection(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
@@ -354,12 +358,21 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     async_redact_data(user_input, REDACT_CONFIG),
                 )
                 user_input[CONF_CONNECTION] = CONF_LOCAL
-                # Prevent the same charger (identified by its local IP) from
-                # being configured twice.
-                await self.async_set_unique_id(str(user_input[CONF_IP_ADDRESS]))
-                self._abort_if_unique_id_configured()
-                error = await self._async_test_connection(user_input)
+                error, serial = await self._async_validate_charger(user_input)
                 if error is None:
+                    # Key the entry by the serial the charger reports, the identity
+                    # zeroconf discovery uses too, so the same charger cannot be
+                    # added twice and a discovery of it updates this entry's
+                    # address. Re-adding a known charger at a new address moves
+                    # that entry there. Only a charger that reports no serial
+                    # falls back to its IP address.
+                    if serial:
+                        user_input[CONF_SERIAL] = serial
+                        await self.async_set_unique_id(serial, raise_on_progress=False)
+                        self._abort_if_unique_id_configured(updates={CONF_IP_ADDRESS: user_input[CONF_IP_ADDRESS]})
+                    else:
+                        await self.async_set_unique_id(str(user_input[CONF_IP_ADDRESS]), raise_on_progress=False)
+                        self._abort_if_unique_id_configured()
                     self.data = user_input
                     return await self.async_step_final()
                 errors["base"] = error
