@@ -10,6 +10,17 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.12.0] - 2026-09-23
+
+Chargers and their entities are now identified by the charger's serial number instead of the name
+or IP address you gave them, which fixes two long-standing problems. Two chargers left at the
+default name no longer fight over the same entities, and renaming a charger no longer replaces all
+of its entities. **Existing installs are moved over automatically on the first start after
+updating. Entity ids, names, history, dashboards and automations are kept.** The move was checked
+against a real Wattpilot Flex (firmware 43.4) before release.
+
 ### Changed
 - **Chargers and their entities are identified by the charger's serial number** instead of by the
   name or IP address you gave them. Home Assistant rules out both of those as identifiers, and
@@ -732,7 +743,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.2...v0.10.0
 [0.9.2]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.1...v0.9.2
