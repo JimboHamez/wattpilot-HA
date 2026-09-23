@@ -48,9 +48,9 @@ async def test_setup_stores_runtime_data_and_push_updates_entity(hass, make_char
     assert entry.runtime_data.charger is charger
     assert DOMAIN not in hass.data
 
-    # The charger-temperature entity was created (keyed by its unchanged unique_id).
+    # The charger-temperature entity was created, keyed by the charger's serial.
     ent_reg = er.async_get(hass)
-    entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, "WB-tma")
+    entity_id = ent_reg.async_get_entity_id("sensor", DOMAIN, "SN-tma")
     assert entity_id is not None
     assert hass.states.get(entity_id) is not None
 
@@ -91,7 +91,7 @@ async def test_switch_actions_reach_the_charger(hass, make_charger):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    entity_id = er.async_get(hass).async_get_entity_id("switch", DOMAIN, "WB-fup")
+    entity_id = er.async_get(hass).async_get_entity_id("switch", DOMAIN, "SN-fup")
     assert entity_id is not None
     assert hass.states.get(entity_id).state == "on"
 
@@ -122,7 +122,7 @@ async def test_a_rejected_switch_write_reaches_the_caller_translated(hass, make_
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    entity_id = er.async_get(hass).async_get_entity_id("switch", DOMAIN, "WB-fup")
+    entity_id = er.async_get(hass).async_get_entity_id("switch", DOMAIN, "SN-fup")
     with (
         patch("custom_components.wattpilot.entities.async_SetChargerProp", new=AsyncMock(return_value=False)),
         pytest.raises(HomeAssistantError) as err,

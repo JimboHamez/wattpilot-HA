@@ -69,6 +69,41 @@ def _load_api_definition() -> ApiDefinition | None:
         return None
 
 
+def charger_serial(charger: Wattpilot) -> str | None:
+    """Return the serial number the charger reports, or None if it reports none.
+
+    The ``sse`` property is the charger's own answer and is what the config flow
+    and zeroconf discovery key an entry on. The client's ``serial`` (taken from the
+    charger's hello message) is the fallback.
+
+    Args:
+        charger: A connected ``Wattpilot`` client.
+
+    Returns:
+        The serial as a string, or ``None`` when neither source has one.
+    """
+    serial = GetChargerProp(charger, "sse", None) or getattr(charger, "serial", None)
+    return str(serial) if serial else None
+
+
+def legacy_unique_prefix(data: Mapping[str, Any]) -> str:
+    """Return the prefix entity unique ids were built from before 0.12.0.
+
+    Entities used to be keyed by the entry's friendly name, else its IP address,
+    else the default name. That collides for two chargers with the same name and
+    changes when the charger is renamed, so ids are now keyed by the serial; this
+    is kept to recognise the old ids when migrating them, and as the prefix for a
+    charger that reports no serial at all.
+
+    Args:
+        data: The config entry's data.
+
+    Returns:
+        The legacy unique-id prefix.
+    """
+    return str(data.get(CONF_FRIENDLY_NAME, data.get(CONF_IP_ADDRESS, DEFAULT_NAME)))
+
+
 def property_update_signal(entry_id: str, identifier: str) -> str:
     """Return the dispatcher signal for a charger property update."""
     return f"{DOMAIN}_{entry_id}_property_{identifier}"

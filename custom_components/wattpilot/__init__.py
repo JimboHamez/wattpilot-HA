@@ -12,6 +12,7 @@ from homeassistant.loader import async_get_integration
 
 from .availability import ChargerConnectionMonitor
 from .const import AUTH_FAILURE_REAUTH_THRESHOLD, DOMAIN, SUPPORTED_PLATFORMS
+from .migration import async_migrate_unique_ids
 from .models import WattpilotRuntimeData
 from .services import (
     async_registerService,
@@ -27,6 +28,7 @@ from .utils import (
     async_DisconnectCharger,
     async_PreloadApiDefinition,
     async_PropertyUpdateHandler,
+    charger_serial,
 )
 
 if TYPE_CHECKING:
@@ -133,6 +135,24 @@ async def async_setup_entry(hass: HomeAssistant, entry: WattpilotConfigEntry) ->
     # Give the charger its API definition, read in an executor, so that its first
     # write does not have to read it from disk on the event loop.
     await async_PreloadApiDefinition(hass, entry.entry_id, charger)
+
+    # Move the entry and its entities onto the charger's serial before any platform
+    # adds an entity; the serial is only known now that the charger is connected.
+    # A failure is logged and setup continues rather than leaving the charger
+    # unusable; any entity that was not moved is then created afresh under its new
+    # id, and the old one stays behind as an orphan for the user to remove.
+    try:
+        serial = charger_serial(charger)
+        if serial is not None:
+            await async_migrate_unique_ids(hass, entry, serial)
+    except Exception as e:
+        _LOGGER.exception(
+            "%s - async_setup_entry: Migrating unique ids failed: %s (%s.%s)",
+            entry.entry_id,
+            str(e),
+            e.__class__.__module__,
+            type(e).__name__,
+        )
 
     try:
         _LOGGER.debug("%s - async_setup_entry: Creating runtime data store for %s", entry.entry_id, DOMAIN)

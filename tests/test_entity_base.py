@@ -149,12 +149,22 @@ def test_construction_failure_is_logged(make_charger, caplog):
 
 
 def test_translation_key_and_unique_id_come_from_the_definition(make_charger):
-    """The uid drives both the translation key and the unique id."""
+    """The uid drives both the translation key and the unique id, which is keyed by the serial."""
     charger = make_charger(props=dict(BASE_PROPS))
 
     entity = _build(charger, uid="Max Current")
 
     assert entity._attr_translation_key == "max_current"
+    assert entity._attr_unique_id == "SN-Max Current"
+
+
+def test_unique_id_falls_back_to_the_name_without_a_serial(make_charger):
+    """A charger that reports no serial keeps the legacy name-or-IP prefix."""
+    props = {key: value for key, value in BASE_PROPS.items() if key != "sse"}
+    charger = make_charger(props=props, serial="")
+
+    entity = _build(charger, uid="Max Current")
+
     assert entity._attr_unique_id == "WB-Max Current"
 
 
