@@ -14,7 +14,6 @@ messages is checked here too, and their catalog coverage in
 
 from __future__ import annotations
 
-import datetime
 import logging
 import time
 from types import SimpleNamespace
@@ -82,31 +81,61 @@ async def charger_device(hass, make_charger):
     await hass.async_block_till_done()
 
 
-async def test_set_next_trip_writes_the_timestamp(hass, charger_device):
-    """A valid call writes the computed next-trip timestamp to the charger."""
+async def test_set_next_trip_writes_seconds_since_local_midnight(hass, charger_device):
+    """The departure time is sent as the charger stores it: seconds since its local midnight."""
     charger, device_id, _entry = charger_device
 
     await hass.services.async_call(
         DOMAIN, "set_next_trip", {"device_id": device_id, "trigger_time": "07:30:00"}, blocking=True
     )
 
-    expected = int(time.mktime(datetime.datetime.strptime("1970-01-01 07:30:00", "%Y-%m-%d %H:%M:%S").timetuple()))
-    assert ("ftt", expected) in charger.sent
+    assert charger.sent[-1] == ("ftt", 7 * 3600 + 30 * 60)
 
 
-async def test_set_next_trip_applies_daylight_saving(hass, charger_device):
-    """With tds == 1 the charger's daylight-saving offset is added."""
+@pytest.fixture
+def _host_time_zone(monkeypatch):
+    """Run the host process in a given time zone, restoring it afterwards."""
+
+    def _set(zone: str) -> None:
+        monkeypatch.setenv("TZ", zone)
+        time.tzset()
+
+    yield _set
+    monkeypatch.undo()
+    time.tzset()
+
+
+@pytest.mark.parametrize("zone", ["UTC", "Australia/Sydney", "Europe/Berlin", "America/New_York"])
+@pytest.mark.parametrize("tds", [0, 1, 3])
+async def test_set_next_trip_ignores_the_host_time_zone_and_daylight_saving(
+    hass, charger_device, _host_time_zone, zone, tds
+):
+    """Neither the Home Assistant host's time zone nor the charger's tds setting shifts the value.
+
+    The charger applies its own time zone and daylight saving to the stored time.
+    Building the value with time.mktime shifted it by the host's UTC offset: 06:30
+    became -12600 on a Sydney host, which the charger cannot use.
+    """
     charger, device_id, _entry = charger_device
-    charger.all_properties["tds"] = 1
+    charger.all_properties["tds"] = tds
+    _host_time_zone(zone)
 
     await hass.services.async_call(
-        DOMAIN, "set_next_trip", {"device_id": device_id, "trigger_time": "07:30:00"}, blocking=True
+        DOMAIN, "set_next_trip", {"device_id": device_id, "trigger_time": "06:30:00"}, blocking=True
     )
 
-    expected = (
-        int(time.mktime(datetime.datetime.strptime("1970-01-01 07:30:00", "%Y-%m-%d %H:%M:%S").timetuple())) + 3600
+    assert charger.sent[-1] == ("ftt", 23400)
+
+
+async def test_set_next_trip_accepts_a_time_without_seconds(hass, charger_device):
+    """An automation may pass HH:MM; the time picker sends HH:MM:SS. Both work."""
+    charger, device_id, _entry = charger_device
+
+    await hass.services.async_call(
+        DOMAIN, "set_next_trip", {"device_id": device_id, "trigger_time": "06:00"}, blocking=True
     )
-    assert ("ftt", expected) in charger.sent
+
+    assert charger.sent[-1] == ("ftt", 21600)
 
 
 async def test_set_next_trip_missing_parameter_raises(hass, charger_device):
@@ -358,7 +387,7 @@ async def test_every_service_requires_a_device(hass, charger_device, service, da
 @pytest.mark.parametrize(
     ("service", "data", "target"),
     [
-        ("set_next_trip", {"trigger_time": "07:30:00"}, "async_GetChargerProp"),
+        ("set_next_trip", {"trigger_time": "07:30:00"}, "async_SetChargerProp"),
         ("set_goe_cloud", {"cloud_api": True}, "async_SetChargerProp"),
         ("set_charging_schedule", {"day_type": "weekdays", "limit_charging_times": True}, "async_GetChargerProp"),
         ("reconnect_charger", {}, "async_ConnectCharger"),
