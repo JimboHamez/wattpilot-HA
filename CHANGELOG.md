@@ -10,6 +10,15 @@ for attribution.
 
 ## [Unreleased]
 
+_Nothing yet._
+
+## [0.12.1] - 2026-09-23
+
+A fix for the **Set next trip** action: the departure time you picked reached the charger shifted
+by Home Assistant's time zone, so outside UTC and central Europe the Next Trip mode got the wrong
+time. In Australia it was ten hours out. No entity, state or setting changes. If you set a next
+trip from Home Assistant before updating, set it again.
+
 ### Fixed
 - **Setting the next-trip departure time did not work outside UTC and central Europe.** The charger
   stores the departure time as seconds since its own local midnight, and applies its time zone and
@@ -752,7 +761,8 @@ Assistant Integration Quality Scale.
   (services registered in `async_setup`).
 - `manifest.json`: added `integration_type` and `issue_tracker`, and sorted keys.
 
-[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/JimboHamez/wattpilot-HA/compare/v0.9.2...v0.10.0
